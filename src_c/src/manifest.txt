@@ -14,3 +14,6 @@ setball    2a53   51
 tone2      3734   53
 pickmax    4e01   61
 shuffle    2b34   67
+waitkey    58c9   72
+showhint   24bb   73
+timebar    4bb9   75

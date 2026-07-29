@@ -97,6 +97,19 @@ varian mana yang benar, dan percobaan berikutnya langsung cocok.
    kompiler tidak mengalokasikan slot sementara dan memilih register lain
    (`mov ax,0eh` alih-alih `mov cx,0eh`) → kode beda. Ini pola menyeluruh di
    biner ini, bukan kebetulan satu fungsi.
+8e. **Nilai yang di-`switch` TIDAK ditampung variabel** — pengecualian dari aturan 8.
+   `switch (getkey())` biarkan hasilnya di AX. Menampungnya menambah slot bingkai dan
+   mengubah tiap pembandingan jadi akses memori (`83 7e 04 ..` bukan `3d ..`).
+8f. **Kenali `switch` dari tata letaknya**: badan tiap case ditaruh LEBIH DULU, lalu
+   `jmp` ke rantai pembanding di BAWAH. Rantai if/else-if menaruh uji di depan.
+   **Urutan `case` di sumber = urutan badan case di biner**; rantai pembandingnya
+   muncul TERBALIK. Kalau instruksinya benar tapi urutannya tertukar, balik urutan case.
+   (Untuk case yang banyak, kompiler beralih ke tabel — lihat `probes/probe4.c`.)
+8g. **Uji batas bawah ditulis `x >= 0`, bukan `x > -1`.** Aslinya `test bx,bx; js`
+   (uji tanda); `> -1` menghasilkan `cmp bx,-1; jle` yang 2 byte lebih panjang.
+8h. **Jangan memberi nama lokal untuk nilai yang cukup hidup di register.** Kalau
+   `sub sp,N` lebih besar dari aslinya, kemungkinan besar ada lokal yang tidak
+   seharusnya ada (contoh: `timebar` — semuanya cukup di AX/BX).
 9. **Urutan deklarasi lokal menentukan tata letak bingkai.** Ukuran bingkai =
    `2 + 2×jumlah_lokal`, dan variabel dialokasikan sesuai urutan deklarasi
    (deklarasi pertama di `bp+2`). Kalau ukuran `sub sp,N` tidak cocok, jumlah atau
