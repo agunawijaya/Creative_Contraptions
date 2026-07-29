@@ -41,16 +41,19 @@ int a, x1, y1, x2, y2, n, d;
     sndptr = sndnull;
 }
 
-/* ⏳ BELUM COCOK — panjang SUDAH TEPAT 163, struktur IDENTIK.
- * Satu-satunya beda: seluruh offset bp kita bergeser +2 karena ada SATU slot
- * sementara berlebih.
- *     kita: sub sp,0ah  -> bp+0,+2 scratch, dx@+4, i@+6, dy@+8
- *     asli: sub sp,08h  -> bp+0 scratch,    dx@+2, i@+4, dy@+6
- * Instruksinya sama persis (8b 46 .. / 2b 46 .. / f7 6e .. / 99 f7 fb).
- * Tinggal cari bentuk yang memakai satu scratch lebih sedikit.
+/* ⏳ BELUM COCOK — versi ini PANJANGNYA TEPAT 163 dan strukturnya IDENTIK.
+ * Satu-satunya beda: bingkai kita sub sp,0ah vs asli 08h -> semua offset bp
+ * bergeser +2. Kita perlu SATU slot sementara lebih sedikit.
+ *     asli: bp+0 scratch, dx@+2, i@+4, dy@+6   (px hidup di CX, py di BX)
+ *     kita: bp+0,+2 scratch, dx@+4, i@+6, dy@+8
  * SUDAH DICOBA & GAGAL (jangan diulang):
- *   - ballx dihitung dulu lalu balltop = 199 - ballx      -> 139 byte
- *   - ballrow dari ekspresi bersarang (y1+(dy*i)/n)/4     -> tetap 0ah
- *   - global dipakai sebagai penampung                    -> 139 byte
- *   - tanpa hoist dx/dy (int i, px, py)                   -> 160 byte
+ *   ballx dulu lalu balltop = 199 - ballx        -> 139
+ *   global sbg penampung                          -> 139
+ *   tanpa hoist dx/dy (int i, px, py)             -> 160
+ *   ballrow dari ekspresi bersarang               -> tetap 0ah
+ *   register int px, py                           -> 169
+ *   bentuk datar 199 - x1 - (dx*i)/n              -> 172
+ * Yang belum dicoba: menaruh px/py sbg lokal ke-4/5 (bingkai jadi 12) lalu
+ * memeriksa apakah isinya cocok selain bingkai; atau memakai dua fungsi
+ * pembantu agar ekspresi per-pernyataan lebih sederhana.
  */
