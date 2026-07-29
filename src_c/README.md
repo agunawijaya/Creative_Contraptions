@@ -110,6 +110,23 @@ temp, sementara menulisnya sebagai dua pernyataan terpisah memaksa baca-ulang
 dari memori, dan menghitung ulang ekspresinya memaksa temp kedua. Inilah yang
 akhirnya menutup `moveball` setelah sepuluh percobaan gagal.
 
+## ⚠ JANGAN percaya pseudo-C Ghidra untuk BENTUK kode
+
+Ghidra bagus untuk memahami LOGIKA, tapi menyesatkan untuk bentuk penulisan.
+Yang sudah terbukti salah tampil (masing-masing memakan beberapa putaran):
+
+| Ghidra menampilkan | kenyataan di biner |
+|---|---|
+| `local_a = iVar3 + 1;` | tidak ada store sama sekali; nilai cuma diuji di AX |
+| satu `local_a` | DUA variabel berbeda (pencacah loop dalam + penampung) |
+| salinan lokal dari parameter | parameter dimajukan LANGSUNG (`add [bp+16h],0ch`) |
+| `iVar1 = ...; balltop = 199 - iVar1;` | penugasan bersarang, nilai tetap di register |
+| `a != 0 \|\| b != 0` | `or ax,[b]` — OR BITWISE, satu uji |
+
+**Cara benar:** baca disassembly-nya. Petakan dulu slot yang dipakai
+(`grep "bp + "` pada keluaran `show.py --asm`), tentukan variabel mana di slot
+mana, BARU tulis C-nya. Pseudo-C dipakai hanya untuk menebak maksud fungsinya.
+
 ## Teknik: pakai PROBE, jangan iterasi fungsi penuh
 
 Saat sebuah fungsi tidak cocok, JANGAN menebak lalu mengompilasi ulang fungsi utuh.
