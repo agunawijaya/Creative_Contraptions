@@ -21,7 +21,8 @@ extern char idtab[];        /* @0x2ea */
 pickloop(a, n, tab, d, e, sel, f, ans, tt, g, h, k)
 int   a;
 char  n;
-int  *tab;
+char *tab;               /* offset BYTE: cur*6 dipakai tiga kali dalam satu
+                            pemanggilan, biner menghitungnya SEKALI di register */
 int   d, e;
 int  *sel;
 int   f;
@@ -29,7 +30,7 @@ int  *ans;
 int  *tt;
 int   g, h, k;
 {
-    int r, changed, v;
+    int changed, v, r;   /* changed di slot PERTAMA (bp+0ah) sesuai biner */
 
     nmech = shuffle(seed, a, tab, n, f);
     changed = 0;
@@ -37,7 +38,8 @@ int   g, h, k;
         kbflush();
         redraw();
         do {
-            r = review(a, tab[cur * 3], tab[cur * 3 + 1], d, e, sel[cur], cur * 6);
+            r = review(a, *(int *)(tab + cur * 6), *(int *)(tab + cur * 6 + 2),
+                       d, e, sel[cur], cur * 6);
             if (r != 0xffff) {
                 v = r & 0x7fff;
                 if (sel[cur] != v) {
@@ -65,16 +67,19 @@ int   g, h, k;
     return r;
 }
 
-/* ⏳ BELUM COCOK — 339 byte vs 334, bingkai 12h vs 10h.
- * STRUKTUR SUDAH COCOK: byte 0..2 identik dan seluruh badan hanya bergeser +2
- * karena bingkainya lebih besar. Jumlah lokal kita SUDAH benar (3: r, changed, v
- * -> bp+0ah, 0ch, 0eh di biner); yang berlebih adalah satu SLOT TEMP.
- *     asli: bingkai 10h = 3 lokal (6 byte) + 5 temp (10 byte)
- *     kita: bingkai 12h = 3 lokal + 6 temp
- * Biner menyimpan penunjuk hasil hitung ke temp lalu memakainya ULANG, mis.
- *     2f04  mov si,[sel] ; add si,bx ; ... ; mov [bp],si   <- si disimpan
- *     2f1a  mov [si],ax                                    <- dipakai lagi
- * Kandidat: tulis akses ganda ke sel[cur] supaya kompiler menghitung
- * alamatnya SEKALI (mis. lewat penugasan bersarang atau bentuk subscript
- * yang menghasilkan displacement), bukan dua kali seperti sekarang.
+/* ⏳ BELUM COCOK — 329 byte vs 334, bingkai 12h vs 10h (satu slot temp lebih).
+ * Perjalanan: 339 -> 329 (menyeberang) setelah tab dijadikan offset BYTE
+ * sehingga "cur*6" dipakai bentuk yang sama di ketiga tempat.
+ * SUDAH TERBUKTI:
+ *   - jumlah lokal BENAR (3: changed@bp+0ah, lalu dua lagi di 0ch/0eh)
+ *   - "changed" adalah lokal PERTAMA
+ *   - tab diakses dgn offset byte (cur*6), bukan indeks int
+ * SISA: satu slot temp. Biner menyimpan penunjuk hasil hitung ke temp lalu
+ * MEMAKAINYA ULANG:
+ *     2f04  mov si,[sel]; add si,bx ; ... ; mov [bp],si
+ *     2f1a  mov [si],ax
+ * sedangkan kita menghitung alamat sel[cur] dua kali (sekali untuk uji,
+ * sekali untuk penugasan). Kandidat: tulis "if (sel[cur] != v) sel[cur] = v;"
+ * dalam bentuk yang menghitung alamatnya sekali -- mis. penugasan bersarang
+ * atau menyimpan ke variabel yang menggantikan salah satu lokal lain.
  */
