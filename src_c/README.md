@@ -124,6 +124,28 @@ Yang sudah terbukti salah tampil (masing-masing memakan beberapa putaran):
 (`grep "bp + "` pada keluaran `show.py --asm`), tentukan variabel mana di slot
 mana, BARU tulis C-nya. Pseudo-C dipakai hanya untuk menebak maksud fungsinya.
 
+## ⭐ BENTUK AKSES TABEL menentukan kode — tiga varian, tiga hasil berbeda
+
+Tabel yang sama bisa ditulis tiga cara, dan MS C 1.04 menghasilkan kode BERBEDA
+untuk masing-masing. Cocokkan dgn instruksi di biner:
+
+| tulis begini | biner yang dihasilkan | dipakai kalau biner… |
+|---|---|---|
+| `p[i]` dgn `int *p` (parameter) | skala x2, indeks dipakai ULANG dari akses sebelumnya | memakai ulang nilai i*2 yang sudah dihitung |
+| `*(int *)(p + i*0xc)` | `imul 0ch` lalu **`add ax,OFFSET`** | menambahkan basis lewat register |
+| `tab[i].field` dgn array STRUCT | `imul 0ch` lalu **`mov ax,[si+OFS]`** | memakai bentuk **displacement** |
+
+Contoh nyata:
+- `autofill`/`loadarc`: bentuk `*(int *)(t + i*2)` memaksa hitung ulang indeks;
+  `t[i]` membuat kompiler memakai ulang temp — itu yang menutup `autofill`.
+- `drawslot`: `sprtab[ans[i]*6]` (int[]) menambah `d1 e0`; penjumlahan penunjuk
+  memberi `add ax,OFFSET`; hanya **array struct 12-byte** (`sprtab[ans[i]].w`)
+  menghasilkan `mov ax,[si+1aeh]` — satu byte terakhir yang menutupnya.
+
+Aturan praktis: lihat apakah biner memakai **displacement** (`[si+OFS]`) atau
+**penjumlahan basis** (`add ax,OFFSET`). Displacement → subscript array/struct.
+Penjumlahan → aritmetika penunjuk.
+
 ## Teknik: pakai PROBE, jangan iterasi fungsi penuh
 
 Saat sebuah fungsi tidak cocok, JANGAN menebak lalu mengompilasi ulang fungsi utuh.

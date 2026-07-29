@@ -12,10 +12,14 @@
 
 extern int nmech;           /* @0x3ac */
 extern int seed;            /* @0x72a */
-extern char sprtab[];       /* @0x1ae -- SUBSCRIPT array (bukan penjumlahan
-                               penunjuk) supaya jadi bentuk displacement
-                               [si+1aeh]; offset byte x0ch,
-                               biner: "mov bx,0ch; imul bx" tanpa geser */
+/* Tabel sprite: record 12 byte, hanya word pertama yang dipakai di sini.
+   Ditulis sebagai array STRUCT supaya subscript memberi skala 12 SEKALIGUS
+   bentuk displacement "mov ax,[si+1aeh]" -- bukan "add ax,OFFSET". */
+struct sprent {
+    int  w;
+    char pad[10];
+};
+extern struct sprent sprtab[];   /* @0x1ae */
 
 drawslot(base, n, tab, sel, ans)
 int  base, n;
@@ -42,7 +46,7 @@ int *ans;
             if (flag == 0)
                 spr = base + sel[i] * 0xc0;
             else
-                spr = *(int *)&sprtab[ans[i] * 0xc];
+                spr = sprtab[ans[i]].w;
             blit(spr, y, x, 0x18, 0x20);
         }
         else
@@ -50,20 +54,3 @@ int *ans;
     }
 }
 
-/* ⏳ BELUM COCOK — 251 byte vs 250. SATU byte.
- * Sudah cocok: bingkai 10h, urutan slot (i@bp+6 .. flag@bp+0eh), bendera 0/1
- * (bukan salinan *ans), urutan cabang (sprite dulu, kotak-kosong belakangan),
- * dan sprtab diakses dgn pengali 0ch (bukan indeks int x6).
- *
- * SATU-SATUNYA SISA, di cabang sprite:
- *     kita: f7 eb  05 <ofs>   8b f0  8b 04          (add ax,OFFSET; mov si,ax; mov ax,[si])
- *     asli: f7 eb  8b f0      8b 84 ae 01           (mov si,ax; mov ax,[si+1aeh])
- * Biner memakai bentuk DISPLACEMENT; kita menambahkan basis lebih dulu.
- * SUDAH DICOBA & GAGAL:
- *   - sprtab sbg int[] diindeks [ans[i]*6]        -> 252 (muncul "d1 e0" ekstra)
- *   - *(int *)(sprtab + ans[i]*0xc)               -> 251
- *   - *(int *)&sprtab[ans[i]*0xc]                 -> 251
- * Kandidat berikutnya: deklarasikan sprtab sebagai array STRUCT 12-byte
- * (struct { int w; char pad[10]; } sprtab[]) lalu tulis sprtab[ans[i]].w --
- * subscript struct memberi skala 12 sekaligus displacement.
- */
