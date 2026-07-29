@@ -1,4 +1,15 @@
-/* FUN_1000_5a5b @ 1000:5a5b, 25 byte — generator acak kongruen linier.
+/* ⚠️ PERCOBAAN GAGAL — JANGAN DILANJUTKAN SEBAGAI C. ⚠️
+ *
+ * FUN_1000_5a5b TERNYATA ASSEMBLY TULISAN TANGAN, bukan hasil kompilasi C:
+ *   - prolognya "mov bx,sp", bukan "push bp; sub sp,N; mov bp,sp" (pola MS C 1.04)
+ *   - ia mengambil word TINGGI hasil mul dari DX; di C 1983 itu mustahil ditulis
+ *     karena tipe "unsigned long" belum ada di MS C 1.04
+ * Berkas ini disimpan sebagai catatan, bukan sebagai target. Rekonstruksinya nanti
+ * harus lewat MASM, bukan MC1/MC2. Lihat ../README.md §Fungsi assembly.
+ *
+ * ---- catatan asli di bawah ----
+ *
+ * FUN_1000_5a5b @ 1000:5a5b, 25 byte — generator acak kongruen linier.
  *
  * Dipakai game untuk memilih varian contraption & mengocok palet part.
  * Seed = variabel global 16-bit di DGROUP:0x71a.
