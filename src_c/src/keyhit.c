@@ -28,25 +28,43 @@ keyhit()
         c = k;
         if (k == 0)
             return 1;
-        if (c == 0) {
-            if (k == 0x4b00 || k == 0x4d00 || k == 0x4800 || k == 0x5000)
-                return 1;
-            rdkey(0);
-        }
-        else {
-            if (c != 0x53 && c != 0x73)
-                return c;
+        switch (c) {           /* SWITCH, bukan if/else: badan case ditaruh
+                                  lebih dulu, dispatch-nya di bawah (jmp 17fb).
+                                  Urutan case = urutan badan di biner:
+                                  toggle-suara @17c7 sebelum cek-panah @17d2 */
+        case 0x73:             /* urutan label: rantai pembanding di biner
+        case 0x53:                muncul 0 / 0x53 / 0x73, yaitu KEBALIKAN
+                                  urutan sumber */
             togsnd();
             sndflag ^= 1;
+            continue;      /* continue, bukan break: tiap case melompat BALIK ke awal loop */
+        case 0:
+            /* Bentuk NEGATIF + && : keempat "cmp/je" menuju SATU target
+               "return 1" yang ditaruh SESUDAH blok rdkey. Bentuk positif
+               (== .. || ..) membalik uji terakhir jadi "jne" dan menaruh
+               return 1 di tengah -> 5 byte lebih pendek. */
+            if (k != 0x4b00 && k != 0x4d00 && k != 0x4800 && k != 0x5000) {
+                rdkey(0);
+                continue;
+            }
+            return 1;
         }
+        return c;              /* di LUAR switch, BUKAN "default:" -- badan
+                                  default di biner muncul SESUDAH rantai
+                                  pembanding, ciri jatuh-tembus, bukan case */
     }
 }
 
-/* ⏳ BELUM COCOK — 137 byte vs 131 (6 kelebihan).
- * Asli memuat k SEKALI ke AX lalu membandingkan register:
- *     17d2  mov ax,[bp+2]
- *     17d5  cmp ax,4b00h / je ...   (3 byte per pembandingan)
- * Punya kita tampaknya membaca ulang dari memori tiap kali (5 byte per
- * pembandingan). Perlu bentuk yang memaksa k dimuat sekali — coba `switch (k)`
- * dengan case 0x4b00/0x4d00/0x4800/0x5000, atau tampung dulu ke variabel lain.
+
+/* ⏳ BELUM COCOK — 126 byte vs 131 (5 KURANG).
+ * Kemajuan besar putaran ini: 137 -> 133 -> 126 (menyeberang dari kepanjangan
+ * ke kependekan), dan STRUKTURNYA kini terbukti `switch`, bukan if/else.
+ * Yang sudah dipastikan dari biner:
+ *   - badan case ditaruh dulu, dispatch "jmp 17fb" di bawah  -> switch
+ *   - rantai pembanding muncul 0 / 0x53 / 0x73 = KEBALIKAN urutan sumber
+ *   - "return c" ada SESUDAH rantai = jatuh-tembus, bukan "default:"
+ *   - keempat cmp tombol panah "je" ke SATU target return 1 yang ditaruh
+ *     SESUDAH blok rdkey
+ * SUDAH DICOBA & GAGAL: bentuk negatif (k != A && ...) -> tetap 126.
+ * Sisa 5 byte kemungkinan di penempatan blok rdkey/continue relatif ke return 1.
  */
