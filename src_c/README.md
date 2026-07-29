@@ -27,21 +27,12 @@ Argumen ke-2 dan ke-3 = alamat & ukuran fungsi di biner asli (lihat
 Jalankan `pwsh src_c/build/buildall.ps1` lalu `python src_c/verify/verifyall.py`
 untuk tabel status terkini.
 
-| fungsi | alamat | ukuran | hasil |
-|---|---|---|---|
-| `delay` | `0x2692` | 28 B | ✅ percobaan ke-1 |
-| `kbflush` | `0x36ef` | 31 B | ✅ percobaan ke-1 |
-| `goalmenu` | `0x3322` | 248 B | ✅ percobaan ke-2 (+1 probe) |
-| `mainmenu` | `0x341a` | 178 B | ✅ percobaan ke-1 |
-| `lvlmenu` | `0x32bb` | 103 B | ✅ percobaan ke-2 |
-| `menu9` | `0x30bb` | 37 B | ✅ percobaan ke-2 |
-| `menu11` | `0x30e0` | 37 B | ✅ percobaan ke-2 |
-| `menu12` | `0x3105` | 37 B | ✅ percobaan ke-2 |
-| `clrbot` | `0x5911` | 37 B | ✅ percobaan ke-2 |
-| `setball` | `0x2a53` | 51 B | ✅ percobaan ke-2 |
-| `tone` | `0x370e` | 38 B | ⏳ 8 byte beda — lihat catatan di berkasnya |
+**Status terkini dihasilkan oleh alat, bukan ditulis tangan** — jalankan
+`python src_c/verify/verifyall.py` untuk tabel lengkap per fungsi.
 
-**787 byte dari 19.750 (4,0%) — 10 fungsi dari 60.**
+Ringkasan per 2026-07-29: **31 dari 32 fungsi yang digarap COCOK byte-per-byte,
+3.418 byte terverifikasi (~13% dari target ±26.000 byte kode C game).**
+Satu yang masih terbuka: `loadarc` (2 byte, bingkai sudah tepat).
 
 ## Catatan penting: byte-identical ≠ source aslinya
 
