@@ -33,22 +33,26 @@ extern struct pos postab[];  /* @0x3b6 */
 
 hintmark()
 {
-    int prev, r2, na, nb, oa, ob, buf, col;   /* 7 slot di biner; r1/t
-                                                 hidup di register */
+    /* TUJUH slot, sesuai biner: prev@bp+4, nb@6, na@8, ob@0ah, oa@0ch,
+       buf@0eh, col@10h. Jumlah acak TIDAK ditampung variabel -- kompiler
+       menahannya di register, jadi ujinya ditulis lewat cur2 yang sudah
+       disimpan (r2-1 == cur2+1). */
+    int prev, na, nb, oa, ob, buf, col;
 
-    /* Bentuk gabungan "&&": biner menguji keduanya lalu menaruh SATU epilog
-       di antara uji dan badan (jne -> epilog, je -> badan). Menulisnya sebagai
-       dua "return" awal memberi epilog GANDA dan lebih panjang. */
-    if (mode == 4 && lvl == 2) {
-        if (timer < 1 || tx == best) {
+    /* SATU if dengan "||" lalu return: menghasilkan SATU epilog yang dipakai
+       kedua uji (jne -> epilog, je -> badan). Bentuk "&&" membungkus badan
+       memberi "je +3; jmp jauh"; dua return awal memberi epilog GANDA. */
+    if (mode != 4 || lvl != 2)
+        return;
+    {
+        if (timer <= 0 || tx == best) {   /* cmp 0/jle, bukan cmp 1/jl */
             prev = cur2;
             timer = 0x3c;
             if (lvl6 > 0)
                 lvl6 = lvl6 - 1;
-            r2 = rnd(3);
-            r2 = lvl6 + r2 + rnd(3);
-            cur2 = r2 - 2;
-            if (r2 - 1 < 1 || nmax <= r2 - 2)
+            cur2 = lvl6 + rnd(3) + rnd(3) - 2;
+            if (cur2 < 0 || cur2 >= nmax)   /* uji tanda langsung (jl),
+                                               bukan inc+cmp 1 */
                 cur2 = lvl6;
             na = postab[cur2].a;
             nb = postab[cur2].b;
@@ -60,7 +64,7 @@ hintmark()
                 text(&buf, ob, oa, 1, 1, 3);
             }
             col = 2;
-            if (range <= tx)
+            if (tx >= range)   /* tx di KIRI: cmp ax,[range] lalu jl */
                 col = 0;
             if (tx == best) {
                 col = 0;
