@@ -65,6 +65,16 @@ int   g, h, k;
     return r;
 }
 
-/* ⏳ BELUM COCOK — 339 byte vs 334 (percobaan ke-1).
- * Belum didiagnosis; langkah berikut: kejar divergensi pertama seperti biasa.
+/* ⏳ BELUM COCOK — 339 byte vs 334, bingkai 12h vs 10h.
+ * STRUKTUR SUDAH COCOK: byte 0..2 identik dan seluruh badan hanya bergeser +2
+ * karena bingkainya lebih besar. Jumlah lokal kita SUDAH benar (3: r, changed, v
+ * -> bp+0ah, 0ch, 0eh di biner); yang berlebih adalah satu SLOT TEMP.
+ *     asli: bingkai 10h = 3 lokal (6 byte) + 5 temp (10 byte)
+ *     kita: bingkai 12h = 3 lokal + 6 temp
+ * Biner menyimpan penunjuk hasil hitung ke temp lalu memakainya ULANG, mis.
+ *     2f04  mov si,[sel] ; add si,bx ; ... ; mov [bp],si   <- si disimpan
+ *     2f1a  mov [si],ax                                    <- dipakai lagi
+ * Kandidat: tulis akses ganda ke sel[cur] supaya kompiler menghitung
+ * alamatnya SEKALI (mis. lewat penugasan bersarang atau bentuk subscript
+ * yang menghasilkan displacement), bukan dua kali seperti sekarang.
  */
