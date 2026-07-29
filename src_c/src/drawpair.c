@@ -27,9 +27,12 @@ int   n, i, sp;
     /* DELAPAN lokal (bingkai 18h = 8 lokal + 4 temp). `rb` menampung recbase:
        biner memuatnya SEKALI di awal ("a1 3c 07") lalu menyimpannya ke lokal
        dan memakainya untuk KEDUA record. */
-    int id1, id2, dx, dy, spr, rb;
+    /* Urutan slot dari biner: dx@bp+8, dy@0ah, id2@0ch, id1@0eh, rb@10h,
+       r1@12h, r2@14h, spr@16h. */
+    int dx, dy, id2, id1, rb;
     char *r1;
     char *r2;
+    int spr;
 
     rb = recbase;
     id1 = tab[i];
@@ -66,13 +69,16 @@ int   n, i, sp;
     blit(spr, x + dx, y + dy, r1[2], r1[3]);
 }
 
-/* ⏳ BELUM COCOK — 373 byte vs 392 (19 KURANG), bingkai 18h SUDAH COCOK.
- * Perjalanan: 370 -> 373 setelah `rb` (salinan recbase) ditambahkan.
- * PETA SLOT ASLI: bingkai 18h = bp+0..6 (4 TEMP) + bp+8..16h (8 LOKAL).
- * Delapan lokal kita sekarang: id1, id2, dx, dy, spr, rb, r1, r2.
- * Biner memuat recbase SEKALI ("a1 3c 07") lalu menyimpannya ke lokal.
- * SISA: 19 byte kurang -- kita masih lebih pendek, jadi ada kode di asli yang
- * belum ditulis. Kandidat: pemulihan tanda (dx/dy) mungkin ditulis lain,
- * atau kedua blok gambar TIDAK memakai variabel yang sama (asli mungkin punya
- * dx2/dy2 tersendiri, bukan menimpa dx/dy).
+/* ⏳ BELUM COCOK — 373 byte vs 392 (19 KURANG). Bingkai DAN urutan slot
+ * SUDAH COCOK: dx@bp+8, dy@0ah, id2@0ch, id1@0eh, rb@10h, r1@12h, r2@14h,
+ * spr@16h (bingkai 18h = 8 lokal + 4 temp).
+ *
+ * Beda pertama tinggal di +62, dan bentuknya alokasi register:
+ *     kita: 8b 4e 10  03 c8  8b f1     (mov cx,[rb]; add cx,ax; mov si,cx)
+ *     asli: 8b 76 10  03 f0            (mov si,[rb]; add si,ax)
+ * Kita punya "mov si,cx" ekstra -- kompiler menghitung ke CX lalu memindah.
+ * Karena di titik ini kita 2 byte LEBIH PANJANG padahal total 19 byte KURANG,
+ * ada ~21 byte yang belum ditulis di tempat lain.
+ * Kandidat: pemulihan tanda dx/dy mungkin ditulis empat kali terpisah di asli
+ * (dua blok gambar x dua sumbu) dengan bentuk yang lebih panjang dari milik kita.
  */
