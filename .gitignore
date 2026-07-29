@@ -1,3 +1,30 @@
+# ── BERKAS GAME ASLI — TIDAK DIDISTRIBUSIKAN ───────────────────────────────
+# Creative Contraptions (c) 1985 Bantam Electronic Publishing.
+# Repo ini berisi KODE dan ANALISIS saja. Pengguna menyediakan salinan game
+# miliknya sendiri; lihat README untuk cara menaruhnya.
+Creative-Contraptions/
+_ORIGINAL_READONLY/
+Creative-Contraptions_DOS_EN.zip
+work/unpack/
+
+# salinan berkas game yang menumpang di work/
+work/ANIMATE
+work/GRAPH
+work/MECHS
+work/MISC
+work/CONTRAP
+work/CONTRAP.EXE
+work/BANTAM.EXE
+work/BANTLOGO.EXE
+work/LGLOGO.EXE
+work/BLOGO.CMP
+work/LG.CMP
+work/MODE.COM
+work/DESC.SDI
+work/SETUP1.BAT
+work/SETUP2.BAT
+work/file_id.diz
+
 # ── Perkakas pihak ketiga (~2,1 GB) ────────────────────────────────────────
 # DOSBox-X, Ghidra, JDK, UNP. Diunduh sendiri, bukan bagian dari proyek.
 tools/
