@@ -272,8 +272,30 @@ while (*ptr != -1 && *ptr != 0) {
 Manual bilang "gerakan mendekati hukum fisika" — ternyata itu **animasi yang dibuat
 tangan per contraption**, bukan fisika hidup. Menjelaskan file `ANIMATE` (241 skrip).
 
+### ⚠️ KOREKSI 2026-07-29 — "handler" itu CASE dari satu `switch`, bukan rutin terpisah
+Dibuktikan dengan mengompilasi `switch` bernilai jarang memakai MS C 1.04 asli
+(`src_c/probes/probe4.c`): kompiler menghasilkan **persis** pola yang ada di biner —
+tabel `(nilai,label)` 4 byte per entri di segmen KODE, dicari MUNDUR, lalu lompat tak-langsung:
+
+| hasil kompilasi kita | biner asli @0x2420 |
+|---|---|
+| `cmp ax, cs:[si+0x26]` | `cmp ax, [si+0x23d4]` |
+| `jne` → `jmp word ptr cs:[si+0x28]` | `jne` → `jmp word ptr cs:[si+0x23d6]` |
+| `sub si,4` / `jns` | `sub si,4` / `jns` |
+
+Konsekuensi:
+- Ke-17 "handler" adalah **`case` di dalam satu `switch`** milik `FUN_1000_18db`,
+  bukan fungsi tersendiri. Tabelnya dibuat kompiler, bukan ditulis tangan.
+- **`FUN_1000_18db` sebenarnya 0x18db..0x24ba = 3.040 byte**, bukan 1.229 seperti
+  tercatat di `functions.txt`. Epilognya (`add sp,6a; pop bp; ret`) ada di 0x24b6.
+  Ghidra hanya menghitung potongan pertama yang bersambung; badan fungsi berlanjut
+  lewat lompatan. **Ukuran di `functions.txt` tidak bisa dipercaya untuk fungsi
+  yang badannya terpecah.**
+- Karena itu "celah 0x1da8 (1.811 byte)" yang dulu digolongkan assembly sebenarnya
+  kode C — isi case-case switch tsb.
+
 ### Tabel opcode VM @ CS:0x23D4 (file 0x25D4) — 17 opcode + terminator
-Tabel `{u16 opcode, u16 handler}` di segmen KODE (const, khas MS-C). Handler = near offset:
+Tabel `{u16 opcode, u16 label_case}` di segmen KODE (dihasilkan kompiler). Label = near offset:
 
 | op | handler | op | handler | op | handler |
 |----|---------|----|---------|----|---------|

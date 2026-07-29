@@ -106,6 +106,26 @@ Yang assembly termasuk **semua primitif grafis**: `672f` (blit sprite), `6453` (
 Juga `5a5b` (RNG kongruen linier) yang memakai `mul` dan mengambil word tinggi dari DX —
 mustahil ditulis di C 1983 karena `unsigned long` belum ada.
 
-## Sisa pekerjaan
-Setelah dikurangi rutin pustaka `MC.LIB` (tak perlu ditulis, cukup di-link) dan fungsi
-assembly, target rekonstruksi C = **60 fungsi / 19.750 byte**.
+## Sisa pekerjaan — ANGKA DIKOREKSI 2026-07-29
+
+Perkiraan lama (**19.750 byte**) TERLALU KECIL. Sebabnya: ukuran di
+`work/ghidra_out/functions.txt` menghitung hanya potongan pertama yang bersambung dari
+sebuah fungsi. Fungsi yang badannya terpecah oleh lompatan dihitung jauh lebih kecil dari
+sebenarnya. Contoh terbukti: `FUN_1000_18db` tercatat 1.229 byte, kenyataannya
+**3.040 byte** (0x18db..0x24ba, epilog di 0x24b6).
+
+Angka yang lebih jujur, dihitung dari wilayah alamat (bukan dari daftar fungsi):
+
+| wilayah | byte | keterangan |
+|---|---|---|
+| Segmen kode seluruhnya | 36.976 | 0x0000..0x9070 |
+| Wilayah pustaka (≥0x6a48) | 9.768 | rutin `MC.LIB` — cukup di-link |
+| **Wilayah kode game (<0x6a48)** | **27.208** | yang harus ditulis ulang |
+| — di antaranya assembly tulisan tangan | ±1.200 | primitif grafis (`5cbb`,`6453`,`6524`,`657c`,`672f`,`6869`,`6939`) |
+| — sisanya kode C | **±26.000** | target rekonstruksi sebenarnya |
+
+Jadi targetnya **±26.000 byte, bukan 19.750** — sekitar 32% lebih besar.
+Kemajuan 787 byte = **±3,0%**, bukan 4,0%.
+
+**Aturan baru:** jangan percaya `size=` di `functions.txt`. Selalu cek di mana epilog
+(`add sp,N; pop bp; ret`) yang cocok dengan `sub sp,N` di prolog.
