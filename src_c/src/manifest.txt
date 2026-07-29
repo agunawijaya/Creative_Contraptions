@@ -1,0 +1,13 @@
+# Fungsi yang sudah direkonstruksi.  <nama_berkas>  <alamat>  <ukuran>
+# Nama WAJIB <= 8 karakter (batas 8.3 DOS).
+delay      2692   28
+kbflush    36ef   31
+goalmenu   3322  248
+menu9      30bb   37
+menu11     30e0   37
+menu12     3105   37
+clrbot     5911   37
+tone       370e   38
+mainmenu   341a  178
+lvlmenu    32bb  103
+setball    2a53   51

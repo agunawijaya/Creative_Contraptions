@@ -24,13 +24,35 @@ Argumen ke-2 dan ke-3 = alamat & ukuran fungsi di biner asli (lihat
 `work/ghidra_out/functions.txt`).
 
 ## Status
+Jalankan `pwsh src_c/build/buildall.ps1` lalu `python src_c/verify/verifyall.py`
+untuk tabel status terkini.
+
 | fungsi | alamat | ukuran | hasil |
 |---|---|---|---|
-| `delay` | `0x2692` | 28 B | ✅ cocok byte-per-byte, percobaan ke-1 |
-| `kbflush` | `0x36ef` | 31 B | ✅ cocok byte-per-byte, percobaan ke-1 |
-| `goalmenu` | `0x3322` | 248 B | ✅ cocok byte-per-byte, percobaan ke-2 (+1 probe) |
+| `delay` | `0x2692` | 28 B | ✅ percobaan ke-1 |
+| `kbflush` | `0x36ef` | 31 B | ✅ percobaan ke-1 |
+| `goalmenu` | `0x3322` | 248 B | ✅ percobaan ke-2 (+1 probe) |
+| `mainmenu` | `0x341a` | 178 B | ✅ percobaan ke-1 |
+| `lvlmenu` | `0x32bb` | 103 B | ✅ percobaan ke-2 |
+| `menu9` | `0x30bb` | 37 B | ✅ percobaan ke-2 |
+| `menu11` | `0x30e0` | 37 B | ✅ percobaan ke-2 |
+| `menu12` | `0x3105` | 37 B | ✅ percobaan ke-2 |
+| `clrbot` | `0x5911` | 37 B | ✅ percobaan ke-2 |
+| `setball` | `0x2a53` | 51 B | ✅ percobaan ke-2 |
+| `tone` | `0x370e` | 38 B | ⏳ 8 byte beda — lihat catatan di berkasnya |
 
-**307 byte dari 19.750 (1,6%) — 3 fungsi dari 60.**
+**787 byte dari 19.750 (4,0%) — 10 fungsi dari 60.**
+
+## Catatan penting: byte-identical ≠ source aslinya
+
+Beberapa bentuk penulisan menghasilkan byte yang SAMA PERSIS. Yang kita bangun adalah
+source yang *menghasilkan biner yang sama*, bukan tentu teks yang diketik penulis aslinya
+tahun 1985. Untuk tujuan proyek ini (rebuild byte-identical) itu cukup — tapi jangan
+menyebutnya "kode asli yang dipulihkan".
+
+Contohnya variabel `unused` di beberapa fungsi: biner asli menyisihkan slot bingkai yang
+tak pernah ditulisi. Kita mereproduksinya dengan variabel tak-terpakai. Penulis aslinya
+mungkin menulis sesuatu yang lain yang kebetulan menghasilkan bingkai sama.
 
 ## Teknik: pakai PROBE, jangan iterasi fungsi penuh
 
