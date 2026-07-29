@@ -145,9 +145,41 @@ Risiko nomor satu di atas **sudah hilang**. Dua koreksi atas catatan lama:
    MS C 1.04 yang memang belum punya large model. Catatan lama "large model" salah baca
    flag PKLITE.
 
-**Konsekuensi:** jalur byte-identical **terbuka**. Verifikasi berikutnya = kompilasi
-program uji kecil dengan MS C 1.04 di DOSBox, lalu cocokkan crt0 + pola prolog/epilog +
-urutan fungsi library terhadap `CONTRAP_UNPACKED.EXE`. Baru setelah itu investasi besar.
+**Konsekuensi:** jalur byte-identical **terbuka**.
+
+### ✅ TAHAP 0 SELESAI (2026-07-29) — KOMPILER TERBUKTI COCOK
+Distribusi diunduh ke `tools/msc104/` (di-.gitignore). Isi: `MC1.EXE`/`MC2.EXE` (dua pass
+compiler), `LINK.EXE`, `LIB.EXE`, pustaka `MC.LIB`, header, **dan `C.ASM`/`C.OBJ` = source +
+objek startup (crt0)**.
+
+**Bukti 1 — crt0 cocok byte-per-byte.** `C.OBJ` memuat banner `MS-C  V 1.04  ` dengan spasi
+PERSIS sama seperti biner game (varian `CC.OBJ` berbeda spasi → game memakai `C.OBJ`).
+Membandingkan kode setelah banner (`C.OBJ` @0x99 vs game @0x20e), **116 byte pertama identik**;
+7 byte yang berbeda SEMUANYA slot relokasi (nol di .OBJ, diisi linker di .EXE):
+
+| posisi | C.OBJ | game | arti |
+|---|---|---|---|
+| +2,+3 | 00 00 | 07 09 | paragraf DGROUP |
+| +38,+39,+41 | 00 00 00 | 60 25 02 | fixup alamat |
+| +102,+103 | 00 00 | 72 70 | fixup ke runtime argv (`FUN_1000_70e8`) |
+
+Perbedaan berhenti di +116 = akhir record LEDATA `C.OBJ`; setelahnya game lanjut ke modul
+berikutnya (`55 81 ec` = prolog fungsi). Artinya: **game ini di-link dengan `C.OBJ` dari
+distribusi ini persis.**
+
+**Bukti 2 — 41 fungsi ternyata milik pustaka, bukan game.** Mencocokkan tiap fungsi ke
+`MC.LIB`:
+
+| kategori | jumlah | byte | konsekuensi |
+|---|---|---|---|
+| kode PUSTAKA (MC.LIB) | 41 fungsi | 6.951 | **tak perlu direkonstruksi** — cukup di-link |
+| kode GAME asli | 103 fungsi | 22.036 | inilah yang harus ditulis jadi source |
+
+Celah tak-terdekompilasi juga sebagian pustaka — mis. `0x7fd3` (1.760 byte, penanganan
+printf/varargs) ada di `MC.LIB @0x023b4`. Sisa celah yang benar-benar kode game = handler VM
+(`0x1da8`, ±1.811 byte) dan drawer (`0x2714`, ±668 byte), keduanya sudah dibedah tangan.
+
+**Target rekonstruksi sesungguhnya ≈ 24,5 KB kode game**, bukan 36 KB. Beban turun ~1/3.
 
 Lalu, pilih jalur:
 

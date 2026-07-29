@@ -13,8 +13,11 @@ bukan Looking Glass Studios). Analisis reverse-engineering **sudah selesai**; se
 - Programmer asli: Jessie Ragsdale. Compiler asli: **Microsoft C V1.04** (= Lattice C yang
   di-rebrand Microsoft/Lifeboat; string literal `MS-C  V 1.04` ada di offset 0x200 biner
   ter-unpack). **Model memori = SMALL**, int 16-bit — lihat `ARCHITECTURE.md` §Model memori.
-- **Kompiler aslinya TERSEDIA** (dikoreksi 2026-07-29): PCjs & Internet Archive — lihat
-  `DECOMPILE_PLAN.md` §3.0. Jalur byte-identical TIDAK tertutup.
+- **Kompiler aslinya SUDAH ADA & TERBUKTI COCOK** (2026-07-29): `tools/msc104/`
+  (di-.gitignore, unduh ulang dari PCjs / Internet Archive). crt0 `C.OBJ` cocok byte-per-byte
+  dgn biner game (116 byte, semua beda = slot relokasi). 41 fungsi / 6.951 byte ternyata
+  kode pustaka `MC.LIB` → tak perlu direkonstruksi. Target source asli ≈ 24,5 KB kode game
+  (103 fungsi). Detail: `DECOMPILE_PLAN.md` §Tahap 0.
 - Bahasa target port: **Python** (pilihan user, sudah final).
 - Aset asli dibaca **saat runtime** (GRAPH/MECHS/MISC/ANIMATE/CONTRAP) — tanpa re-encode.
 
