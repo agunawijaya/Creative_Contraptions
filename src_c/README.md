@@ -146,6 +146,23 @@ Aturan praktis: lihat apakah biner memakai **displacement** (`[si+OFS]`) atau
 **penjumlahan basis** (`add ax,OFFSET`). Displacement → subscript array/struct.
 Penjumlahan → aritmetika penunjuk.
 
+## Hasil NEGATIF yang berguna (probes/probe7.c)
+
+Untuk pola "uji lalu tulis elemen tabel yang sama" (`if (t[i] != v) t[i] = v;`),
+lima bentuk diukur. Hasilnya: **penunjuk lokal eksplisit TIDAK menghemat bingkai** —
+ia hanya memindahkan satu temp menjadi satu lokal, totalnya sama.
+
+| bentuk | bingkai |
+|---|---|
+| `if (t[i] != v) t[i] = v;` | 4 (0 lokal + 2 temp) |
+| `p = &t[i]; if (*p != v) *p = v;` | 4 (1 lokal + 1 temp) |
+| `h = (t[i] = v);` (bersarang) | 4 |
+| `old = t[i]; if (old != v) …` | 6 |
+| indeks ditampung variabel | 6 |
+
+Jadi kalau sebuah fungsi kelebihan satu slot, JANGAN cari jawabannya di pola
+akses tabel ini — sumbernya di tempat lain.
+
 ## Teknik: pakai PROBE, jangan iterasi fungsi penuh
 
 Saat sebuah fungsi tidak cocok, JANGAN menebak lalu mengompilasi ulang fungsi utuh.
