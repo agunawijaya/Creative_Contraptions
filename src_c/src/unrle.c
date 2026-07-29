@@ -36,19 +36,16 @@ int n;
             s = s + 1;
             val = *s;
             for (j = 0; j < cnt; j++) {
-                *d = val;
-                out = out + 1;
-                d = d + 1;
+                *d++ = val;         /* post-increment: "mov bx,[d]; inc [d]" */
+                out++;
             }
-            i = i + 3;
-            s = s + 1;
+            s++;                    /* s++ SEBELUM i += 3 */
+            i += 3;
         }
         else {
-            *d = *s;
-            out = out + 1;
-            i = i + 1;
-            s = s + 1;
-            d = d + 1;
+            *d++ = *s++;
+            out++;
+            i++;
         }
     }
     return out;

@@ -37,7 +37,7 @@ keyhit()
             if (c != 0x53 && c != 0x73)
                 return c;
             togsnd();
-            sndflag = sndflag ^ 1;
+            sndflag ^= 1;
         }
     }
 }
