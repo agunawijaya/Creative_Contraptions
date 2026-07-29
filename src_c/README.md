@@ -28,6 +28,19 @@ Argumen ke-2 dan ke-3 = alamat & ukuran fungsi di biner asli (lihat
 |---|---|---|---|
 | `delay` | `0x2692` | 28 B | ✅ cocok byte-per-byte, percobaan ke-1 |
 | `kbflush` | `0x36ef` | 31 B | ✅ cocok byte-per-byte, percobaan ke-1 |
+| `goalmenu` | `0x3322` | 248 B | ✅ cocok byte-per-byte, percobaan ke-2 (+1 probe) |
+
+**307 byte dari 19.750 (1,6%) — 3 fungsi dari 60.**
+
+## Teknik: pakai PROBE, jangan iterasi fungsi penuh
+
+Saat sebuah fungsi tidak cocok, JANGAN menebak lalu mengompilasi ulang fungsi utuh.
+Tulis probe kecil berisi 2–3 varian penulisan dari potongan yang meragukan saja
+(lihat `src/probe3.c`), kompilasi sekali, lalu bandingkan BENTUK kodenya. Satu putaran
+probe menjawab pertanyaan yang bisa memakan sepuluh iterasi tebak-tebakan.
+
+Contoh nyata: `goalmenu` meleset 18 byte. Probe dgn 3 varian langsung menunjukkan
+varian mana yang benar, dan percobaan berikutnya langsung cocok.
 
 ## Aturan main (mahal dipelajari, jangan diulang)
 
@@ -46,6 +59,15 @@ Argumen ke-2 dan ke-3 = alamat & ukuran fungsi di biner asli (lihat
    akan membuat data menimpa awal kode. `objcode.py` memisahkan per segmen.
 7. **Slot relokasi dibaca dari record FIXUPP**, bukan ditebak dari "byte kita nol".
    Tebakan itu pernah menyamarkan 2 byte berbeda sungguhan jadi laporan "cocok".
+8. **Hasil panggilan fungsi ditampung variabel tersendiri**, jangan disarangkan.
+   Tulis `h = f(...); y = y + h;` BUKAN `y = y + f(...)`. Bentuk bersarang membuat
+   kompiler tidak mengalokasikan slot sementara dan memilih register lain
+   (`mov ax,0eh` alih-alih `mov cx,0eh`) → kode beda. Ini pola menyeluruh di
+   biner ini, bukan kebetulan satu fungsi.
+9. **Urutan deklarasi lokal menentukan tata letak bingkai.** Ukuran bingkai =
+   `2 + 2×jumlah_lokal`, dan variabel dialokasikan sesuai urutan deklarasi
+   (deklarasi pertama di `bp+2`). Kalau ukuran `sub sp,N` tidak cocok, jumlah atau
+   urutan lokal masih salah — itu petunjuk paling cepat.
 
 ## Fungsi assembly (jangan direkonstruksi sebagai C)
 
