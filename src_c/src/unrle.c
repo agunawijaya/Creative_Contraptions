@@ -25,16 +25,17 @@ int n;
     char cnt, val;
     char *s, *d;
 
-    i = 0;
+    /* Urutan sengaja TERBALIK dari yang terlihat di biner: kompiler
+       memancarkan store dalam urutan kebalikan sumber, dan memuat parameter
+       juga terbalik. Biner: muat dst lalu src; store i, out, s, d. */
     out = 0;
-    s = src;
+    i = 0;
     d = dst;
+    s = src;
     while (i < n) {
         if (*s == 0xe4) {
-            s = s + 1;
-            cnt = *s;
-            s = s + 1;
-            val = *s;
+            cnt = *++s;
+            val = *++s;
             for (j = 0; j < cnt; j++) {
                 *d++ = val;         /* post-increment: "mov bx,[d]; inc [d]" */
                 out++;

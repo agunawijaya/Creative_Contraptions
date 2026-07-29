@@ -32,9 +32,10 @@ keyhit()
                                   lebih dulu, dispatch-nya di bawah (jmp 17fb).
                                   Urutan case = urutan badan di biner:
                                   toggle-suara @17c7 sebelum cek-panah @17d2 */
-        case 0x73:             /* urutan label: rantai pembanding di biner
-        case 0x53:                muncul 0 / 0x53 / 0x73, yaitu KEBALIKAN
-                                  urutan sumber */
+        /* urutan label: rantai pembanding di biner muncul 0 / 0x53 / 0x73,
+           yaitu KEBALIKAN urutan sumber */
+        case 0x73:
+        case 0x53:
             togsnd();
             sndflag ^= 1;
             continue;      /* continue, bukan break: tiap case melompat BALIK ke awal loop */
