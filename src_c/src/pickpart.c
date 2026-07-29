@@ -68,15 +68,19 @@ any:
     place(a, b, c, d, e, n, ans, flag);
 }
 
-/* ⏳ BELUM COCOK — 392 byte vs 387, bingkai 0eh vs 0ch (satu slot berlebih).
+/* ⏳ BELUM COCOK — 392 byte vs 387, bingkai 0eh vs 0ch.
  * SUDAH COCOK & JANGAN DIUBAH:
- *   - "while (i < n)" dgn place() DI LUAR loop
- *   - i dideklarasikan PERTAMA (slot bp+4)
- *   - tq/tr/ts/tt/ans sebagai int* yang diindeks [i] / [i*3+2]
- *   - `p` MEMANG variabel: menghapusnya dan menghitung ulang
- *     "b[tr[j]*0xc]" -> 411 byte (jauh lebih buruk)
- * MASALAH: bingkai asli 0ch = 5 slot lokal + SATU temp; kita 5 slot + DUA temp.
- * Perlu satu ekspresi yang kini menuntut dua temp diubah jadi butuh satu.
- * Kandidat yang belum diuji: "while (j < cnt && b[tr[j]*0xc+1] != sub)"
- * (dua akses tabel dalam satu kondisi) -- coba pecah memakai p.
+ *   - "while (i < n)" dgn place() DI LUAR loop; i dideklarasikan PERTAMA (bp+4)
+ *   - tq/tr/ts/tt/ans sebagai int* diindeks [i] / [i*3+2]
+ *   - `p` MEMANG variabel (menghapusnya -> 411 byte)
+ *
+ * TEMUAN KUNCI: biner hanya memakai EMPAT slot lokal (bp+4, 6, 8, 0ah);
+ * kita memakai LIMA (i, j, cnt, tries, p). Jadi salah satu dari j/cnt/tries
+ * BUKAN variabel di sumber aslinya -- kemungkinan `cnt` (hasil nvar) yang
+ * dibaca ulang dari tempat lain, atau `tries` yang disusun beda.
+ * SUDAH DICOBA & GAGAL:
+ *   - menghapus p, hitung ulang b[tr[j]*0xc]        -> 411
+ *   - memakai p di kondisi pencarian (operator koma) -> 395
+ * Langkah berikut: telusuri bp+6/bp+8/bp+0ah di disassembly untuk memastikan
+ * variabel mana yang menempatinya, seperti yang dilakukan pada autofill.
  */
