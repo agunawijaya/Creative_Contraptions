@@ -60,8 +60,8 @@ def main():
     print()
     print("COCOK %d/%d fungsi   |   %d byte terverifikasi (dari %d byte yang digarap)"
           % (n_ok, len(rows), ok_bytes, tot_bytes))
-    print("Target seluruh kode C game: 19.750 byte  ->  %.1f%% selesai"
-          % (ok_bytes / 19750.0 * 100))
+    print("Target seluruh kode C game: ~26.000 byte (perkiraan dari wilayah alamat)  ->  %.1f%% selesai"
+          % (ok_bytes / 26000.0 * 100))
     return 0 if n_ok == len(rows) else 1
 
 

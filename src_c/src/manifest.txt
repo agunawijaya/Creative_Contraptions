@@ -11,3 +11,6 @@ tone       370e   38
 mainmenu   341a  178
 lvlmenu    32bb  103
 setball    2a53   51
+tone2      3734   53
+pickmax    4e01   61
+shuffle    2b34   67

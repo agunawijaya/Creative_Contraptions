@@ -1,31 +1,27 @@
 /* FUN_1000_370e @ 1000:370e, 38 byte — bunyi pendek (klik/beep menu).
  *
- *   sndoff() = FUN_1000_5a74   (2 byte, assembly)
- *   sndon()  = FUN_1000_5a76   (2 byte, assembly)
- *   sndmode @0x722, sndper @0x720 = parameter speaker PC
- *   delay(5) = FUN_1000_2692, sudah direkonstruksi
+ *   sndoff() = FUN_1000_5a74   (assembly)
+ *   sndon()  = FUN_1000_5a76   (assembly)
+ *   sndmode @0x722, sndptr @0x720
+ *
+ * KUNCI: 0x1dd0 bukan bilangan biasa, melainkan ALAMAT di DGROUP — penunjuk ke
+ * deskriptor nada. Karena alamat itu relokatabel, kompiler wajib memuatnya ke AX
+ * dulu ("mov ax,OFFSET tune1") baru menyimpan, bukan store-immediate langsung.
+ * Menulisnya sebagai konstanta biasa menghasilkan "c7 06 .. d0 1d" dan TIDAK cocok.
+ * Bukti pendukung: FUN_1000_18db menyimpan "&local_40" ke 0x720 — memang penunjuk.
  */
 
-extern int sndmode;         /* @0x722 */
-extern int sndper;          /* @0x720 */
+extern int  sndmode;        /* @0x722 */
+extern int *sndptr;         /* @0x720 */
+extern int  tune1[];        /* deskriptor nada @0x1dd0 */
 
 tone()
 {
     int unused;
 
     sndoff();
-    sndper = 0x1dd0;
+    sndptr = tune1;
     sndmode = 2;
     sndon();
     delay(5);
 }
-
-/* ⏳ BELUM COCOK — 8 byte beda mulai +9.
- * Asli:  b8 d0 1d      mov ax,1dd0h      <- MEMUAT ke AX dulu
- *        c7 06 22 07 02 00               mov word [sndmode],2
- *        a3 20 07                        mov [sndper],ax
- * Kita:  c7 06 .. 02 00 / c7 06 .. d0 1d  (dua store immediate langsung)
- * Sudah dicoba: menukar urutan kedua penugasan -> tidak berubah.
- * Yang belum dicoba: sndper/sndmode sebagai elemen array, atau penugasan
- * berantai. Perlu satu putaran probe seperti probe3.c.
- */

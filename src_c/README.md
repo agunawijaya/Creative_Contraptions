@@ -81,6 +81,17 @@ varian mana yang benar, dan percobaan berikutnya langsung cocok.
    akan membuat data menimpa awal kode. `objcode.py` memisahkan per segmen.
 7. **Slot relokasi dibaca dari record FIXUPP**, bukan ditebak dari "byte kita nol".
    Tebakan itu pernah menyamarkan 2 byte berbeda sungguhan jadi laporan "cocok".
+8b. **Urutan deklarasi lokal = urutan slot.** Penampung hasil panggilan biasanya
+   dideklarasikan LEBIH DULU (jatuh di `bp+2`), pencacah loop sesudahnya (`bp+4`).
+   Kalau instruksinya benar tapi nomor slotnya tertukar, cukup tukar urutan deklarasi.
+8c. **Operan pembanding tidak boleh dibalik.** Tulis `if (r > best)` — nilai yang sudah
+   ada di AX di sebelah KIRI. Menulis `if (best < r)` memaksa kompiler memuat `best`
+   ke register dulu (`mov bx,[best]; cmp bx,ax`) = 2 byte lebih panjang.
+8d. **Alamat DGROUP bukan konstanta biasa.** Nilai seperti `0x1dd0` yang ternyata alamat
+   harus ditulis sebagai simbol (`sndptr = tune1;`), karena alamat relokatabel dimuat
+   lewat `mov ax,OFFSET x` lalu disimpan — bukan store-immediate. Penugasan penunjuk
+   juga ditulis SEBELUM penugasan konstanta di sebelahnya, supaya pemuatan alamat
+   muncul lebih dulu seperti di biner asli.
 8. **Hasil panggilan fungsi ditampung variabel tersendiri**, jangan disarangkan.
    Tulis `h = f(...); y = y + h;` BUKAN `y = y + f(...)`. Bentuk bersarang membuat
    kompiler tidak mengalokasikan slot sementara dan memilih register lain
