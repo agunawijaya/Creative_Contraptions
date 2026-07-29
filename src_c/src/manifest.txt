@@ -28,3 +28,5 @@ revdet     3020  155
 drawtab    3769  177
 xform      5e3b  107
 moveball   29b0  163
+drawpal    3b83  204
+timedrw    4c04  208
