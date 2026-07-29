@@ -21,7 +21,10 @@ timedrw()
     int i;
     int snd[3];
 
-    if (mode == 4) {
+    if (mode != 4)
+        return;                  /* RETURN AWAL, bukan membungkus dgn if(mode==4) --
+                                    aslinya "je +5; add sp,0ah; pop bp; ret" */
+    {
         if (tx < 0x140 && (goal != 6 || sub != 1)) {
             if (tx >= 0) {
                 fillrect(0, 0xa2, tx, 0xa5, 2);
@@ -33,16 +36,16 @@ timedrw()
             snd[0] = 500;
             snd[1] = 0x474;
             snd[2] = 0x10;
+            sndptr = snd;    /* alamat dimuat DULU (aturan 8d) */
             sndmode = 1;
-            sndptr = snd;
             sndon();
             for (i = 0; i < 0x140; i = i + 8) {
                 fillrect(i, 0xa2, i + 7, 0xa5, 2);
                 delay(1);
             }
             sndoff();
-            sndmode = 0;
             sndptr = snd;
+            sndmode = 0;
             sndon();
         }
     }

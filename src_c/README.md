@@ -54,6 +54,31 @@ Contohnya variabel `unused` di beberapa fungsi: biner asli menyisihkan slot bing
 tak pernah ditulisi. Kita mereproduksinya dengan variabel tak-terpakai. Penulis aslinya
 mungkin menulis sesuatu yang lain yang kebetulan menghasilkan bingkai sama.
 
+## ⭐ METODE UTAMA: kejar DIVERGENSI PERTAMA, jangan menebak bentuk fungsi
+
+Ini cara kerja yang paling ampuh, ditemukan setelah tiga putaran nyaris tanpa hasil.
+
+**Salah** (boros): menebak satu bentuk penulisan untuk seluruh fungsi, kompilasi, lihat
+"panjang beda", tebak lagi. Tiap siklus cuma menguji satu hipotesis besar dan sering
+bergerak ke arah yang salah.
+
+**Benar** (cepat): cari **byte pertama yang berbeda**, lihat instruksi di titik itu saja,
+perbaiki tepat itu, kompilasi lagi. Divergensi berikutnya akan bergeser maju. Ulangi.
+Tiap siklus menutup satu keputusan penulisan yang KONKRET.
+
+```python
+d = [k for k in range(n) if code[k] != orig[k] and k not in slots]
+print('beda pertama +%d' % d[0])
+print('kita:', code[d[0]-8 : d[0]+24])
+print('asli:', orig[d[0]-8 : d[0]+24])
+```
+
+Contoh nyata: `drawpal` mandek di 192/204 setelah tiga tebakan buta (bahkan makin jauh:
+186, 181). Dengan mengejar divergensi pertama, tiga siklus langsung menutupnya —
+tiap siklus memberi satu fakta: (1) koordinat x ditampung lokal lalu dipakai `x+0x1f`,
+(2) `nmech` tidak ditampung, (3) `lo+i` DIHITUNG ULANG di dalam cabang, slotnya cuma
+sementara-kompiler. `timedrw` menyusul dua siklus: return awal, lalu urutan penunjuk.
+
 ## Teknik: pakai PROBE, jangan iterasi fungsi penuh
 
 Saat sebuah fungsi tidak cocok, JANGAN menebak lalu mengompilasi ulang fungsi utuh.

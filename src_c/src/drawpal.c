@@ -17,12 +17,11 @@ extern char spr[];          /* @0x7fa */
 drawpal(sel, base)
 int sel, base;
 {
-    int i, t;
+    int i, x, addr;         /* t BUKAN variabel: slot bp+0 itu sementara-kompiler */
 
     if (sel == -1) {
-        t = nmech;
-        cur = t / 2;
-        lo = t / 2 - 4;
+        cur = nmech / 2;    /* nmech TIDAK ditampung: asli langsung idiv */
+        lo = nmech / 2 - 4;
         hi = cur + 4;
     }
     else {
@@ -31,11 +30,17 @@ int sel, base;
         hi = sel + 4;
     }
     for (i = 0; i < 9; i++) {
-        t = lo + i;
-        if (t >= 0 && t < nmech)
-            blit(base + spr[t] * 0xc0, 0xa8, 0x110 - i * 0x20, 0x18, 0x20);
-        else
-            fillrect(0x110 - i * 0x20, 0xa8, 0x12f - i * 0x20, 0xbf, 0);
+        if (lo + i >= 0 && lo + i < nmech) {
+            addr = base + spr[lo + i] * 0xc0;   /* lo+i DIHITUNG ULANG di sini,
+                                                   bukan dipakai dari penampung */
+            blit(addr, 0xa8, 0x110 - i * 0x20, 0x18, 0x20);
+        }
+        else {
+            x = 0x110 - i * 0x20;          /* x DITAMPUNG lalu dipakai lagi
+                                              sebagai "x + 0x1f" -- bukan
+                                              dihitung ulang jadi 0x12f - i*32 */
+            fillrect(x, 0xa8, x + 0x1f, 0xbf, 0);
+        }
     }
 }
 
