@@ -32,43 +32,49 @@ int   s1, s2;
     /* EMPAT lokal di biner (bp+2, 8, 0ah, 0eh): hasil shuffle dan rnd
        DITAMPUNG dulu, bukan langsung dipakai. Urutan di biner:
        busy=0; u=shuffle(); busy=1; i=0; nmech=u; */
-    int u, i, j, t;
+    /* i@bp+8, j@bp+0ah, found@bp+0eh. Hasil shuffle() TIDAK ditampung lokal:
+       biner langsung "a3 [nmech]" tanpa store perantara. */
+    char pad[2];        /* satu slot lagi: array selalu dialokasikan */
+    int i, j, t, found;
 
     busy = 0;
-    u = shuffle(c, s1, tq, n, s2);
+    nmech = shuffle(c, s1, tq, n, s2);
     busy = 1;
     i = 0;
-    nmech = u;
-    for (;;) {
-        if (n <= i) {
-            place(a, b, c, d, e, n, ans, flag);
-            return;
-        }
+    /* "while (i < n)" dgn place() DI LUAR loop (pola sama spt autofill). */
+    while (i < n) {
         if (lvl3 == 3 && mark[i] != 0) {
             t = rnd(nmech);
             tt[i] = b[t * 0xc];
         }
         else
             tt[i] = tq[i * 3 + 2];
+        found = 0;
         for (j = 0; j < nmech; j++) {
             if (b[tr[j] * 0xc] == tt[i]) {
                 ts[i] = j;
                 ans[i] = tr[j];
                 flag[i] = -1;
+                found = 1;
                 break;
             }
         }
         i = i + 1;
     }
+    place(a, b, c, d, e, n, ans, flag);
 }
 
-/* ⏳ BELUM COCOK — 297 byte vs 307 (10 KURANG). Perjalanan: 294 -> 297.
- * SUDAH TERBUKTI: biner punya EMPAT lokal (bp+2, 8, 0ah, 0eh) -- hasil
- * shuffle() dan rnd() DITAMPUNG variabel dulu, dan urutannya
- * "busy=0; u=shuffle(); busy=1; i=0; nmech=u;".
- * SISA: masih 10 byte kurang; slot bp+4/6/0ch/10h di biner kemungkinan temp,
- * tapi jumlah temp kita masih lebih sedikit. Langkah berikut: kejar divergensi
- * pertama (sekarang sudah lewat prolog) untuk menemukan ekspresi yang di biner
- * lebih panjang -- kandidat: akses "b[tr[j]*0xc] == tt[i]" yang mungkin
- * memakai bentuk penunjuk/struct, bukan indeks langsung.
+
+/* ⏳ BELUM COCOK — 304 byte vs 307, bingkai 10h vs 12h (kurang satu slot).
+ * Perjalanan: 294 -> 297 -> 305 -> 304.
+ * SUDAH TERBUKTI dari disassembly:
+ *   - ada bendera `found`: biner me-nol-kan DUA lokal bersamaan di 1533
+ *     ("xor ax,ax; mov [bp+0ah],ax; mov [bp+0eh],ax")
+ *   - hasil shuffle() TIDAK ditampung lokal (langsung "a3 [nmech]")
+ *   - loop berbentuk "while (i < n)" dgn place() DI LUAR loop
+ *   - slot: i@bp+8, j@bp+0ah, found@bp+0eh, dan satu lagi di bp+2
+ * SUDAH DICOBA & GAGAL: "char pad[2]" untuk memaksa slot tambahan (tak berubah).
+ * Langkah berikut: cari tahu variabel apa yang menempati bp+2 -- karena i@bp+8
+ * berarti ada TIGA slot sebelum i (bp+2,4,6), jadi urutan deklarasi kita masih
+ * salah, bukan cuma jumlahnya.
  */
