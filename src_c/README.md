@@ -79,6 +79,37 @@ tiap siklus memberi satu fakta: (1) koordinat x ditampung lokal lalu dipakai `x+
 (2) `nmech` tidak ditampung, (3) `lo+i` DIHITUNG ULANG di dalam cabang, slotnya cuma
 sementara-kompiler. `timedrw` menyusul dua siklus: return awal, lalu urutan penunjuk.
 
+## ⭐ RUMUS UKURAN BINGKAI (diturunkan lewat probe terkendali)
+
+```
+sub sp = 2 × (jumlah lokal) + 2 × (temp maksimum yang dibutuhkan ekspresi)
+```
+
+Diukur dengan `probes/probe5.c` (tiap faktor divariasikan satu per satu):
+
+| bentuk | bingkai | catatan |
+|---|---|---|
+| tanpa lokal, hanya panggilan | **tak ada** | `ff(1,2,3)` tidak memesan bingkai sama sekali |
+| tanpa lokal, `g = h + k` | 2 | satu temp |
+| tanpa lokal, `(h+k)*(h-k)` | 4 | **dua** temp |
+| tanpa lokal, `199-(h+(k*g)/3)` | 2 | satu temp — pola moveball |
+| 1 lokal terpakai | 2 | |
+| 1 lokal TIDAK terpakai | 2 | lokal tak terpakai TETAP dialokasikan |
+| 2 lokal + `g = x + y` | 6 | 4 lokal + 2 temp |
+| `x = ff(); g = x;` | 4 | 1 lokal + 1 temp |
+| `g = ff() + 1;` | 2 | tanpa lokal |
+
+**Cara pakai saat bingkai meleset:** selisihnya selalu kelipatan 2. Kalau kita
+KELEBIHAN satu slot, biasanya ada satu pernyataan yang menuntut dua temp — cari
+ekspresi yang menghitung dua nilai hidup sekaligus, dan ubah jadi bentuk yang
+memakai kembali hasil sebelumnya.
+
+**Penugasan bersarang** adalah alat utamanya. `balltop = 199 - (ballx = expr);`
+menahan nilai di register (store ke `ballx` ditunda) sehingga hanya butuh SATU
+temp, sementara menulisnya sebagai dua pernyataan terpisah memaksa baca-ulang
+dari memori, dan menghitung ulang ekspresinya memaksa temp kedua. Inilah yang
+akhirnya menutup `moveball` setelah sepuluh percobaan gagal.
+
 ## Teknik: pakai PROBE, jangan iterasi fungsi penuh
 
 Saat sebuah fungsi tidak cocok, JANGAN menebak lalu mengompilasi ulang fungsi utuh.

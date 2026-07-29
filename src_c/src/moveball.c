@@ -26,19 +26,20 @@ int a, x1, y1, x2, y2, n, d;
     dx = x2 - x1;       /* selisih dihitung SEKALI sebelum loop */
     dy = y2 - y1;
     for (i = 1; i < n; i++) {
-        balltop = 199 - (x1 + (dx * i) / n);
-        bally = y1 + (dy * i) / n;
-        ballx = x1 + (dx * i) / n;
-        ballrow = bally / 4;
+        /* PENUGASAN BERSARANG: nilai hasil penugasan tetap di register, jadi
+           balltop memakainya tanpa membaca ulang dari memori, dan store ke
+           ballx ditunda -- persis pola CX/BX di biner. */
+        balltop = 199 - (ballx = x1 + (dx * i) / n);
+        ballrow = (bally = y1 + (dy * i) / n) / 4;
         drawball(d);
     }
     ballx = x2;
+    balltop = 199 - x2;   /* dihitung SEBELUM membaca y2 (pola sama spt setball) */
     bally = y2;
-    balltop = 199 - x2;
     ballrow = y2 / 4;
     drawball(d);
+    sndptr = sndnull;   /* penunjuk dulu (aturan 8d) */
     sndmode = 0;
-    sndptr = sndnull;
 }
 
 /* ⏳ BELUM COCOK — versi ini PANJANGNYA TEPAT 163 dan strukturnya IDENTIK.
