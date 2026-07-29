@@ -14,7 +14,20 @@ extern int nmech;           /* @0x3ac */
 extern int fail[];          /* @0x7be -- array int biasa: fail[i] -> [si+7beh] */          /* @0x7be */
 
 autofill(a, b, c, d, e, n, ans, flag, tq, tr, ts, tt)
-int a, b, c, d, e, n, ans, flag, tq, tr, ts, tt;
+int   a;
+char *b;                 /* diindeks langsung b[...]: bentuk *(char *)(b + ...)
+                            memaksa perhitungan lewat CX lalu disalin ke SI */
+int   c, d, e, n;
+int  *ans;               /* diindeks [i] -> kompiler memakai ULANG indeks i*2
+                            yang sudah dihitung untuk fail[i]; bentuk
+                            *(int *)(ans + i*2) memaksanya menghitung ulang */
+int  *flag;
+int  *tq;                /* diindeks [i*3+2]: biner menghitung i*3 lalu
+                            digeser (x2) lalu +4 -- itu ciri indeks INT, bukan
+                            aritmetika byte i*6+4 */
+char *tr;                /* array byte */
+int  *ts;
+int  *tt;
 {
     /* Peta slot dari disassembly (bingkai 14h): i@8, j@0ah, found@0eh, any@12h.
        bp+0 dan bp+2 adalah TEMP kompiler (salah satunya menahan i*2 yang
@@ -28,24 +41,24 @@ int a, b, c, d, e, n, ans, flag, tq, tr, ts, tt;
     while (i < n) {          /* uji "i < n" dgn i di AX (mov ax,[i]; cmp ax,[n]),
                                 bukan "n <= i" -- dan place() ada DI LUAR loop */
         if (fail[i] >= 2) {      /* uji ">= 2" (cmp ..,2), bukan "> 1" */
-            *(int *)(tt + i * 2) = *(int *)(tq + i * 6 + 4);
+            tt[i] = tq[i * 3 + 2];
             found = 0;
             for (j = 0; j < nmech; j++) {
-                if (*(char *)(b + *(char *)(j + tr) * 0xc) == *(int *)(tt + i * 2)) {
-                    *(int *)(ts + i * 2) = j;
-                    *(int *)(ans + i * 2) = *(char *)(tr + j);
-                    *(int *)(flag + i * 2) = -1;
+                if (b[tr[j] * 0xc] == tt[i]) {
+                    ts[i] = j;
+                    ans[i] = tr[j];
+                    flag[i] = -1;
+                    found = 1;   /* urutan sumber terbalik dari urutan store */
                     any = 1;
-                    found = 1;
                     break;
                 }
             }
             if (found == 0)
-                err(0x1ede, *(int *)(tt + i * 2), i * 2);
+                err(0x1ede, tt[i]);   /* DUA argumen -- Ghidra menampilkan tiga */
         }
         i = i + 1;
     }
-    if (any)
+    if (any == 1)      /* cmp any,1 / jne -- bukan uji nol */
         place(a, b, c, d, e, n, ans, flag);
 }
 
