@@ -5,7 +5,10 @@
 Creative-Contraptions/
 _ORIGINAL_READONLY/
 Creative-Contraptions_DOS_EN.zip
-work/unpack/
+# biner ter-unpack = turunan langsung dari EXE game -> ikut dikecualikan,
+# TAPI konfigurasi UNP-nya disimpan supaya proses unpack bisa diulang.
+work/unpack/*
+!work/unpack/unp.conf
 
 # salinan berkas game yang menumpang di work/
 work/ANIMATE
