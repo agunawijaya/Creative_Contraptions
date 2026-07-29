@@ -31,19 +31,26 @@ if (-not $files) { throw "Tidak ada berkas .c yang cocok." }
 foreach ($f in $files) { Copy-Item $f.FullName "$dos\$($f.BaseName).C" -Force }
 Get-ChildItem "$dos\*.OBJ","$dos\build.log" -ErrorAction SilentlyContinue | Remove-Item -Force
 
-$lines = @("mount x ""$dos""", "mount y ""$bin""", "x:")
-foreach ($f in $files) {
-    $n = $f.BaseName
-    $lines += "echo === $n === >> x:\build.log"
-    $lines += "y:\MC1 $n >> x:\build.log"
-    $lines += "y:\MC2 $n >> x:\build.log"
+# PENTING: [autoexec] DOSBox punya batas jumlah baris. Dengan ~38 berkas
+# (3 baris masing-masing) batas itu terlampaui: kompilernya tetap jalan dan
+# log tetap terisi, TAPI tidak satu pun .OBJ tertulis -- gagal diam-diam.
+# Karena itu build dipecah jadi kelompok kecil, satu sesi DOSBox per kelompok.
+$chunk = 10
+for ($s = 0; $s -lt $files.Count; $s += $chunk) {
+    $grp = $files[$s..([Math]::Min($s + $chunk - 1, $files.Count - 1))]
+    $lines = @("mount x ""$dos""", "mount y ""$bin""", "x:")
+    foreach ($f in $grp) {
+        $n = $f.BaseName
+        $lines += "echo === $n === >> x:\build.log"
+        $lines += "y:\MC1 $n >> x:\build.log"
+        $lines += "y:\MC2 $n >> x:\build.log"
+    }
+    $lines += "exit"
+    $conf = "[dosbox]`nmachine=cga`n[cpu]`ncputype=386`ncycles=fixed 30000`n[autoexec]`n" + ($lines -join "`n")
+    Set-Content "$root\src_c\build\_all.conf" -Value $conf -Encoding ASCII
+    Start-Process "$root\tools\dosbox-x\bin\x64\Release\dosbox-x.exe" `
+        -ArgumentList '-conf',"$root\src_c\build\_all.conf" -WindowStyle Minimized -Wait
 }
-$lines += "exit"
-
-$conf = "[dosbox]`nmachine=cga`n[cpu]`ncputype=386`ncycles=fixed 30000`n[autoexec]`n" + ($lines -join "`n")
-Set-Content "$root\src_c\build\_all.conf" -Value $conf -Encoding ASCII
-Start-Process "$root\tools\dosbox-x\bin\x64\Release\dosbox-x.exe" `
-    -ArgumentList '-conf',"$root\src_c\build\_all.conf" -WindowStyle Minimized -Wait
 
 if (Test-Path "$dos\build.log") { Copy-Item "$dos\build.log" "$out\build.log" -Force }
 $ok = 0

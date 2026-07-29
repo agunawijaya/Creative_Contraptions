@@ -38,3 +38,4 @@ getkey     1814  199
 prompts    2b77  410
 pickpart   131a  387
 drawslot   3f0f  250
+pickloop   2e90  334
