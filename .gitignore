@@ -1,0 +1,27 @@
+# ── Perkakas pihak ketiga (~2,1 GB) ────────────────────────────────────────
+# DOSBox-X, Ghidra, JDK, UNP. Diunduh sendiri, bukan bagian dari proyek.
+tools/
+
+# ── Cache Python ───────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+
+# ── Proyek Ghidra (bisa dibangun ulang dari work/unpack/CONTRAP_UNPACKED.EXE) ──
+work/ghidra_proj/
+
+# ── Frame mentah hasil capture emulator ────────────────────────────────────
+# ~16 MB / 3.600 file, semuanya BISA DIBUAT ULANG lewat:
+#   VARIANT=n VCAP=1 python work/emu.py <goal> <mode>
+# Hasil akhirnya sudah dipak ke port/cc/anim/*.dat yang IKUT diversikan.
+work/vframes*/
+work/frames/
+work/playframes/
+work/caps/
+work/caps_goals/
+
+# ── Dump aset hasil decode (bisa dibuat ulang dari GRAPH/MECHS/MISC) ───────
+work/assets/
+
+# ── Sementara ──────────────────────────────────────────────────────────────
+*.tmp
+*.log
