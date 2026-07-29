@@ -15,13 +15,16 @@ int   all;
 char *tab;
 int   n;
 {
-    int idx, cnt, id, t, ok, unused;   /* slot ke-7: bingkai asli 10h */
-    char *p;            /* SALINAN lokal dari parameter rec (slot bp+0ch) */
+    int idx, cnt, id, t, ok;
+    char *p;            /* slot bp+0ch: SETELAH lima int, sebelum slot terakhir */
+    int unused;         /* slot ke-7 (bp+0eh); bingkai asli 10h */
 
     p = rec;
-    cnt = fopen_(fh, 0, 0, 0) + 1;   /* hasil TIDAK ditampung variabel antara:
-                                        biner langsung "inc ax; jnz" */
-    if (cnt == 0) {
+    /* Hasil fopen_ TIDAK disimpan ke mana pun -- hanya diuji ("inc ax; jne").
+       Ghidra menampilkannya sebagai "local_a = iVar3 + 1" tetapi di biner tidak
+       ada store sama sekali; `cnt` hanya dipakai sebagai pencacah loop dalam,
+       dan itulah yang dikembalikan saat idx melewati batas. */
+    if (fopen_(fh, 0, 0, 0) + 1 == 0) {
         err(0x1e52);
         return -1;
     }

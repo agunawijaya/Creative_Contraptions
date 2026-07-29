@@ -11,6 +11,8 @@
 
 extern int ticks;           /* @0x2e4 */
 extern int page;            /* @0x2e0 */
+extern char pbufA[];        /* buffer halaman @0x26c */
+extern char pbufB[];        /* buffer halaman @0x284 */
 extern int page2;           /* @0x2e2 */
 extern int balltop;         /* @0x25c */
 extern int bally;           /* @0x25e */
@@ -30,13 +32,17 @@ int n;
         ticks = n;
     }
     xform();
-    if (page == 0x26c) {
-        page = 0x284;
-        page2 = 0x26c;
+    /* 0x26c/0x284 adalah ALAMAT buffer halaman, bukan angka biasa. Alamat
+       relokatabel WAJIB lewat register ("mov ax,OFFSET x"), itulah sebabnya
+       biner memuat kedua nilai ke AX/BX dulu baru menyimpan -- bukan
+       store-immediate. Tipe page/page2 tetap int, jadi dipakai cast. */
+    if (page == (int) pbufA) {
+        page = (int) pbufB;
+        page2 = (int) pbufA;
     }
     else {
-        page = 0x26c;
-        page2 = 0x284;
+        page = (int) pbufA;
+        page2 = (int) pbufB;
     }
     prevtop = balltop;
     prevrow = ballrow;
@@ -45,12 +51,3 @@ int n;
 }
 
 
-/* ⏳ BELUM COCOK — 97 byte vs 102 (5 KURANG).
- * Asli memuat KEDUA konstanta ke register dulu lalu menyimpan:
- *     b8 6c 02 / 8b 1e [page] / 3b d8   (banding)
- *     b8 84 02 / bb 6c 02 / a3 [page] / 89 1e [page2]   (simpan)
- * Kita selalu dapat store-immediate (c7 06 .. / 81 3e ..).
- * SUDAH DICOBA & GAGAL: konstanta di kiri (0x26c == page) -> 97;
- * menukar urutan page/page2 -> 97; page/page2 sbg PENUNJUK ke buffer
- * beralamat 0x26c/0x284 -> 84 (terlalu pendek).
- */
