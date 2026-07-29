@@ -26,3 +26,5 @@ drawrect   4009  139
 unrle      666a  147
 revdet     3020  155
 drawtab    3769  177
+xform      5e3b  107
+moveball   29b0  163

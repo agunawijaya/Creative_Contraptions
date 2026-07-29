@@ -110,6 +110,10 @@ varian mana yang benar, dan percobaan berikutnya langsung cocok.
 8h. **Jangan memberi nama lokal untuk nilai yang cukup hidup di register.** Kalau
    `sub sp,N` lebih besar dari aslinya, kemungkinan besar ada lokal yang tidak
    seharusnya ada (contoh: `timebar` — semuanya cukup di AX/BX).
+8i. **Basis bingkai TIDAK selalu 2.** Rumusnya `sub sp = basis + 2×jumlah_lokal`,
+   tapi basisnya berbeda antar fungsi (delay: 2, xform: 4). Cara pakai: kompilasi
+   sekali, lihat selisih `sub sp` kita vs asli, lalu tambah/kurangi jumlah lokal
+   sebanyak selisih/2. Jangan mencoba menghitungnya dari teori.
 9. **Urutan deklarasi lokal menentukan tata letak bingkai.** Ukuran bingkai =
    `2 + 2×jumlah_lokal`, dan variabel dialokasikan sesuai urutan deklarasi
    (deklarasi pertama di `bp+2`). Kalau ukuran `sub sp,N` tidak cocok, jumlah atau
