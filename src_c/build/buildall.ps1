@@ -15,6 +15,13 @@ $bin  = "$root\tools\msc104\bin"
 $out  = "$root\src_c\out"
 New-Item -ItemType Directory -Force -Path $dos, $out | Out-Null
 
+# Lint dulu: komentar blok yang MENELAN baris kode sudah tiga kali (keyhit,
+# unrle, autofill) membuat kode tidak ikut terkompilasi -- dan hasilnya salah
+# dibaca sebagai "hipotesis saya keliru". Sekarang dijegal sebelum build.
+$lint = Join-Path $PSScriptRoot "..\verify\lintsrc.py"
+python $lint
+if ($LASTEXITCODE -ne 0) { throw "lintsrc gagal -- perbaiki dulu sebelum build." }
+
 $files = Get-ChildItem "$root\src_c\src\*.c" | Where-Object {
     $n = $_.BaseName
     (-not $Only -or $Only -contains $n) -and $n.Length -le 8

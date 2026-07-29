@@ -11,18 +11,23 @@
  */
 
 extern int nmech;           /* @0x3ac */
-extern int fail[];          /* @0x7be */
+extern int fail[];          /* @0x7be -- array int biasa: fail[i] -> [si+7beh] */          /* @0x7be */
 
 autofill(a, b, c, d, e, n, ans, flag, tq, tr, ts, tt)
 int a, b, c, d, e, n, ans, flag, tq, tr, ts, tt;
 {
-    int i, j, found, any;
+    /* Peta slot dari disassembly (bingkai 14h): i@8, j@0ah, found@0eh, any@12h.
+       bp+0 dan bp+2 adalah TEMP kompiler (salah satunya menahan i*2 yang
+       dipakai ulang sebagai indeks beberapa tabel) -- bukan variabel sumber. */
+    int i, j, pad3, found, pad4, any;
 
-    i = 0;
+    /* Urutan sengaja TERBALIK: kompiler memancarkan store dalam urutan
+       kebalikan sumber, jadi tulis any dulu untuk mendapat store i lalu any. */
     any = 0;
+    i = 0;
     while (i < n) {          /* uji "i < n" dgn i di AX (mov ax,[i]; cmp ax,[n]),
                                 bukan "n <= i" -- dan place() ada DI LUAR loop */
-        if (fail[i] > 1) {
+        if (fail[i] >= 2) {      /* uji ">= 2" (cmp ..,2), bukan "> 1" */
             *(int *)(tt + i * 2) = *(int *)(tq + i * 6 + 4);
             found = 0;
             for (j = 0; j < nmech; j++) {
@@ -53,4 +58,17 @@ int a, b, c, d, e, n, ans, flag, tq, tr, ts, tt;
  * bp+2 yang belum teridentifikasi, dan jarak found->any dua slot, bukan satu.
  * Langkah berikutnya: telusuri pemakaian bp+2 dan bp+0ah di disassembly untuk
  * menentukan variabel apa yang menempatinya, jangan menambah lokal asal-asalan.
+ */
+
+/* ⏳ BELUM COCOK — 271 byte vs 263. Yang SUDAH terbukti benar:
+ *   - bentuk loop "while (i < n)" dgn place() DI LUAR loop
+ *   - slot i@bp+8, j@bp+0ah, found@bp+0eh, any@bp+12h (bingkai 14h)
+ *   - fail[] adalah array INT biasa: "fail[i]" -> cmp [si+7beh],2
+ *   - ujinya ">= 2" (cmp ..,2), bukan "> 1"
+ *   - bp+0/bp+2 = TEMP kompiler (salah satunya menahan i*2 yang dipakai ulang),
+ *     BUKAN variabel sumber -- menuliskannya sbg variabel k2 menghasilkan
+ *     "add ax,imm" alih-alih bentuk displacement "[si+7beh]"
+ * Sisa: 8 byte kelebihan, dan urutan store awal (kita any lalu i; asli i lalu
+ * any) belum stabil. Langkah berikut: kejar divergensi pertama lagi setelah
+ * urutan store awal dibetulkan.
  */
