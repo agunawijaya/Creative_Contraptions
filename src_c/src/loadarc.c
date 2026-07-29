@@ -23,7 +23,9 @@ loadarc(fh, rec, all, tab, n)
 int   fh;
 char *rec;
 int   all;
-char *tab;
+int  *tab;               /* diindeks [j*3+2], bukan aritmetika alamat:
+                            bentuk indeks membuat kompiler memakai ULANG
+                            skala indeks alih-alih menghitung ulang */
 int   n;
 {
     int idx, id, j, ok;      /* idx@bp+4, id@bp+6, j@bp+8, ok@bp+0ah */
@@ -50,8 +52,7 @@ int   n;
             ok = 0;
             for (j = 0; j < n; j++) {
                 m = id & 0x7f;
-                if (m == *(int *)(tab + j * 6 + 4) ||
-                    id == *(int *)(tab + j * 6 + 4)) {
+                if (m == tab[j * 3 + 2] || id == tab[j * 3 + 2]) {
                     ok = 1;
                     break;
                 }
@@ -68,18 +69,15 @@ int   n;
     }
 }
 
-/* ⏳ BELUM COCOK — 228 byte vs 226 (2 KELEBIHAN). BINGKAI SUDAH TEPAT (10h).
- * Perjalanan: 232 -> 223 -> 228. Tata letak slot kini terbukti benar:
- *   bp+0,bp+2 temp | idx@4 | id@6 | j@8 | ok@0ah | p@0ch | m@0eh
- * (m = id & 0x7f, disimpan SETELAH dipakai membandingkan -- store ditunda)
- *
- * Satu-satunya beda tersisa ada di tiga argumen 0 pada fopen_:
- *   asli: xor bx,bx/push bx ; xor bx,bx/push bx ; xor cx,cx/push cx   (9 byte)
- *   kita: xor bx,bx ; push bx ; push bx ; push bx                     (5 byte)
- * Biner me-nol-kan register ULANG tiap argumen dan memakai CX untuk yang
- * ketiga; kita memakai ulang satu register. Karena di sini kita 4 byte lebih
- * PENDEK padahal totalnya 2 byte lebih PANJANG, ada ~6 byte kelebihan di
- * tempat lain yang tertutup oleh divergensi ini.
- * Belum dicoba: menuliskan salah satu argumen 0 dengan tipe berbeda
- * (mis. (char *)0) supaya kompiler tidak memakai ulang register.
+/* ⏳ BELUM COCOK — 228 byte vs 226. Bingkai & peta slot SUDAH BENAR.
+ * Dua beda yang tersisa:
+ *  1. tiga argumen 0 pada fopen_: asli me-nol-kan register ULANG tiap argumen
+ *     (xor bx/push, xor bx/push, xor cx/push = 9 byte), kita memakai ulang satu
+ *     register (xor bx sekali, push tiga kali = 5 byte). Di sini kita 4 byte
+ *     lebih PENDEK.
+ *  2. cabang "idx > 0x77" -> asli melompat ke keluar bersama (e9 9e 00),
+ *     kita memancarkan epilog di tempat (83 c4 10 5d c3).
+ * SUDAH DICOBA & GAGAL: menjadikan 0x77 sebagai kondisi while -> 231 byte.
+ * Karena (1) membuat kita lebih pendek tapi total lebih panjang, ada ~6 byte
+ * kelebihan lain yang tertutup oleh divergensi pertama.
  */
