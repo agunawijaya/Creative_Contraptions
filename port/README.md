@@ -3,9 +3,27 @@
 Port modern dari game DOS 1985, dibangun di atas hasil reverse-engineering
 (lihat `../CODE_MAP.md`, `../ARCHITECTURE.md`).
 
+## Aset: sekali impor, lalu mandiri
+Port **tidak** membaca folder game asli saat dijalankan. Sekali saja:
+
+```
+python port/import_assets.py                 # cari folder game otomatis
+python port/import_assets.py <folder_game>   # atau tunjuk manual
+python port/import_assets.py --check         # periksa bundel
+```
+
+Skrip itu menyalin 4 berkas yang benar-benar dipakai (`GRAPH`, `MECHS`, `ANIMATE`,
+`CONTRAP`) ke `port/cc/data/`. Setelah itu **folder `port/` berdiri sendiri** — folder game
+asli boleh dipindah, di-rename, atau dihapus. `run_port.bat` menjalankan impor ini otomatis
+kalau bundelnya belum ada.
+
+`port/cc/data/` **tidak ikut ke git** — repo berisi kode, bukan berkas game. Pengguna
+menyediakan salinan game miliknya sendiri.
+
 ## Prinsip
-- **Baca aset ASLI saat runtime** (GRAPH/MECHS/MISC/ANIMATE/CONTRAP) — tanpa re-encode,
-  jadi grafis setia *by construction*.
+- **Baca aset ASLI saat runtime** (GRAPH/MECHS/ANIMATE/CONTRAP) — tanpa re-encode,
+  jadi grafis setia *by construction*. Bundel di atas adalah salinan mentah, bukan
+  konversi, supaya prinsip ini tetap berlaku.
 - **Framebuffer CGA 320×200** internal (sumber kebenaran) → tampil dengan
   **integer-nearest scaling** + DPI-aware (tajam, tidak berantakan; lihat diskusi scaling).
 - **Komposisi dari data** — posisi tiap komponen `(x,y,tipe)` dibaca dari file CONTRAP,

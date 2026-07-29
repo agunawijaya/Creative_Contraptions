@@ -28,6 +28,21 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM -- bundel aset: dibuat sekali, sesudah itu port tidak butuh folder game asli --
+if not exist "%~dp0port\cc\data\GRAPH" (
+    echo Bundel aset belum ada, membuat sekali jalan...
+    %PY% "%~dp0port\import_assets.py"
+    if errorlevel 1 (
+        echo.
+        echo [GAGAL] Bundel aset tidak bisa dibuat.
+        echo         Tunjuk folder game asli secara manual:
+        echo             %PY% port\import_assets.py ^<folder_game^>
+        pause
+        exit /b 1
+    )
+    echo.
+)
+
 echo Menjalankan PORT Python...
 %PY% "%~dp0port\main.py" %*
 if errorlevel 1 pause

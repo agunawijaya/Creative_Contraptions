@@ -107,11 +107,28 @@ def parse_contrap(path):
     return goals
 
 
+_NEEDED = ("GRAPH", "MECHS", "ANIMATE", "CONTRAP")
+
+
 def find_data_dir():
-    """Cari folder berisi file aset asli."""
+    """Folder aset yang dipakai port.
+
+    URUTAN SENGAJA: bundel milik port (`cc/data/`) DULU, baru folder game asli.
+    Begitu bundel ada, port MANDIRI — folder game boleh dipindah/di-rename/dihapus.
+    Isi bundel dibuat oleh `python port/import_assets.py` dan tidak ikut ke git.
+    """
     here = os.path.dirname(__file__)
+    bundle = os.path.abspath(os.path.join(here, "data"))
+    if all(os.path.exists(os.path.join(bundle, n)) for n in _NEEDED):
+        return bundle
+
+    # Cadangan: folder game asli di dalam repo kerja (mode pengembangan).
     for cand in ("_ORIGINAL_READONLY", "Creative-Contraptions", "work"):
         d = os.path.abspath(os.path.join(here, "..", "..", cand))
-        if os.path.exists(os.path.join(d, "GRAPH")):
+        if all(os.path.exists(os.path.join(d, n)) for n in _NEEDED):
             return d
-    raise FileNotFoundError("Folder aset (berisi GRAPH) tak ditemukan")
+
+    raise FileNotFoundError(
+        "Aset tidak ditemukan.\n"
+        "  Jalankan dulu:  python port/import_assets.py <folder_game_asli>\n"
+        "  Folder itu harus berisi: " + ", ".join(_NEEDED))

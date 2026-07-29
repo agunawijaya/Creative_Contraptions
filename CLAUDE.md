@@ -62,8 +62,11 @@ Catatan: bagian "Belum" di `port/README.md` **sudah basi** — percayai `CODE_MA
 
 ```
 run_original.bat               # GAME ASLI di DOSBox-X, scaler 5x -> 1600x1200
-run_port.bat                   # HASIL PORT (Python/pygame)
+run_port.bat                   # HASIL PORT (impor aset otomatis kalau belum ada)
+python port/import_assets.py   # bikin bundel aset port/cc/data/ (sekali saja)
 ```
+**Port MANDIRI**: `find_data_dir()` memakai `port/cc/data/` lebih dulu, folder game asli
+hanya cadangan saat pengembangan. Bundel di-.gitignore — repo tidak mendistribusikan game.
 ⚠️ Build DOSBox-X di `tools/` **mengabaikan opsi `-c`** — perintah mount HARUS lewat
 `[autoexec]`. `run_original.bat` menyalin `run_original.conf` ke `%TEMP%` lalu menambahkan
 `[autoexec]` berisi path dari `%~dp0` (jadi kebal rename folder).
