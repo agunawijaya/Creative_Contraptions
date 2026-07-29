@@ -26,9 +26,9 @@ int   all;
 char *tab;
 int   n;
 {
-    int id, idx, j, ok;      /* slot: id@bp+2, idx@bp+4, j@bp+8, ok@bp+0ah */
+    int idx, id, j, ok;      /* idx@bp+4, id@bp+6, j@bp+8, ok@bp+0ah */
     char *p;                 /* p@bp+0ch */
-    int cnt;                 /* cnt@bp+0eh */
+    int m;                   /* m@bp+0eh = id & 0x7f (nilai ter-mask) */
 
     p = rec;
     if (fopen_(fh, 0, 0, 0) + 1 == 0) {
@@ -38,7 +38,7 @@ int   n;
     idx = 0;
     for (;;) {
         if (idx > 0x77)
-            return cnt;
+            return m;
         if (fread_(fh, rec, 0xc) != 0xc) {
             err(0x1e63);
             return -1;
@@ -49,8 +49,9 @@ int   n;
         if (all == 0) {
             ok = 0;
             for (j = 0; j < n; j++) {
-                cnt = *(int *)(tab + j * 6 + 4);
-                if ((id & 0x7f) == cnt || id == cnt) {
+                m = id & 0x7f;
+                if (m == *(int *)(tab + j * 6 + 4) ||
+                    id == *(int *)(tab + j * 6 + 4)) {
                     ok = 1;
                     break;
                 }
@@ -58,7 +59,7 @@ int   n;
         }
         else {
             ok = 1;
-            cnt = id;
+            m = id;
         }
         if (ok == 1) {
             rec = rec + 0xc;
@@ -67,14 +68,18 @@ int   n;
     }
 }
 
-/* ⏳ BELUM COCOK — 223 byte vs 226 (3 KURANG), bingkai 0eh vs 10h.
- * Struktur & tata letak slot lain sudah cocok. Kurang SATU slot: biner memakai
- * bp+6 untuk sesuatu yang belum teridentifikasi (variabel ke-7).
- * Menambahkan lokal yang tidak dipakai TIDAK menolong di sini -- kompiler
- * membuangnya (berbeda dgn probe5/a4 di mana lokal tak-terpakai dialokasikan;
- * agaknya hanya dialokasikan kalau ia satu-satunya lokal).
- * Beda kedua yang tersisa: tiga argumen 0 pada fopen_ -- biner me-nol-kan
- * register ULANG tiap argumen (xor bx/push, xor bx/push, xor cx/push),
- * punya kita memakai ulang satu register (xor bx sekali, push tiga kali).
- * Kedua hal ini kemungkinan satu sebab: tekanan register akibat slot ke-7.
+/* ⏳ BELUM COCOK — 228 byte vs 226 (2 KELEBIHAN). BINGKAI SUDAH TEPAT (10h).
+ * Perjalanan: 232 -> 223 -> 228. Tata letak slot kini terbukti benar:
+ *   bp+0,bp+2 temp | idx@4 | id@6 | j@8 | ok@0ah | p@0ch | m@0eh
+ * (m = id & 0x7f, disimpan SETELAH dipakai membandingkan -- store ditunda)
+ *
+ * Satu-satunya beda tersisa ada di tiga argumen 0 pada fopen_:
+ *   asli: xor bx,bx/push bx ; xor bx,bx/push bx ; xor cx,cx/push cx   (9 byte)
+ *   kita: xor bx,bx ; push bx ; push bx ; push bx                     (5 byte)
+ * Biner me-nol-kan register ULANG tiap argumen dan memakai CX untuk yang
+ * ketiga; kita memakai ulang satu register. Karena di sini kita 4 byte lebih
+ * PENDEK padahal totalnya 2 byte lebih PANJANG, ada ~6 byte kelebihan di
+ * tempat lain yang tertutup oleh divergensi ini.
+ * Belum dicoba: menuliskan salah satu argumen 0 dengan tipe berbeda
+ * (mis. (char *)0) supaya kompiler tidak memakai ulang register.
  */
