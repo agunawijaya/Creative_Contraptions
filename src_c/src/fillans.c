@@ -34,7 +34,6 @@ int   s1, s2;
        busy=0; u=shuffle(); busy=1; i=0; nmech=u; */
     /* i@bp+8, j@bp+0ah, found@bp+0eh. Hasil shuffle() TIDAK ditampung lokal:
        biner langsung "a3 [nmech]" tanpa store perantara. */
-    char pad[2];        /* satu slot lagi: array selalu dialokasikan */
     int i, j, t, found;
 
     busy = 0;
@@ -65,16 +64,24 @@ int   s1, s2;
 }
 
 
-/* ⏳ BELUM COCOK — 304 byte vs 307, bingkai 10h vs 12h (kurang satu slot).
+/* ⏳ BELUM COCOK — 304 byte vs 307 (3 KURANG), bingkai 10h vs 12h.
  * Perjalanan: 294 -> 297 -> 305 -> 304.
- * SUDAH TERBUKTI dari disassembly:
- *   - ada bendera `found`: biner me-nol-kan DUA lokal bersamaan di 1533
- *     ("xor ax,ax; mov [bp+0ah],ax; mov [bp+0eh],ax")
- *   - hasil shuffle() TIDAK ditampung lokal (langsung "a3 [nmech]")
- *   - loop berbentuk "while (i < n)" dgn place() DI LUAR loop
- *   - slot: i@bp+8, j@bp+0ah, found@bp+0eh, dan satu lagi di bp+2
- * SUDAH DICOBA & GAGAL: "char pad[2]" untuk memaksa slot tambahan (tak berubah).
- * Langkah berikut: cari tahu variabel apa yang menempati bp+2 -- karena i@bp+8
- * berarti ada TIGA slot sebelum i (bp+2,4,6), jadi urutan deklarasi kita masih
- * salah, bukan cuma jumlahnya.
+ *
+ * SUDAH TERBUKTI & JANGAN DIUBAH:
+ *   - bendera `found` ada (biner me-nol-kan dua lokal bersamaan @1533)
+ *   - hasil shuffle() TIDAK ditampung lokal
+ *   - loop "while (i < n)" dgn place() DI LUAR loop
+ *
+ * PETA SLOT ASLI (dari grep disassembly):
+ *   bp+0,2,4,6 = TEMP (bp+2 menahan i*2, disimpan @156d lalu dipakai ulang
+ *                untuk ts[i], ans[i], flag[i]; bp+4/6 tak pernah muncul)
+ *   bp+8 = i, bp+0ah = j, bp+0eh = found
+ * Jadi selisih 2 byte ada di jumlah TEMP (asli 4, kita 3), bukan lokal.
+ *
+ * SUDAH DICOBA & GAGAL: "char pad[2]" di awal maupun di akhir daftar lokal
+ * (kompiler membuangnya karena tak dipakai).
+ *
+ * Langkah berikut: biner memakai ULANG i*2 untuk tiga penugasan berturut
+ * (ts[i], ans[i], flag[i]); cari bentuk penulisan yang membuat kompiler
+ * memesan temp untuk indeks itu -- bukan menambah lokal.
  */
