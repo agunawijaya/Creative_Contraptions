@@ -90,6 +90,12 @@ Diukur dengan `probes/probe5.c` (tiap faktor divariasikan satu per satu):
 | `x = ff(); g = x;` | 4 | 1 lokal + 1 temp |
 | `g = ff() + 1;` | 2 | tanpa lokal |
 
+**Batas rumus (ditemukan belakangan):** lokal `int` yang TIDAK dipakai kadang
+dialokasikan (probe5/a4) dan kadang DIBUANG kompiler (askopts, loadarc) —
+tampaknya tergantung apakah fungsi itu juga butuh temp. Kalau butuh satu slot
+tambahan dan `int unused;` tidak menolong, pakai **array kecil** (`char pad[2];`)
+— array selalu dialokasikan. Itu yang menutup `askopts`.
+
 **Cara pakai saat bingkai meleset:** selisihnya selalu kelipatan 2. Kalau kita
 KELEBIHAN satu slot, biasanya ada satu pernyataan yang menuntut dua temp — cari
 ekspresi yang menghitung dua nilai hidup sekaligus, dan ubah jadi bentuk yang

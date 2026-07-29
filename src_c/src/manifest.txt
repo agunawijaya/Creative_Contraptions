@@ -33,3 +33,4 @@ timedrw    4c04  208
 loadarc    531d  226
 setupscr   1620  255
 autofill   5954  263
+askopts    31da  225
