@@ -30,17 +30,32 @@ int n;
         ticks = n;
     }
     xform();
-    if (0x26c == page) {   /* konstanta di KIRI: aslinya
-                              "mov ax,26ch; mov bx,[page]; cmp bx,ax" */
-        page = 0x284;
+    if (page == 0x26c) {
         page2 = 0x26c;
+        page = 0x284;
     }
     else {
-        page = 0x26c;
         page2 = 0x284;
+        page = 0x26c;
     }
     prevtop = balltop;
     prevrow = ballrow;
     prevy = bally;
     prevx = ballx;
 }
+
+/* ⏳ BELUM COCOK — 97 byte vs 102 (5 KURANG).
+ * Asli menaruh SEMUA konstanta halaman di register lebih dulu:
+ *     b8 6c 02   mov ax,26ch          <- untuk pembandingan
+ *     8b 1e ..   mov bx,[page]
+ *     3b d8      cmp bx,ax
+ *     b8 84 02   mov ax,284h          <- lalu nilai baru
+ *     bb 6c 02   mov bx,26ch
+ *     a3 ..      mov [page],ax
+ *     89 1e ..   mov [page2],bx
+ * Kita selalu dapat store-immediate langsung (c7 06 .. / 81 3e ..).
+ * SUDAH DICOBA & GAGAL: konstanta di kiri (0x26c == page), menukar urutan
+ * penugasan page/page2. Dugaan berikutnya: kedua nilai berasal dari variabel
+ * (mis. sepasang global atau elemen array) yang isinya 0x26c/0x284, bukan
+ * konstanta literal di sumber.
+ */
