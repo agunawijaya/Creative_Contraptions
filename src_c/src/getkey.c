@@ -25,7 +25,11 @@ getkey()
             while (avail() == 0)   /* hasil TIDAK ditampung: "test ax,ax; je" */
                 ;
             k = rdkey(0x100);
-            if (k == 0 || (k & 0xff) != 0 || k == 0x4b00 || k == 0x4d00 ||
+            if (k == 0)          /* diuji SENDIRI dulu: "test ax,ax; mov [k],ax;
+                                    je keluar" -- baru sisanya, supaya cuma satu
+                                    nilai hidup dan satu slot temp terpakai */
+                break;
+            if ((k & 0xff) != 0 || k == 0x4b00 || k == 0x4d00 ||
                 k == 0x4800 || k == 0x5000)
                 break;
             rdkey(0);
@@ -59,16 +63,19 @@ getkey()
     return d;
 }
 
-/* ⏳ BELUM COCOK — 223 byte vs 199 (24 KELEBIHAN), bingkai 8 vs 6.
- * SUDAH COCOK: pembukaan sampai +3, dan pola "while (avail() == 0);"
- * (hasil TIDAK ditampung variabel).
- * MASALAH: k jatuh di bp+6, aslinya bp+4 -> kita punya SATU slot temp lebih
- * banyak. Peta slot asli: c@bp+2 (char), d@bp+3 (char), k@bp+4 (int) --
- * dua char BERDAMPINGAN 1 byte.
- * SUDAH DICOBA & GAGAL: mengganti "char c, d;" dengan array "char cd[2]"
- * + #define -> tetap bingkai 8.
- * Dugaan: kondisi panjang "k == 0 || (k & 0xff) != 0 || k == 0x4b00 || ..."
- * menuntut dua temp. Aslinya: "test ax,ax; mov [k],ax; je keluar; and ax,0ffh"
- * -- yaitu k diuji nol DULU sebagai pernyataan terpisah, baru sisanya,
- * sehingga hanya satu nilai hidup. Coba pecah kondisinya jadi dua if.
+/* ⏳ BELUM COCOK — 218 byte vs 199, bingkai 8 vs 6.
+ * SUDAH COCOK & JANGAN DIUBAH:
+ *   - "while (avail() == 0);"  (hasil tidak ditampung)
+ *   - "if (k == 0) break;" diuji SENDIRI sebelum kondisi sisanya
+ *     (228 -> 223 -> 218)
+ * MASALAH TERSISA: satu slot temp berlebih -> k jatuh di bp+6, aslinya bp+4.
+ * Peta slot asli: c@bp+2 (char), d@bp+3 (char), k@bp+4 (int); dua char
+ * BERDAMPINGAN 1 byte, jadi kompiler memang mem-pack char.
+ * SUDAH DICOBA & GAGAL:
+ *   - array "char cd[2]" + #define        -> bingkai tetap 8
+ *   - memecah lagi kondisi kedua jadi dua -> 221 (lebih buruk)
+ * Divergensi pertama TIDAK bergerak dari +3 selama dua perbaikan terakhir,
+ * jadi masalahnya bukan di titik itu. Langkah berikut: telusuri di mana
+ * slot kedua temp dipakai (cari store/reload yang tidak ada di biner),
+ * bukan menebak bentuk kondisi lagi.
  */
