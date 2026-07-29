@@ -35,3 +35,4 @@ setupscr   1620  255
 autofill   5954  263
 askopts    31da  225
 getkey     1814  199
+prompts    2b77  410
