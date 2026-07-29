@@ -17,3 +17,5 @@ shuffle    2b34   67
 waitkey    58c9   72
 showhint   24bb   73
 timebar    4bb9   75
+drawbox    3886  131
+credits    312a  134
