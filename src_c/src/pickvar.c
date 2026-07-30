@@ -48,7 +48,9 @@ int  n, idx, flag;
        (bp+00..07). Kalau menambah kode lagi membuat sub sp > 52h,
        berarti ada ekspresi yang menuntut temp berlebih -- perbaiki
        ekspresinya, jangan tambah pengganjal. */
-    char f0[2];         /* 08h  tak dipakai di biner */
+    /* bp+08h TIDAK dipakai di biner, tapi itu TEMP KELIMA (temp menempati
+       bp+00..09), bukan lokal. Memberinya pengganjal menggeser SEMUA slot
+       2 byte dan membuat bingkai 54h. */
     int  q;             /* 0Ah  = idx + 141h */
     char f1[10];        /* 0Ch..15h */
     int  k2;            /* 16h  salinan kedua list[idx] */
@@ -56,9 +58,12 @@ int  n, idx, flag;
     int  sel;           /* 1Ah  nilai balik, mulai -1 */
     char f3[2];         /* 1Ch */
     int  k;             /* 1Eh  = list[idx] */
-    char f4[36];        /* 20h..43h */
+    char f4a[8];        /* 20h..27h */
+    int  dx2;           /* 28h  geser x record ke-2, BERTANDA */
+    int  dy2;           /* 2Ah  geser y record ke-2, BERTANDA */
+    char f4b[24];       /* 2Ch..43h */
     int  rb;            /* 44h  salinan recbase */
-    char f5[2];         /* 46h */
+    int  rp2;           /* 46h  penunjuk record ke-2 (dari salinan rb) */
     int  cnt;           /* 48h  pencacah percobaan acak */
     char f6[2];         /* 4Ah */
     struct rec *rp;     /* 4Ch */
@@ -101,48 +106,55 @@ int  n, idx, flag;
            dan nvar. Perkaliannya BEDA bentuk di dua sisi -- ikuti biner:
            `0xc * list[idx+1]` (konstanta kiri, operan memori) vs `k * 0xc`. */
         if (((char *)recbase)[0xc * list[idx + 1] + 1] - 100 ==
-                ((char *)recbase)[k * 0xc + 1])
-            sel = 0;
+                ((char *)recbase)[k * 0xc + 1]) {
+            /* Pola drawpair: char di MS C 1.04 itu unsigned, jadi tandanya
+               dipulihkan lewat TERNARY dengan nilai-apa-adanya di posisi
+               FALSE (cabang yang MEMUAT ULANG dari slot). */
+            sel = list[idx + 1];
+            rp2 = rb + sel * 0xc;
+            dx2 = ((char *)rp2)[4];
+            dx2 = (dx2 >= 0x80) ? dx2 - 0x100 : dx2;
+            dy2 = ((char *)rp2)[5];
+            dy2 = (dy2 >= 0x80) ? dy2 - 0x100 : dy2;
+            load(fh, recbase, sel, buf);
+            blit(buf, x + dx2, y + dy2, ((char *)rp2)[2], ((char *)rp2)[3]);
+        }
     }
     return idx;
 }
 
-/* ⏳ DRAF — 231 dari 1.730 byte COCOK.
+/* ⏳ DRAF — 231 dari 1.730 byte cocok; blok load/blit SUDAH ditulis (436 byte
+ * draf) dan bagian-bagiannya terbukti benar.
  *
- * TERVERIFIKASI byte-per-byte (0x42ca..0x43b0):
- *   - bingkai 52h dan SELURUH peta slot (lihat deklarasi, semuanya diukur)
- *   - pembuka, cabang lvl/tw, `if (n <= 0) return 0;`
- *   - KEDUA loop rnd (masing-masing SATU do-while dengan `||`)
- *   - `k = list[idx]; k2 = k; q = idx + 141h; sel = -1;`
- *   - uji `idx + 1 < n` (memakai DX, cocok)
+ * ⭐ TEMUAN PENTING giliran ini: bp+08h itu TEMP KELIMA, bukan lokal.
+ * Temp menempati bp+00..09 (5 slot), lokal mulai bp+0Ah. Memberi pengganjal
+ * di 08h menggeser SELURUH slot 2 byte dan membuat bingkai 54h. Daftar "slot
+ * tidak terpakai" (00 08 14 22 4E) MENYESATKAN: 00 dan 08 itu temp yang
+ * kebetulan tak terpakai, bukan lokal kosong.
  *
- * ⭐ PENGGANJAL TEMP SUDAH HABIS. Teknik ini yang membuat fungsi sebesar ini
- * bisa digarap bertahap: jumlah temp TUMBUH seiring badan ditulis, jadi selama
- * badan belum lengkap bingkai kurang dan SEMUA slot bergeser sehingga tak ada
- * divergensi yang bisa dibaca. `char tpad[]` menutup selisih itu dan
- * dikecilkan tiap kali menambah kode (6 -> 4 -> 0). Sekarang temp nyata persis
- * 4 slot. Kalau penambahan berikutnya membuat sub sp > 52h, itu tanda ada
- * ekspresi yang menuntut temp berlebih -- perbaiki ekspresinya, JANGAN
- * menambah pengganjal lagi.
+ * TERVERIFIKASI byte-per-byte (0x42ca..0x43b0) + bagian yang cocok sesudahnya:
+ *   - bingkai 52h, seluruh peta slot, kedua loop rnd
+ *   - bentuk lompatan `jl +3 / jmp jauh` SEKARANG COCOK (dulu `jge` pendek) --
+ *     ini membenarkan keputusan giliran lalu: menulis badan lebih dulu memang
+ *     memperbaiki bentuk lompatan dengan sendirinya
+ *   - perkalian `mov ax,0Ch / imul word ptr [bx]` COCOK (bentuk char-pointer)
+ *   - blok load/blit dengan pemulihan tanda gaya drawpair sudah ditulis
  *
- * SUDAH DICOBA & GAGAL (urutan penugasan k/k2/q, semuanya diukur):
- *   - `q; sel; k; k2`        -> divergensi MUNDUR ke +193
- *   - `k2 = list[idx]; k = k2;`      -> +220 (store k2 keburu di-flush
- *                                       SEBELUM uji idx+1<n)
- *   - `k2 = list[idx]; k = list[idx];` -> +220 juga
- *   - `k = list[idx]; k2 = k;`       -> +231  <- TERBAIK, dipakai sekarang
+ * SUDAH DICOBA & GAGAL (urutan k/k2, DIULANG sesudah badan membesar):
+ *   - `q; sel; k; k2`               -> +193
+ *   - `k2 = list[idx]; k = k2;`     -> +220 (dicoba DUA KALI, sebelum dan
+ *                                      sesudah badan membesar -- tetap +220)
+ *   - `k2 = list[idx]; k = list[idx];` -> +220
+ *   - `k = list[idx]; k2 = k;`      -> +231  <- terbaik
  *
- * DIVERGENSI SEKARANG di +231, dan sisa bedanya TIGA hal terpisah:
+ * DIVERGENSI SEKARANG di +231, tinggal DUA sebab:
  *   1. urutan flush: kita [16h] lalu [1Eh]; asli [1Eh] lalu [16h].
- *      Keempat urutan sumber di atas sudah dicoba; belum ada yang memberi
- *      urutan asli. Kemungkinan dipengaruhi kode SESUDAHNYA yang belum ditulis.
- *   2. asli menyimpan temp `[bp+2] = si` sesudah kedua store itu; kita belum.
- *   3. asli memakai bentuk "jl +3 / jmp jauh" karena badan `if` > 127 byte;
- *      kita masih "jge" pendek. Ini akan hilang sendiri begitu badannya
- *      ditulis -- JANGAN dikejar sekarang.
+ *      Empat urutan sumber sudah diukur, tak ada yang membalikkannya.
+ *   2. asli menyimpan temp `[bp+2] = si` (penunjuk &list[idx]) sesudah kedua
+ *      store itu; kita malah MEMUAT ULANG global (`mov dx,[73Ch]`) di blok
+ *      berikutnya. Artinya asli memakai ulang penunjuk yang sudah dihitung,
+ *      kita menghitung ulang dari `recbase`. Ini kemungkinan besar SEBAB
+ *      dari (1) juga -- kejar ini dulu, bukan urutan store-nya.
  *
- * Karena (3) menunjukkan bedanya akan berubah sendiri, langkah paling efisien
- * berikutnya BUKAN mengejar (1) melainkan menulis badan `if` dari 0x43f6.
- *
- * BELUM ditulis: 0x43f6 ke atas (~1.500 byte).
+ * BELUM ditulis: 0x4474 ke atas (~1.400 byte).
  */
