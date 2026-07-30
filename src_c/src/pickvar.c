@@ -64,11 +64,20 @@ int  n, idx, flag;
     int  sel;           /* 1Ah  nilai balik, mulai -1 */
     char f3[2];         /* 1Ch */
     int  k;             /* 1Eh  = list[idx] */
-    char f4a[6];        /* 20h..25h */
+    char f4a[4];        /* 20h..23h */
+    int  ww;            /* 24h  lebar record utama */
     int  hh;            /* 26h  tinggi record utama */
     int  dx2;           /* 28h  geser x record ke-2, BERTANDA */
     int  dy2;           /* 2Ah  geser y record ke-2, BERTANDA */
-    char f4b[24];       /* 2Ch..43h */
+    char f4b1[8];       /* 2Ch..33h */
+    int  x1;            /* 34h  = x + dx3 */
+    char f4b2[2];       /* 36h */
+    int  x2;            /* 38h  = x1 + ww */
+    char f4b3[2];       /* 3Ah */
+    int  y1;            /* 3Ch  = y + dy3 */
+    char f4b4[2];       /* 3Eh */
+    int  y2;            /* 40h  = y1 + hh */
+    char f4b5[2];       /* 42h */
     int  rb;            /* 44h  salinan recbase */
     int  rp2;           /* 46h  penunjuk record ke-2 (dari salinan rb) */
     int  cnt;           /* 48h  pencacah percobaan acak */
@@ -141,7 +150,17 @@ int  n, idx, flag;
     dx3 = (dx3 >= 0x80) ? dx3 - 0x100 : dx3;
     dy3 = ((char *)rp2)[5];
     dy3 = (dy3 >= 0x80) ? dy3 - 0x100 : dy3;
+    ww = ((char *)rp2)[2];
     hh = ((char *)rp2)[3];
+    x1 = x + dx3;
+    y1 = y + dy3;
+    x2 = x1 + ww;
+    y2 = y1 + hh;
+    /* `q == idx` SELALU salah (q = idx + 141h). Blok yang dilewati karenanya
+       TIDAK PERNAH TERCAPAI di biner asli -- tapi byte-nya ada, jadi tetap
+       harus ditulis. Jangan "diperbaiki". */
+    if (q == idx)
+        goto done;
 done:
     return idx;
 }
