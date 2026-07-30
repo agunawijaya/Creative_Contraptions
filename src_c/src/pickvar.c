@@ -40,15 +40,30 @@ int  fh, buf, x, y;
 int *list;
 int  n, idx, flag;
 {
-    char pad0[26];      /* diukur, bukan ditebak: tanpa ini `rb` jatuh di
-                           bp+2ch padahal biner memakai bp+44h */
-    int  a, b, c, d, e, f, g, h2, i, j, k, m;
-    int  x1, y1, x2, y2, w2, h3;
-    /* URUTAN EKOR DIUKUR, bukan ditebak (aturan 8i). Biner memakai
-       rb@44h, cnt@48h, rp@4Ch -- jadi harus ada slot pengganjal di antaranya. */
-    int  t1, t2, rb, t3, cnt, t4;
-    struct rec *rp;
-    int  t5, t6;
+    /* TATA LETAK BINGKAI DIUKUR, bukan ditebak. Temp menempati bp+00..07
+       (empat slot; dipakai untuk row-100 dsb.), lokal mulai bp+08.
+       Pengganjal memakai `char[]` karena array SELALU dialokasikan sedangkan
+       `int` tak terpakai kadang dibuang kompiler. */
+    /* ⚠ PENGGANJAL TEMP. Jumlah temp tumbuh seiring badan fungsi ditulis;
+       selama badan belum lengkap, bingkai kurang dan SEMUA slot bergeser.
+       tpad menutup selisihnya sementara -- KECILKAN tiap kali menambah kode
+       sampai akhirnya nol. Ukur dengan: sub sp harus 52h, rb harus 44h. */
+    char tpad[4];
+    char f0[2];         /* 08h  tak dipakai di biner */
+    int  q;             /* 0Ah  = idx + 141h */
+    char f1[10];        /* 0Ch..15h */
+    int  k2;            /* 16h  salinan kedua list[idx] */
+    char f2[2];         /* 18h */
+    int  sel;           /* 1Ah  nilai balik, mulai -1 */
+    char f3[2];         /* 1Ch */
+    int  k;             /* 1Eh  = list[idx] */
+    char f4[36];        /* 20h..43h */
+    int  rb;            /* 44h  salinan recbase */
+    char f5[2];         /* 46h */
+    int  cnt;           /* 48h  pencacah percobaan acak */
+    char f6[2];         /* 4Ah */
+    struct rec *rp;     /* 4Ch */
+    char f7[4];         /* 4Eh..51h */
 
     rb = (int)recbase;
     if (lvl == 2)
@@ -76,33 +91,46 @@ int  n, idx, flag;
             } while (rp->row > 100 || rp->id >= 0x80);
         }
     }
+    /* Slot bp+0Ah inilah yang Ghidra rusak jadi
+       `if (param_7 + 0x141 != param_7)` -- sebenarnya PENUGASAN biasa. */
+    k2 = list[idx];
+    k = k2;
+    q = idx + 0x141;
+    sel = -1;
+    if (idx + 1 < n) {
+        /* Pola "row berselisih 100 = bagian lanjutan", sama seperti drawpair
+           dan nvar. Perkaliannya BEDA bentuk di dua sisi -- ikuti biner:
+           `0xc * list[idx+1]` (konstanta kiri, operan memori) vs `k * 0xc`. */
+        if (recbase[list[idx + 1]].row - 100 == recbase[k].row)
+            sel = 0;
+    }
     return idx;
 }
 
-/* ⏳ DRAF — 193 dari 1.730 byte COCOK. Badan utama belum ditulis.
+/* ⏳ DRAF — 220 dari 1.730 byte COCOK.
  *
- * TERVERIFIKASI byte-per-byte (0x42ca..0x438a):
- *   - bingkai `sub sp,52h`, `rb`@bp+44h, `cnt`@bp+48h, `rp`@bp+4Ch
+ * TERVERIFIKASI byte-per-byte (0x42ca..0x43a5):
+ *   - bingkai 52h dan SELURUH peta slot (lihat deklarasi, semuanya diukur)
  *   - pembuka, cabang lvl/tw, `if (n <= 0) return 0;`
- *   - KEDUA loop rnd: masing-masing SATU do-while dengan `||`, bukan dua loop
- *     bersarang (kedua syarat melompat ke ATAS loop yang sama):
- *         flag != 0 : while (rp->row > 100 || (rp->id < 80h && cnt < 73h))
- *         flag == 0 : while (rp->row > 100 || rp->id >= 80h)
+ *   - KEDUA loop rnd (masing-masing SATU do-while dengan `||`)
+ *   - `k2 = list[idx]; k = k2; q = idx + 141h; sel = -1;`
  *
- * PETA SLOT yang sudah diukur dari disassembly 0x4388 ke atas -- pakai ini,
- * JANGAN menambah lokal di belakang (itu memperbesar bingkai jadi 0x5c):
- *     bp+00,02,04,06  TEMP (dipakai untuk row-100 dsb.)
- *     bp+0Ah  q     = idx + 141h   <- INI yang Ghidra rusak jadi
- *                                     `if (param_7 + 0x141 != param_7)`
- *     bp+16h  k2    = list[idx]  (salinan kedua)
- *     bp+1Ah  sel   = -1  (nilai balik awal)
- *     bp+1Eh  k     = list[idx]
- *     bp+44h  rb    bp+48h  cnt    bp+4Ch  rp
+ * ⭐ CARA KERJA PENGGANJAL TEMP (`tpad`) — ini yang membuat fungsi sebesar ini
+ * bisa digarap bertahap. Jumlah temp TUMBUH seiring badan ditulis, jadi selama
+ * badan belum lengkap bingkai kurang dan SEMUA slot bergeser sehingga tak ada
+ * divergensi yang bisa dibaca. `tpad` menutup selisih itu; kecilkan tiap kali
+ * menambah kode. Sudah menyusut 6 -> 4. Target akhir: tpad hilang, sub sp
+ * tetap 52h.
  *
- * LANGKAH BERIKUT: susun ulang deklarasi supaya q/k2/sel/k jatuh di slot di
- * atas (ganti pengganjal, bukan menambah), lalu tulis blok
- * `if (idx + 1 < n) { if (recbase[list[idx+1]].row - 100 == recbase[k].row) ...`
- * yang mulai di 0x43bd. Perkaliannya: `0xc * list[idx+1]` (konstanta di KIRI,
- * operan memori) tapi `k * 0xc` (nilai di kiri) -- ikuti biner, jangan
- * diseragamkan.
+ * SUDAH DICOBA & GAGAL:
+ *   - urutan `q; sel; k; k2` -> divergensi MUNDUR ke +193 (dari +220).
+ *     Urutan yang benar sejauh ini: `k2; k; q; sel`.
+ *
+ * DIVERGENSI SEKARANG di +220: urutan store `q`(bp+0Ah) vs `k`(1Eh)/`k2`(16h).
+ *   asli : [sel]=-1 / [q]=dx / <uji idx+1<n> / [k]=cx / [k2]=cx
+ *   kita : [sel]=-1 / [k2]=cx / <uji> / [q]=dx
+ * Uji `idx + 1 < n` di biner memakai DX; punya kita memakai CX -- artinya
+ * alokasi register di sekitar situ masih beda satu langkah.
+ *
+ * BELUM ditulis: 0x43f6 ke atas (~1.500 byte).
  */
