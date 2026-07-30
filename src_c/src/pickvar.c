@@ -44,11 +44,10 @@ int  n, idx, flag;
        (empat slot; dipakai untuk row-100 dsb.), lokal mulai bp+08.
        Pengganjal memakai `char[]` karena array SELALU dialokasikan sedangkan
        `int` tak terpakai kadang dibuang kompiler. */
-    /* ⚠ PENGGANJAL TEMP. Jumlah temp tumbuh seiring badan fungsi ditulis;
-       selama badan belum lengkap, bingkai kurang dan SEMUA slot bergeser.
-       tpad menutup selisihnya sementara -- KECILKAN tiap kali menambah kode
-       sampai akhirnya nol. Ukur dengan: sub sp harus 52h, rb harus 44h. */
-    char tpad[4];
+    /* PENGGANJAL TEMP sudah HABIS: temp nyata kini persis 4 slot
+       (bp+00..07). Kalau menambah kode lagi membuat sub sp > 52h,
+       berarti ada ekspresi yang menuntut temp berlebih -- perbaiki
+       ekspresinya, jangan tambah pengganjal. */
     char f0[2];         /* 08h  tak dipakai di biner */
     int  q;             /* 0Ah  = idx + 141h */
     char f1[10];        /* 0Ch..15h */
@@ -93,44 +92,57 @@ int  n, idx, flag;
     }
     /* Slot bp+0Ah inilah yang Ghidra rusak jadi
        `if (param_7 + 0x141 != param_7)` -- sebenarnya PENUGASAN biasa. */
-    k2 = list[idx];
-    k = k2;
+    k = list[idx];
+    k2 = k;
     q = idx + 0x141;
     sel = -1;
     if (idx + 1 < n) {
         /* Pola "row berselisih 100 = bagian lanjutan", sama seperti drawpair
            dan nvar. Perkaliannya BEDA bentuk di dua sisi -- ikuti biner:
            `0xc * list[idx+1]` (konstanta kiri, operan memori) vs `k * 0xc`. */
-        if (recbase[list[idx + 1]].row - 100 == recbase[k].row)
+        if (((char *)recbase)[0xc * list[idx + 1] + 1] - 100 ==
+                ((char *)recbase)[k * 0xc + 1])
             sel = 0;
     }
     return idx;
 }
 
-/* ⏳ DRAF — 220 dari 1.730 byte COCOK.
+/* ⏳ DRAF — 231 dari 1.730 byte COCOK.
  *
- * TERVERIFIKASI byte-per-byte (0x42ca..0x43a5):
+ * TERVERIFIKASI byte-per-byte (0x42ca..0x43b0):
  *   - bingkai 52h dan SELURUH peta slot (lihat deklarasi, semuanya diukur)
  *   - pembuka, cabang lvl/tw, `if (n <= 0) return 0;`
  *   - KEDUA loop rnd (masing-masing SATU do-while dengan `||`)
- *   - `k2 = list[idx]; k = k2; q = idx + 141h; sel = -1;`
+ *   - `k = list[idx]; k2 = k; q = idx + 141h; sel = -1;`
+ *   - uji `idx + 1 < n` (memakai DX, cocok)
  *
- * ⭐ CARA KERJA PENGGANJAL TEMP (`tpad`) — ini yang membuat fungsi sebesar ini
- * bisa digarap bertahap. Jumlah temp TUMBUH seiring badan ditulis, jadi selama
+ * ⭐ PENGGANJAL TEMP SUDAH HABIS. Teknik ini yang membuat fungsi sebesar ini
+ * bisa digarap bertahap: jumlah temp TUMBUH seiring badan ditulis, jadi selama
  * badan belum lengkap bingkai kurang dan SEMUA slot bergeser sehingga tak ada
- * divergensi yang bisa dibaca. `tpad` menutup selisih itu; kecilkan tiap kali
- * menambah kode. Sudah menyusut 6 -> 4. Target akhir: tpad hilang, sub sp
- * tetap 52h.
+ * divergensi yang bisa dibaca. `char tpad[]` menutup selisih itu dan
+ * dikecilkan tiap kali menambah kode (6 -> 4 -> 0). Sekarang temp nyata persis
+ * 4 slot. Kalau penambahan berikutnya membuat sub sp > 52h, itu tanda ada
+ * ekspresi yang menuntut temp berlebih -- perbaiki ekspresinya, JANGAN
+ * menambah pengganjal lagi.
  *
- * SUDAH DICOBA & GAGAL:
- *   - urutan `q; sel; k; k2` -> divergensi MUNDUR ke +193 (dari +220).
- *     Urutan yang benar sejauh ini: `k2; k; q; sel`.
+ * SUDAH DICOBA & GAGAL (urutan penugasan k/k2/q, semuanya diukur):
+ *   - `q; sel; k; k2`        -> divergensi MUNDUR ke +193
+ *   - `k2 = list[idx]; k = k2;`      -> +220 (store k2 keburu di-flush
+ *                                       SEBELUM uji idx+1<n)
+ *   - `k2 = list[idx]; k = list[idx];` -> +220 juga
+ *   - `k = list[idx]; k2 = k;`       -> +231  <- TERBAIK, dipakai sekarang
  *
- * DIVERGENSI SEKARANG di +220: urutan store `q`(bp+0Ah) vs `k`(1Eh)/`k2`(16h).
- *   asli : [sel]=-1 / [q]=dx / <uji idx+1<n> / [k]=cx / [k2]=cx
- *   kita : [sel]=-1 / [k2]=cx / <uji> / [q]=dx
- * Uji `idx + 1 < n` di biner memakai DX; punya kita memakai CX -- artinya
- * alokasi register di sekitar situ masih beda satu langkah.
+ * DIVERGENSI SEKARANG di +231, dan sisa bedanya TIGA hal terpisah:
+ *   1. urutan flush: kita [16h] lalu [1Eh]; asli [1Eh] lalu [16h].
+ *      Keempat urutan sumber di atas sudah dicoba; belum ada yang memberi
+ *      urutan asli. Kemungkinan dipengaruhi kode SESUDAHNYA yang belum ditulis.
+ *   2. asli menyimpan temp `[bp+2] = si` sesudah kedua store itu; kita belum.
+ *   3. asli memakai bentuk "jl +3 / jmp jauh" karena badan `if` > 127 byte;
+ *      kita masih "jge" pendek. Ini akan hilang sendiri begitu badannya
+ *      ditulis -- JANGAN dikejar sekarang.
+ *
+ * Karena (3) menunjukkan bedanya akan berubah sendiri, langkah paling efisien
+ * berikutnya BUKAN mengejar (1) melainkan menulis badan `if` dari 0x43f6.
  *
  * BELUM ditulis: 0x43f6 ke atas (~1.500 byte).
  */
