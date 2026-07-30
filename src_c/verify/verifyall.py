@@ -60,8 +60,33 @@ def main():
     print()
     print("COCOK %d/%d fungsi   |   %d byte terverifikasi (dari %d byte yang digarap)"
           % (n_ok, len(rows), ok_bytes, tot_bytes))
-    print("Target seluruh kode C game: ~26.000 byte (perkiraan dari wilayah alamat)  ->  %.1f%% selesai"
-          % (ok_bytes / 26000.0 * 100))
+    print("Kode C game   : %d / ~26.000 byte  (%.1f%%)" % (ok_bytes, ok_bytes / 26000.0 * 100))
+
+    # Segmen DATA (DGROUP) diverifikasi terpisah: gdata.OBJ vs DGROUP asli.
+    dg_ok = 0
+    dg_tot = 0
+    gd = os.path.join(OUT, "gdata.OBJ")
+    if os.path.exists(gd):
+        sys.path.insert(0, HERE)
+        from dgroup import dgroup as _dg
+        from objcode import read_omf as _r
+        segs = _r(gd)
+        order = sorted(segs.items(), key=lambda kv: len(kv[1][0]), reverse=True)
+        data = (order[1] if len(order) > 1 else order[0])[1][0]
+        orig = _dg()[:len(data)]
+        dg_tot = len(_dg())
+        if len(data) == dg_tot and data == orig:
+            dg_ok = dg_tot
+        else:
+            bad = sum(1 for k in range(min(len(data), len(orig))) if data[k] != orig[k])
+            dg_ok = dg_tot - bad - abs(dg_tot - len(data))
+        print("Segmen DATA   : %d / %d byte  (%.1f%%)" % (dg_ok, dg_tot, dg_ok * 100.0 / dg_tot))
+
+    total_target = 26000 + 1200 + (dg_tot or 9556)      # kode C + assembly + data
+    total_ok = ok_bytes + dg_ok
+    print("-" * 46)
+    print("TOTAL         : %d / %d byte  (%.1f%%)"
+          % (total_ok, total_target, total_ok * 100.0 / total_target))
     return 0 if n_ok == len(rows) else 1
 
 
