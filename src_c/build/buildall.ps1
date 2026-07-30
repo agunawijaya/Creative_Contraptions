@@ -62,3 +62,12 @@ foreach ($f in $files) {
 "terkompilasi $ok/$($files.Count)"
 $errs = Select-String -Path "$out\build.log" -Pattern "Error|Warning" -ErrorAction SilentlyContinue
 if ($errs) { "--- pesan kompiler ---"; $errs | ForEach-Object { "  " + $_.Line } }
+
+# --- modul ASSEMBLY (tidak bisa direkonstruksi sebagai C) ---
+# Fungsi dgn prolog "push bp; push es; mov bp,sp" dsb. adalah assembly tulisan
+# tangan di biner asli. Dirakit dgn MASM 1.27 (1984), lihat build/masm.ps1.
+$asm = Get-ChildItem "$root/src_c/asm/*.asm" -ErrorAction SilentlyContinue
+foreach ($a in $asm) {
+    & "$PSScriptRoot\masm.ps1" -Name $a.BaseName | Out-Null
+}
+if ($asm) { "dirakit (MASM): $($asm.Count) modul .asm" }

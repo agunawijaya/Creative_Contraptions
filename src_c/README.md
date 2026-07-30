@@ -12,7 +12,9 @@ manusia (862 tipe `undefined`, 217 variabel `in_*`, 0 `#include`), tidak bisa di
 src/      berkas .c hasil rekonstruksi (satu fungsi/kelompok per berkas)
           gdata.c  — DIBANGKITKAN (build/gendata.py), rekonstruksi segmen DATA
           stubs.c  — DIBANGKITKAN, definisi kosong untuk fungsi yang belum digarap
+asm/      berkas .asm untuk fungsi ASSEMBLY tulisan tangan (tidak bisa jadi C)
 build/    compile.ps1 — kompilasi satu berkas lewat MS C 1.04 di dalam DOSBox-X
+          masm.ps1    — rakit satu .asm lewat MASM 1.27 (1984) di DOSBox-X
           buildall.ps1 — lint + kompilasi semua
           link.ps1    — LINK semua .OBJ + MC.LIB -> out/CONTRAP.EXE
           gendata.py  — bangkitkan src/gdata.c dari DGROUP biner asli
@@ -590,6 +592,46 @@ menyesatkan: **`Can't open quad file`** (itu cuma akibat MC1 tidak menghasilkan
 Sebelum menamai global baru, `grep` alamatnya dulu di `src/*.c`. Kasus nyata:
 `0x3b6` sudah bernama `postab[]` di `hintmark.c`; menamainya `arrA` di
 `loadcon.c` mematahkan seluruh build.
+
+## ⭐ FUNGSI ASSEMBLY: MASM 1.27 sudah ada dan TERBUKTI byte-identical
+
+`tools/masm/bin/MASM.EXE` — Microsoft MACRO Assembler 1.27 (1984), diekstrak
+dari image floppy arsip `ms-masm-v127-840529` (FAT12, extractor ad-hoc). Dipilih
+yang SEZAMAN supaya pilihan encoding-nya sedekat mungkin dengan 1985.
+
+    pwsh src_c/build/masm.ps1 -Name vbio     # src_c/asm/vbio.asm -> out/vbio.OBJ
+
+Modul pertama (`vbio`, 5 rutin, 54 byte) COCOK BYTE-PER-BYTE pada rakitan
+pertama yang berhasil, tanpa error dan tanpa warning.
+
+**Kerangka yang wajib dipakai** — segmen/grup HARUS sama dengan keluaran MC2,
+kalau tidak modulnya tidak menyatu saat LINK (dibaca dari LNAMES/SEGDEF .OBJ
+hasil MS C 1.04: `'', PROG, DATA, PGROUP, DGROUP`):
+
+```asm
+        NAME    modul
+PGROUP  GROUP   PROG
+DGROUP  GROUP   DATA
+DATA    SEGMENT WORD PUBLIC 'DATA'
+DATA    ENDS
+PROG    SEGMENT BYTE PUBLIC 'PROG'
+        ASSUME  CS:PGROUP, DS:DGROUP
+        PUBLIC  nama1, nama2
+        ...
+PROG    ENDS
+        END
+```
+
+Nama publik TANPA garis bawah — MS C 1.04 (Lattice) tidak memberi prefiks.
+Alamat segmen DGROUP ditulis `MOV AX,DGROUP` (jadi slot relokasi), bukan
+konstanta `907h`.
+
+## ⚠ MASM 1.27 butuh CRLF — gejalanya MENYESATKAN
+
+Berkas `.asm` ber-akhir-baris LF dibaca sebagai SATU baris raksasa, dan MASM
+melaporkan **"85:End of file, no END directive"** plus belasan "Syntax error"
+— seolah-olah sintaksnya yang salah. `masm.ps1` sudah menormalkan ke CRLF saat
+menyalin ke folder DOS; kalau merakit manual, jangan lupa.
 
 ## ⚠ `#define` bersambung backslash TIDAK didukung
 

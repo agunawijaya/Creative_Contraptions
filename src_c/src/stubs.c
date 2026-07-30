@@ -39,8 +39,6 @@ sndoff() { return 0; }
 sndon() { return 0; }
 sndrest() { return 0; }
 sndsave() { return 0; }
-vbwait() { return 0; }
-vbend() { return 0; }
 text() { return 0; }
 
 /* Primitif geser layar, dipakai review() saat menggulir strip palet.

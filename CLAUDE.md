@@ -101,7 +101,8 @@ port/cc/anim/           frame animasi run ter-pack goalN_vV.dat + ballN_vV.json 
 work/emu.py             emulator Unicorn + capture VRAM/blitter (SUMBER KEBENARAN)
 work/                   skrip analisa, test_*.py, proof_*.py, bukti PNG/GIF
 _ORIGINAL_READONLY/     backup aset asli — JANGAN diubah
-tools/                  DOSBox-X, JDK 21, Ghidra 12.1.2, msc104 (MS C 1.04 + LINK 1.10)
+tools/                  DOSBox-X, JDK 21, Ghidra 12.1.2, msc104 (MS C 1.04 + LINK 1.10),
+                        masm (MASM 1.27 1984, untuk fungsi assembly)
 src_c/                  rekonstruksi source C byte-identical
 src_c/README.md         RULEBOOK: 17 aturan kompiler MS C 1.04 (baca sebelum menyentuh src_c)
 src_c/JOURNAL.md        jurnal KEPUTUSAN + jalan buntu + pertanyaan terbuka
@@ -134,7 +135,7 @@ Env emulator: `VARIANT=n VCAP=1 python work/emu.py <goal> <mode>` → capture VR
 
 Rekonstruksi source C (produk ke-2, folder `src_c/`):
 ```
-pwsh src_c/build/buildall.ps1   # semua src_c/src/*.c -> .OBJ (lint dijalankan lebih dulu)
+pwsh src_c/build/buildall.ps1   # semua .c -> .OBJ, lalu semua .asm -> .OBJ (MASM)
 pwsh src_c/build/link.ps1       # -> src_c/out/CONTRAP.EXE + CONTRAP.MAP
 python src_c/verify/verifyall.py   # tabel status per fungsi + segmen DATA
 python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)

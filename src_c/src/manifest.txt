@@ -59,3 +59,4 @@ runfill  2d11    383
 mkpal    3909    634
 loadcon  5035    739
 runplay  5505    964
+vbio     5d98     54
