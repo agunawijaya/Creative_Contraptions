@@ -166,6 +166,14 @@ int *list;
  *
  * SUDAH DICOBA & GAGAL untuk ekspresi itu:
  *   - `(recbase + list[r])->row` (aritmetika penunjuk) -> sama, 551 byte
+ *   - bentuk CHAR-POINTER dgn perkalian eksplisit, yang menutup `mkpal`:
+ *     `((char *)recbase)[list[r] * 0xc + 1]` (dan `0xc * list[r+1]` untuk yang
+ *     di 0x424f) -> 559 byte, bingkai 0x3e.
+ *     HASIL BERCAMPUR dan itu informatif: PANJANG MEMBAIK 8 byte (551 -> 559,
+ *     target 566) tapi BINGKAI MEMBURUK (0x3c -> 0x3e, target 0x38). Artinya
+ *     bentuk ekspresinya kemungkinan BENAR tapi memakan satu temp lagi; yang
+ *     harus dicari berikutnya adalah 3 slot yang mesti dilepas di tempat LAIN,
+ *     bukan membatalkan bentuk ini.
  *
  * LANGKAH BERIKUT: pecah cabang fase 2. Petunjuk konkret dari biner:
  *   - 0x424f memakai imul TERBALIK ("mov ax,0ch / imul word ptr [si]") — di

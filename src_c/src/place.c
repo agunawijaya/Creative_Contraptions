@@ -181,6 +181,11 @@ int  *flag;
  *     fase 1 yang tadinya cocok sempurna, jadi tipe `struct slot *` untuk `sp`
  *     memang benar. Jangan diulang.
  *
+ *   - cast DIPINDAH: `while (sp->id != 0)` + `if (*(char *)sp == id ...)`
+ *     -> 503 byte, TETAP 2 beda di +407/+410 yang sama. Jadi POSISI cast
+ *     tidak berpengaruh; yang menyandera SI adalah `sp` sebagai penunjuk
+ *     hidup, bukan letak cast-nya.
+ *
  * LANGKAH BERIKUT: cari pemicu lain yang memuat ulang `sp->id` tanpa mengubah
  * tipe aksesnya. Sisa 2 byte ini murni pilihan register, bukan bentuk logika —
  * kelas masalah yang sama dengan `drawpair` dulu (SI vs CX), dan itu akhirnya
