@@ -20,6 +20,40 @@ misalnya urutan eksak eksperimen. Jangan jadikan sumber status.
 
 ---
 
+## 2026-07-30 (lanjutan ke-4) — `0x5035` DIMULAI, belum selesai
+
+Commit `95d9cd7` menyimpan tujuh fungsi sesi ini (55,3%). Sesudah itu saya
+mulai `0x5035` (739 B, loader CONTRAP) tapi BERHENTI sebelum menulis sumber.
+Yang sudah dipetakan, supaya sesi berikutnya tidak mengulang:
+
+**Peta bingkai (0x124 = 292 byte), dari `grep "bp + "` atas disassembly:**
+```
+bp+0..5      3 TEMP
+bp+6         dir[108]  -- directory 216 byte, dibaca read(fh, dir, 0xd8)
+                          diakses [bp+si+6] dengan si = i*6, i < 0x24
+                          -> 3 kata per entri: {id, off_lo, off_hi}
+bp+0deh      i
+bp+0e0h,0e2h TIDAK PERNAH DIREFERENSI
+bp+0e4h      fh        (hasil open)
+bp+0e6h..0f4h  8 lokal lagi (off, pos, tmp, cnt, first, pick, total, expect)
+bp+0f6h..123h  46 BYTE TIDAK PERNAH DIREFERENSI  <-- TEKA-TEKI BELUM TERPECAHKAN
+bp+128h      argumen ke-1 (nomor varian; -1 = pilih acak)
+```
+
+**Pertanyaan terbuka:** 46 byte di ujung bingkai itu apa? Kandidat: array
+kedua yang dideklarasikan tapi tak terpakai (23 int), atau buffer nama berkas.
+Jangan menulis sumbernya sebelum ini dijawab — ukuran bingkai adalah petunjuk
+tercepat kalau jumlah/urutan lokal salah (aturan 9 di README).
+
+**Global yang perlu nama sebelum mulai** (belum ada di sumber mana pun):
+`0x3b2` (sub/goal terpilih), `0x3b4`, `0x3b6`, `0x41a`, `0x41c`, `0x41e`,
+`0x422`, `0x4b4`, `0x4b6`, `0x4f2`, `0x3f2`, `0x796`, `0x7be`, `0x7e6`,
+`0x1e2e`, `0x1e30`. Struktur berkasnya sudah TERVALIDASI di `CODE_MAP.md`
+§"Format file CONTRAP", jadi maknanya tidak perlu ditebak — tinggal dinamai.
+
+Pustaka MC.LIB yang dipanggil: `open()`=6b57, `read()`=6d31, `lseek()`=6e8b,
+`close()`=6fb6, `printf()`=6a48.
+
 ## 2026-07-30 (lanjutan ke-3) — user bilang "lanjutkan semuanya sekaligus"
 
 Instruksinya: kerjakan semua front sekaligus. Yang dikerjakan: perbaiki hutang

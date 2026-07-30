@@ -29,9 +29,10 @@ Selesai sesi ini, TUJUH fungsi, semuanya cocok byte-per-byte: `runmenu` (547 B),
 baru dulu, bukan near-miss" terbukti (sesi sebelumnya: nol byte).
 **Teruskan strategi itu.**
 
-1. **Fungsi belum tersentuh berikutnya**, urut dari yang paling mungkin:
-   `0x5035` (739 B, loader CONTRAP — formatnya sudah tervalidasi di CODE_MAP),
-   `0x5505` (964 B), `0x42ca` (1.730 B, `pickvar` — dipanggil `runfill`).
+1. **`0x5035` (739 B, loader CONTRAP) — SUDAH DIMULAI, peta bingkai + daftar
+   global yang perlu dinamai ada di `src_c/JOURNAL.md`. Ada satu teka-teki yang
+   HARUS dijawab dulu: 46 byte di ujung bingkai tidak pernah direferensi.**
+   Sesudah itu: `0x5505` (964 B), `0x42ca` (1.730 B, `pickvar`).
    ⚠ Cek ukuran sebenarnya dengan `alamat_fungsi_berikutnya - alamat`, JANGAN
    percaya `truesize.py` untuk fungsi ber-`switch` (lihat README).
    ⚠ Kalau ekor sebuah fungsi mirip fungsi lain, cek dulu apakah itu KEMBARAN
