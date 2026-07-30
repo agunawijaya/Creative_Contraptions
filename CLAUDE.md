@@ -145,7 +145,8 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
 
 - **LINK berhasil**: 61 `.OBJ` + `MC.LIB` → `src_c/out/CONTRAP.EXE`, tanpa error.
 - **Segmen DATA 9.556/9.556 byte, 0 beda** vs biner asli (diukur dari .EXE hasil link).
-- **Kode C: 56/59 fungsi COCOK, 11.735 byte**; TOTAL 57,9%. Stub sisa 22.
+- **Kode C+ASM: 68/71 fungsi COCOK, 14.149 byte**; TOTAL 64,5%. Stub sisa **2**
+  (`main` 4.219 B dan `pickvar` 1.730 B) — jalur assembly SUDAH TUNTAS.
 - ✅ Tabrakan nama `put()` sudah dibereskan: `put`=0x65e0, `putmsk`=0x6524.
 - Dua near-miss: `place` (503 byte tepat, 2 byte beda = register SI/DI) dan
   `nvar` (551/566, 2 temp kelebihan). Peta slot & daftar gagal ada di berkasnya.

@@ -20,6 +20,66 @@ misalnya urutan eksak eksperimen. Jangan jadikan sumber status.
 
 ---
 
+## 2026-07-30 (lanjutan ke-6) — ASSEMBLY TUNTAS; stub tinggal dua
+
+MASM 1.27 dipasang di sesi ini juga (lihat entri sebelumnya). Hasil akhir
+jalur assembly: **11 modul, 2.379 byte, semuanya cocok byte-per-byte.**
+
+| modul | alamat | byte | modul | alamat | byte |
+|---|---|---|---|---|---|
+| blit | 0x672f | 314 | text | 0x644a | 218 |
+| snd2 | 0x5b57 | 356 | fillrec | 0x6869 | 208 |
+| blitmsk | 0x6524 | 326 | shftl | 0x5dce | 109 |
+| prep | 0x6939 | 271 | vbio | 0x5d98 | 54 |
+| snd1 | 0x5a5b | 252 | keyio | 0x66fd | 50 |
+| line | 0x5cbb | 221 | | | |
+
+### Lima jebakan MASM 1.27 (semuanya otomatis di asmgen.py sekarang)
+
+1. capstone memakai nama mnemonik 32-bit walau CS_MODE_16; `cdq` harus `CWD`.
+   Kalau tidak, instruksinya **dilewati diam-diam**.
+2. Kurung berisi konstanta murni ditafsirkan `[BP+konst]`; alamat absolut
+   wajib `DS:[...]`.
+3. Deteksi register butuh batas kata: `212CH` mengandung "CH".
+4. MASM memesan 3 byte untuk `JMP` maju lalu mengisi sisanya `NOP`; paksa
+   `SHORT` kalau aslinya 2 byte. **Penyebab tersering modul meleset panjang.**
+5. MASM memendekkan imm16 yang muat di int8 (opcode 81 -> 83). Tidak ada
+   sintaks untuk memaksanya; asmgen memancarkan `DB` khusus kasus itu.
+Plus: instruksi string harus telanjang, berkas wajib CRLF, dan masm.ps1 HARUS
+memeriksa jumlah error -- MASM tetap menulis .OBJ walau ada error.
+
+### Delapan stub hilang TANPA menulis kode
+
+Ini pola yang berulang tiga kali dan layak jadi kebiasaan:
+- **di dalam modul yang sudah cocok**, hanya belum diekspor: `rdkey` (0x6853,
+  di dalam blit), `refresh` (0x5c84, di dalam snd2), `sndoff`/`sndon`
+  (0x5a74/0x5a76, di dalam snd1), `tone3` (0x5b73, di dalam snd2)
+- **rutin MC.LIB**: `fmtnum` ternyata `sprintf` @0x7464
+- **alamat yang sama dengan fungsi lain**: `drawitem` = `load` @0x53ff
+
+**Sebelum menulis stub baru: (a) cek libmatch.py, (b) cek apakah alamatnya
+jatuh di dalam modul yang sudah ada, (c) cek apakah alamatnya sama dengan
+fungsi yang sudah bernama lain.**
+
+### `pickvar` (0x42ca) — PERINGATAN sebelum ada yang menulisnya
+
+Selain 9 blok tak-terjangkau, pseudo-C Ghidra memuat:
+
+    if (param_7 + 0x141 != param_7) { ... }
+
+Syarat itu **selalu benar** — mustahil ditulis begitu di sumber. Ini pola yang
+sama dengan bug `load` (0x53ff+134): kompiler memancarkan instruksi yang
+MERUSAK FLAG sehingga lompatan sesudahnya selalu diambil, dan Ghidra
+memodelkannya sebagai perbandingan yang tidak masuk akal. Lihat README
+Sec."BATAS KERAS PERTAMA".
+
+Konsekuensinya: **jangan menulis pickvar dari pseudo-C.** Kerjakan dari
+disassembly, dan curigai ada blok yang di biner asli TIDAK PERNAH TERCAPAI --
+jangan "diperbaiki" supaya masuk akal.
+
+Peta bingkai (dari sesi sebelumnya): `sub sp,0x52`, 8 argumen di bp+56h..64h,
+36 slot lokal terpakai, tidak terpakai: 00 08 14 22 4e.
+
 ## 2026-07-30 (lanjutan ke-5) — `runplay` tuntas; `0x42ca` baru diintai
 
 **`runplay` (0x5505, 964 B) COCOK byte-per-byte** — fungsi terbesar yang
