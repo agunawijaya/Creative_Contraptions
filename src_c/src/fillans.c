@@ -34,7 +34,8 @@ int   s1, s2;
        busy=0; u=shuffle(); busy=1; i=0; nmech=u; */
     /* i@bp+8, j@bp+0ah, found@bp+0eh. Hasil shuffle() TIDAK ditampung lokal:
        biner langsung "a3 [nmech]" tanpa store perantara. */
-    int i, j, t, found;
+    int i, j, t, found, unused;   /* t & unused: slot bp+0ch dan bp+10h
+                                    memang DILEWATI biner (bingkai 12h) */
 
     busy = 0;
     nmech = shuffle(c, s1, tq, n, s2);
@@ -43,8 +44,7 @@ int   s1, s2;
     /* "while (i < n)" dgn place() DI LUAR loop (pola sama spt autofill). */
     while (i < n) {
         if (lvl3 == 3 && mark[i] != 0) {
-            t = rnd(nmech);
-            tt[i] = b[t * 0xc];
+            tt[i] = b[rnd(nmech) * 0xc];
         }
         else
             tt[i] = tq[i * 3 + 2];
@@ -64,24 +64,8 @@ int   s1, s2;
 }
 
 
-/* ⏳ BELUM COCOK — 304 byte vs 307 (3 KURANG), bingkai 10h vs 12h.
- * Perjalanan: 294 -> 297 -> 305 -> 304.
- *
- * SUDAH TERBUKTI & JANGAN DIUBAH:
- *   - bendera `found` ada (biner me-nol-kan dua lokal bersamaan @1533)
- *   - hasil shuffle() TIDAK ditampung lokal
- *   - loop "while (i < n)" dgn place() DI LUAR loop
- *
- * PETA SLOT ASLI (dari grep disassembly):
- *   bp+0,2,4,6 = TEMP (bp+2 menahan i*2, disimpan @156d lalu dipakai ulang
- *                untuk ts[i], ans[i], flag[i]; bp+4/6 tak pernah muncul)
- *   bp+8 = i, bp+0ah = j, bp+0eh = found
- * Jadi selisih 2 byte ada di jumlah TEMP (asli 4, kita 3), bukan lokal.
- *
- * SUDAH DICOBA & GAGAL: "char pad[2]" di awal maupun di akhir daftar lokal
- * (kompiler membuangnya karena tak dipakai).
- *
- * Langkah berikut: biner memakai ULANG i*2 untuk tiga penugasan berturut
- * (ts[i], ans[i], flag[i]); cari bentuk penulisan yang membuat kompiler
- * memesan temp untuk indeks itu -- bukan menambah lokal.
+/* ✅ COCOK BYTE-PER-BYTE (307 byte). Dua hal yang menutupnya:
+ *  1. Hasil `rnd()` TIDAK ditampung lokal: `tt[i] = b[rnd(nmech) * 0xc];`.
+ *  2. Ada lokal KELIMA yang tak pernah dipakai (slot bp+10h dilewati biner),
+ *     jadi bingkainya 12h bukan 10h. `int unused;` di ujung daftar deklarasi.
  */

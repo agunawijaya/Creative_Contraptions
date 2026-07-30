@@ -8,7 +8,7 @@
  *   sx @0x2dc, sy @0x2de      = hasil geser yang dipakai penggambar
  *   page @0x2e0, page2 @0x2e2 = pasangan halaman gambar
  *   buf1 @0x29c, buf2 @0x2b4  = buffer baris
- *   prep()=6939, blend()=5ea6, put()=6524, draw()=657c   (semuanya assembly)
+ *   prep()=6939, blend()=5ea6, putmsk()=6524, draw()=657c   (semuanya assembly)
  */
 
 extern int ballx;           /* @0x260 */
@@ -31,6 +31,6 @@ xform()
     sy = tblB[bally % 4];
     prep(ballx, bally, page);
     blend(page, page2, buf1, buf2);
-    put(buf2, page2);
+    putmsk(buf2, page2);
     draw(page, sy, sx);
 }

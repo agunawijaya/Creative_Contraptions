@@ -28,11 +28,18 @@ int  *tr;
 int  *ts;
 int  *tt;
 {
-    /* Peta slot dari disassembly: i@bp+4, cnt@bp+6, j@bp+8, tries@bp+0ah.
-       Urutan deklarasi mengikuti itu. `p` di bawah adalah slot KELIMA yang
-       tidak ada di biner -- lihat catatan di bawah berkas. */
+    /* Peta slot: i@bp+4, cnt@bp+6, j@bp+8, tries@bp+0ah; temp di bp+0/bp+2.
+       TIDAK ADA lokal penunjuk record. Alamat "b + tr[j]*0xc" ditulis DUA KALI
+       dalam satu ekspresi `||`, dan kompiler meng-CSE-nya sendiri: dihitung
+       sekali ke SI, disimpan ke temp bp+0 (store yang bahkan tak pernah
+       dibaca), lalu dipakai untuk [si+1] dan [si]. Memakai lokal `char *p`
+       menambah slot ke-5 dan bingkai jadi 0eh.
+
+       Yang di-CSE adalah PENUNJUKNYA, jadi ditulis "(b + tr[j]*0xc)[1]" —
+       BUKAN "b[tr[j]*0xc + 1]". Bentuk kedua meng-CSE OFFSET-nya lalu
+       "inc ax", sehingga akses jadi [si] tanpa displacement dan penunjuk
+       dihitung ULANG untuk uji kedua (+12 byte). */
     int i, cnt, j, tries;
-    char *p;
 
     i = 0;
     /* "while (i < n)" dgn i di AX (mov ax,[i]; cmp ax,[n]), dan place()
@@ -46,21 +53,20 @@ int  *tt;
                 tries = tries + 1;
                 if (tries == 0x96)
                     goto any;
-                p = b + tr[j] * 0xc;
-            } while (p[1] > 100 || p[0] < 0x80);
+            } while ((b + tr[j] * 0xc)[1] > 100 || (b + tr[j] * 0xc)[0] < 0x80);
         }
         else {
 any:
+            /* SATU loop dgn `||`, bukan dua loop bersarang. Perhatikan uji
+               kedua TERBALIK dibanding cabang di atas: di sini ">= 0x80"
+               ("jge" balik ke undian), di atas "< 0x80" ("jl" balik). */
             do {
-                do {
-                    j = rnd(cnt);
-                    p = b + tr[j] * 0xc;
-                } while (p[1] > 100);
-            } while (p[0] > 0x7f);
+                j = rnd(cnt);
+            } while ((b + tr[j] * 0xc)[1] > 100 || (b + tr[j] * 0xc)[0] >= 0x80);
         }
-        if (sub > 0 && sub < 7 && i == n - 1) {
+        if (sub >= 1 && sub <= 6 && i == n - 1) {
             j = 0;
-            while (j < cnt && b[tr[j] * 0xc + 1] != sub)
+            while (j < cnt && (b + tr[j] * 0xc)[1] != sub)
                 j = j + 1;
         }
         ts[i] = j;
@@ -72,16 +78,9 @@ any:
 }
 
 
-/* ⏳ BELUM COCOK — 392 byte vs 387, bingkai 0eh vs 0ch.
- * PETA SLOT ASLI (dari disassembly, sudah pasti):
- *     i@bp+4, cnt@bp+6, j@bp+8, tries@bp+0ah  -- EMPAT lokal, tak ada kelima.
- * Urutan deklarasi kita sudah mengikuti itu; masalahnya `p` menambah slot ke-5.
- * SUDAH DICOBA & GAGAL:
- *   - hapus p, hitung ulang b[tr[j]*0xc]        -> 411 (kompiler tidak CSE)
- *   - p dipakai di kondisi pencarian (koma)      -> 395
- *   - akses anggota struct b[tr[j]].h/.id        -> 405
- * Artinya biner menghitung alamat record SEKALI tanpa slot lokal. Kandidat
- * berikutnya: sumber memakai ulang salah satu PARAMETER sebagai penampung
- * (parameter ada di stack pemanggil, tidak menambah bingkai) -- mis.
- * "b = b + tr[j]*0xc" lalu dipulihkan, atau parameter lain yang tak terpakai.
+/* ✅ COCOK BYTE-PER-BYTE (387 byte). Tiga hal yang menutupnya:
+ *  1. TIDAK ada lokal penunjuk record -- alamatnya CSE ke temp bp+0.
+ *  2. `(b + tr[j]*0xc)[1]`, bukan `b[tr[j]*0xc + 1]` (CSE penunjuk vs offset).
+ *  3. SATU do-while dengan `||`, bukan dua loop bersarang; dan uji kedua
+ *     TERBALIK antara cabang level-2 (`< 0x80`) dan cabang umum (`>= 0x80`).
  */

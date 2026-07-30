@@ -2,22 +2,67 @@
 
 > **Baca ini dulu sebelum mengerjakan apa pun.** File ini ikut folder proyek ke mana pun ia
 > dipindah/di-rename, jadi konteks tidak hilang meski memory Claude Code (yang terikat path)
-> tidak termuat. Terakhir diperbarui: 2026-07-29.
+> tidak termuat. Terakhir diperbarui: 2026-07-30.
+
+## ⭐ KALAU USER BILANG "LANJUTKAN" — BACA INI DULU
+
+**Jalur yang sedang aktif: `src_c/` (rekonstruksi source C byte-identical).**
+Jalur port Python sedang JEDA — jangan melanjutkannya kecuali user minta khusus.
+
+Langkah pertama tiap sesi baru:
+1. Baca **`src_c/README.md`** — 17 aturan kompiler MS C 1.04 yang mahal didapat.
+   Tanpa ini akan mengulang kesalahan yang sudah dibayar.
+2. Baca **`src_c/JOURNAL.md`** — KEPUTUSAN & alasannya, jalan buntu yang sebabnya
+   sudah dipahami, dan pertanyaan yang masih menggantung untuk user.
+3. Jalankan `pwsh src_c/build/buildall.ps1` lalu `python src_c/verify/verifyall.py`
+   untuk status faktual (jangan percaya angka di dokumen, percaya alatnya).
+
+Arsip percakapan mentah ada di folder memory Claude Code (`*.jsonl`, 9,3 MB).
+Pakai HANYA kalau perlu menelusuri satu detail spesifik; jangan dibaca utuh dan
+jangan dipakai sebagai sumber status. Path lengkapnya ada di `src_c/JOURNAL.md`.
+
+**Pekerjaan berikutnya, urutan disarankan (per 2026-07-30, sesi lanjutan):**
+
+Selesai sesi ini, TUJUH fungsi, semuanya cocok byte-per-byte: `runmenu` (547 B),
+`review` (704 B), `mkpal` (634 B), `bounce` (398 B), `runfill` (383 B),
+`setzany` (282 B), `setmark` (259 B) = **3.207 byte**. Strategi "garap fungsi
+baru dulu, bukan near-miss" terbukti (sesi sebelumnya: nol byte).
+**Teruskan strategi itu.**
+
+1. **Fungsi belum tersentuh berikutnya**, urut dari yang paling mungkin:
+   `0x5035` (739 B, loader CONTRAP — formatnya sudah tervalidasi di CODE_MAP),
+   `0x5505` (964 B), `0x42ca` (1.730 B, `pickvar` — dipanggil `runfill`).
+   ⚠ Cek ukuran sebenarnya dengan `alamat_fungsi_berikutnya - alamat`, JANGAN
+   percaya `truesize.py` untuk fungsi ber-`switch` (lihat README).
+   ⚠ Kalau ekor sebuah fungsi mirip fungsi lain, cek dulu apakah itu KEMBARAN
+   (sumber diduplikasi) — `setmark`/`setzany` dan `show`/`setsel` begitu, dan
+   yang kedua jadi hampir gratis.
+2. Balik ke dua near-miss dengan mata segar:
+   - `place` (0x4e3e): panjang sudah tepat 503, sisa **2 byte** — register SI vs DI
+   - `nvar` (0x4094): 551/566 — pemicunya sudah dipersempit lewat probe ke ekspresi
+     bersarang `recbase[list[r]].row`, BUKAN bentuk `cnt++`
+   Peta slot + daftar "sudah dicoba & gagal" ada di ujung masing-masing berkas.
+3. Fungsi besar: `main` (0x0082, 4.219 B) dan VM animasi (0x18db, 3.040 B).
+4. Assembly tulisan tangan (butuh MASM) — nol dikerjakan; angkanya perlu
+   dihitung ulang karena dua primitif baru ketemu (`shftl` 0x5dce, `shftr` 0x6600).
 
 ## Proyek ini apa
 
 Membedah + mem-port game DOS **Creative Contraptions** (1985, Looking Glass Software / Bantam —
-bukan Looking Glass Studios). Analisis reverse-engineering **sudah selesai**; sekarang fase
-**port Python/pygame** di `port/`.
+bukan Looking Glass Studios). Analisis reverse-engineering **sudah selesai**. Dua produk turunan berjalan
+paralel: **port Python/pygame** di `port/` dan **rekonstruksi source C
+byte-identical** di `src_c/`.
 
 - Programmer asli: Jessie Ragsdale. Compiler asli: **Microsoft C V1.04** (= Lattice C yang
   di-rebrand Microsoft/Lifeboat; string literal `MS-C  V 1.04` ada di offset 0x200 biner
   ter-unpack). **Model memori = SMALL**, int 16-bit — lihat `ARCHITECTURE.md` §Model memori.
 - **Kompiler aslinya SUDAH ADA & TERBUKTI COCOK** (2026-07-29): `tools/msc104/`
   (di-.gitignore, unduh ulang dari PCjs / Internet Archive). crt0 `C.OBJ` cocok byte-per-byte
-  dgn biner game (116 byte, semua beda = slot relokasi). 41 fungsi / 6.951 byte ternyata
-  kode pustaka `MC.LIB` → tak perlu direkonstruksi. Target source asli ≈ 24,5 KB kode game
-  (103 fungsi). Detail: `DECOMPILE_PLAN.md` §Tahap 0.
+  dgn biner game (116 byte, semua beda = slot relokasi). Wilayah ≥0x69d7 (9.881 byte)
+  TERBUKTI kode pustaka `MC.LIB` — 23 modul cocok byte-per-byte, lihat
+  `python src_c/verify/libmatch.py` → tak perlu direkonstruksi. Target rekonstruksi
+  = **27.095 byte kode game** (<0x69d7), ±1.200 byte di antaranya assembly tulisan
+  tangan. Detail: `DECOMPILE_PLAN.md` §Tahap 0 dan `src_c/README.md`.
 - Bahasa target port: **Python** (pilihan user, sudah final).
 - Aset asli dibaca **saat runtime** (GRAPH/MECHS/MISC/ANIMATE/CONTRAP) — tanpa re-encode.
 
@@ -51,7 +96,10 @@ port/cc/anim/           frame animasi run ter-pack goalN_vV.dat + ballN_vV.json 
 work/emu.py             emulator Unicorn + capture VRAM/blitter (SUMBER KEBENARAN)
 work/                   skrip analisa, test_*.py, proof_*.py, bukti PNG/GIF
 _ORIGINAL_READONLY/     backup aset asli — JANGAN diubah
-tools/                  DOSBox-X, JDK 21, Ghidra 12.1.2
+tools/                  DOSBox-X, JDK 21, Ghidra 12.1.2, msc104 (MS C 1.04 + LINK 1.10)
+src_c/                  rekonstruksi source C byte-identical
+src_c/README.md         RULEBOOK: 17 aturan kompiler MS C 1.04 (baca sebelum menyentuh src_c)
+src_c/JOURNAL.md        jurnal KEPUTUSAN + jalan buntu + pertanyaan terbuka
 ```
 
 Dokumen: `CODE_MAP.md` (paling akurat & terkini), `ARCHITECTURE.md`, `GAME_GUIDE.md`,
@@ -79,7 +127,29 @@ python work/test_nav.py        # regresi navigasi menu
 ```
 Env emulator: `VARIANT=n VCAP=1 python work/emu.py <goal> <mode>` → capture VRAM + jalur bola.
 
-## Status (per 2026-07-21)
+Rekonstruksi source C (produk ke-2, folder `src_c/`):
+```
+pwsh src_c/build/buildall.ps1   # semua src_c/src/*.c -> .OBJ (lint dijalankan lebih dulu)
+pwsh src_c/build/link.ps1       # -> src_c/out/CONTRAP.EXE + CONTRAP.MAP
+python src_c/verify/verifyall.py   # tabel status per fungsi + segmen DATA
+```
+
+## Status decompile→source (per 2026-07-30)
+
+- **LINK berhasil**: 59 `.OBJ` + `MC.LIB` → `src_c/out/CONTRAP.EXE`, tanpa error.
+- **Segmen DATA 9.556/9.556 byte, 0 beda** vs biner asli (diukur dari .EXE hasil link).
+- **Kode C: 55/57 fungsi COCOK, 10.771 byte**; TOTAL 55,3%. Stub sisa 22.
+- ✅ Tabrakan nama `put()` sudah dibereskan: `put`=0x65e0, `putmsk`=0x6524.
+- Dua near-miss: `place` (503 byte tepat, 2 byte beda = register SI/DI) dan
+  `nvar` (551/566, 2 temp kelebihan). Peta slot & daftar gagal ada di berkasnya.
+- Batas keras pertama ditemukan: 1 byte di `load` (0x53ff+134) adalah artefak
+  kompiler yang bergantung NAMA BERKAS, bukan sumber C — lihat `src_c/README.md`.
+- Batas wilayah pustaka MC.LIB TERBUKTI di 0x69d7 (`src_c/verify/libmatch.py`),
+  jadi target rekonstruksi = 27.095 byte kode game, bukan 36.976.
+- ⚠ `.EXE` itu **belum bisa dijalankan** — `main` + 21 fungsi lain masih stub kosong.
+- Aturan & jebakan lengkap: **`src_c/README.md`** (baca sebelum menyentuh `src_c/`).
+
+## Status port (per 2026-07-21)
 
 **Selesai & terbukti:**
 - Unpack PKLITE, decompile 144 fungsi, format aset & CONTRAP tervalidasi.
@@ -92,7 +162,7 @@ Env emulator: `VARIANT=n VCAP=1 python work/emu.py <goal> <mode>` → capture VR
 - Layar judul beranimasi (rantai Rube-Goldberg custom), palet part dikocok, skoring, navigasi
    sesuai hierarki asli (selesai/ESC → pilihan GOAL, bukan menu depan).
 
-**Berikutnya (urutan disarankan):**
+**Berikutnya untuk jalur PORT (JEDA — hanya kalau user minta khusus):**
 1. Interpreter generate part-frame sendiri (op 01/07/09 → record ANIMATE) — agar lepas dari
    data capture emulator.
 2. Turunkan transform logis→layar `FUN_1000_5e3b` (syarat interaktif penuh + bola sub-pixel).

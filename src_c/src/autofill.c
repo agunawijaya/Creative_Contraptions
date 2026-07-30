@@ -5,7 +5,7 @@
  * pemain salah dua kali). Kalau ada yang dipasang, layar digambar ulang.
  *
  *   nmech @0x3ac ; fail[] @0x7be (pencacah gagal per slot, 2 byte per slot)
- *   place() = FUN_1000_4e3e ; err() = FUN_1000_6a48
+ *   place() = FUN_1000_4e3e ; printf() = FUN_1000_6a48
  *
  * Parameter (12) ditulis apa adanya karena semuanya diteruskan ke place().
  */
@@ -54,7 +54,7 @@ int  *tt;
                 }
             }
             if (found == 0)
-                err(0x1ede, tt[i]);   /* DUA argumen -- Ghidra menampilkan tiga */
+                printf(0x1ede, tt[i]);   /* DUA argumen -- Ghidra menampilkan tiga */
         }
         i = i + 1;
     }
@@ -62,7 +62,13 @@ int  *tt;
         place(a, b, c, d, e, n, ans, flag);
 }
 
-/* ⏳ BELUM COCOK — 271 byte vs 263, bingkai 10h vs 14h (kurang 2 slot).
+/* ✅ COCOK BYTE-PER-BYTE (263 byte).
+ *
+ * Catatan di bawah ini adalah RIWAYAT dari masa fungsi ini masih near-miss.
+ * Bagian "sudah terbukti" dan "sudah dicoba & gagal" tetap berlaku dan
+ * berguna; bagian "sisa" / "langkah berikut" SUDAH SELESAI — abaikan.
+ * ---------------------------------------------------------------------
+ * (riwayat) BELUM COCOK — 271 byte vs 263, bingkai 10h vs 14h (kurang 2 slot).
  * Sudah cocok: uji loop "i < n" dgn i di AX, place() di luar loop, dan
  * slot i@bp+8.
  * Sisa: `any` kita jatuh di bp+0eh, aslinya di bp+12h -> ada dua slot lagi
@@ -73,7 +79,7 @@ int  *tt;
  * menentukan variabel apa yang menempatinya, jangan menambah lokal asal-asalan.
  */
 
-/* ⏳ BELUM COCOK — 271 byte vs 263. Yang SUDAH terbukti benar:
+/* (riwayat, sudah selesai) 271 byte vs 263. Yang SUDAH terbukti benar:
  *   - bentuk loop "while (i < n)" dgn place() DI LUAR loop
  *   - slot i@bp+8, j@bp+0ah, found@bp+0eh, any@bp+12h (bingkai 14h)
  *   - fail[] adalah array INT biasa: "fail[i]" -> cmp [si+7beh],2

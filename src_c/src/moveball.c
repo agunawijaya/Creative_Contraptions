@@ -42,7 +42,13 @@ int a, x1, y1, x2, y2, n, d;
     sndmode = 0;
 }
 
-/* ⏳ BELUM COCOK — versi ini PANJANGNYA TEPAT 163 dan strukturnya IDENTIK.
+/* ✅ COCOK BYTE-PER-BYTE (163 byte).
+ *
+ * Catatan di bawah ini adalah RIWAYAT dari masa fungsi ini masih near-miss.
+ * Bagian "sudah terbukti" dan "sudah dicoba & gagal" tetap berlaku dan
+ * berguna; bagian "sisa" / "langkah berikut" SUDAH SELESAI — abaikan.
+ * ---------------------------------------------------------------------
+ * (riwayat) BELUM COCOK — versi ini PANJANGNYA TEPAT 163 dan strukturnya IDENTIK.
  * Satu-satunya beda: bingkai kita sub sp,0ah vs asli 08h -> semua offset bp
  * bergeser +2. Kita perlu SATU slot sementara lebih sedikit.
  *     asli: bp+0 scratch, dx@+2, i@+4, dy@+6   (px hidup di CX, py di BX)

@@ -3,6 +3,11 @@
 Membaca src_c/src/manifest.txt berisi baris:  <nama> <alamat_hex> <ukuran>
 lalu membandingkan src_c/out/<nama>.OBJ dengan potongan biner yang sesuai.
 
+Kolom KEEMPAT opsional `art=N[,N...]` menandai offset yang berisi ARTEFAK
+KOMPILER — byte yang TERBUKTI tidak ditentukan oleh sumber C fungsi itu
+(mis. sisa penunjuk internal MS C 1.04). Byte begitu dilaporkan terpisah,
+JANGAN dihitung sebagai cocok dan JANGAN disamarkan.
+
     python src_c/verify/verifyall.py
 """
 import os
@@ -23,13 +28,33 @@ def entries():
         if not ln:
             continue
         p = ln.split()
-        yield p[0], int(p[1], 16), int(p[2])
+        art = set()
+        for tok in p[3:]:
+            if tok.startswith("art="):
+                art = {int(v) for v in tok[4:].split(",")}
+        yield p[0], int(p[1], 16), int(p[2]), art
+
+
+def linked_data():
+    """Segmen DATA dari src_c/out/CONTRAP.EXE, batasnya dibaca dari CONTRAP.MAP."""
+    import struct
+    exe = os.path.join(OUT, "CONTRAP.EXE")
+    mp = os.path.join(OUT, "CONTRAP.MAP")
+    if not (os.path.exists(exe) and os.path.exists(mp)):
+        return None
+    row = [l.split() for l in open(mp) if " DATA " in l and " STACK " not in l]
+    if not row:
+        return None
+    start, length = int(row[0][0][:-1], 16), int(row[0][2][:-1], 16)
+    b = open(exe, "rb").read()
+    lb = struct.unpack_from("<H", b, 8)[0] * 16
+    return b[lb + start:lb + start + length]
 
 
 def main():
     tgt = open(TARGET, "rb").read()
-    rows, ok_bytes, tot_bytes = [], 0, 0
-    for name, addr, size in entries():
+    rows, ok_bytes, tot_bytes, art_bytes = [], 0, 0, 0
+    for name, addr, size, art in entries():
         tot_bytes += size
         obj = os.path.join(OUT, name + ".OBJ")
         if not os.path.exists(obj):
@@ -45,8 +70,15 @@ def main():
             rows.append((name, addr, size, "panjang %d != %d" % (len(code), len(orig)), 0))
             continue
         real = [k for k in range(len(orig)) if code[k] != orig[k] and k not in slots]
-        if real:
-            rows.append((name, addr, size, "%d byte beda (mis. +%d)" % (len(real), real[0]), 0))
+        left = [k for k in real if k not in art]
+        if left:
+            rows.append((name, addr, size, "%d byte beda (mis. +%d)" % (len(left), left[0]), 0))
+        elif real:
+            art_bytes += len(real)
+            rows.append((name, addr, size,
+                         "COCOK kecuali %d byte ARTEFAK KOMPILER (+%s)"
+                         % (len(real), ",+".join(str(k) for k in real)), size - len(real)))
+            ok_bytes += size - len(real)
         else:
             rows.append((name, addr, size, "COCOK", size))
             ok_bytes += size
@@ -56,31 +88,37 @@ def main():
     print("-" * (w + 30))
     for name, addr, size, res, _ in rows:
         print("%-*s  0x%04x  %6d  %s" % (w, name, addr, size, res))
-    n_ok = sum(1 for r in rows if r[3] == "COCOK")
+    n_ok = sum(1 for r in rows if r[3].startswith("COCOK"))
     print()
     print("COCOK %d/%d fungsi   |   %d byte terverifikasi (dari %d byte yang digarap)"
           % (n_ok, len(rows), ok_bytes, tot_bytes))
+    if art_bytes:
+        print("      %d byte di antaranya ARTEFAK KOMPILER yang TIDAK cocok "
+              "(tidak dihitung di atas)" % art_bytes)
     print("Kode C game   : %d / ~26.000 byte  (%.1f%%)" % (ok_bytes, ok_bytes / 26000.0 * 100))
 
-    # Segmen DATA (DGROUP) diverifikasi terpisah: gdata.OBJ vs DGROUP asli.
+    # Segmen DATA (DGROUP) diverifikasi dari .EXE HASIL LINK -- itu artefak yang
+    # sebenarnya, bukan .OBJ tunggal. Sumbernya: gdata.OBJ (offset 4..akhir) +
+    # 4 byte dari C.OBJ (crt0). Kalau .EXE belum ada, mundur ke gdata.OBJ.
+    sys.path.insert(0, HERE)
+    from dgroup import dgroup as _dg                        # noqa: E402
+    orig = _dg()
+    dg_tot = len(orig)
     dg_ok = 0
-    dg_tot = 0
-    gd = os.path.join(OUT, "gdata.OBJ")
-    if os.path.exists(gd):
-        sys.path.insert(0, HERE)
-        from dgroup import dgroup as _dg
-        from objcode import read_omf as _r
-        segs = _r(gd)
-        order = sorted(segs.items(), key=lambda kv: len(kv[1][0]), reverse=True)
-        data = (order[1] if len(order) > 1 else order[0])[1][0]
-        orig = _dg()[:len(data)]
-        dg_tot = len(_dg())
-        if len(data) == dg_tot and data == orig:
-            dg_ok = dg_tot
-        else:
-            bad = sum(1 for k in range(min(len(data), len(orig))) if data[k] != orig[k])
-            dg_ok = dg_tot - bad - abs(dg_tot - len(data))
-        print("Segmen DATA   : %d / %d byte  (%.1f%%)" % (dg_ok, dg_tot, dg_ok * 100.0 / dg_tot))
+    data = linked_data()
+    src = "hasil link"
+    if data is None:
+        src = "gdata.OBJ"
+        gd = os.path.join(OUT, "gdata.OBJ")
+        if os.path.exists(gd):
+            segs = read_omf(gd)
+            order = sorted(segs.items(), key=lambda kv: len(kv[1][0]), reverse=True)
+            data = b"\0" * 4 + (order[1] if len(order) > 1 else order[0])[1][0]
+    if data:
+        n = min(len(data), dg_tot)
+        dg_ok = sum(1 for k in range(n) if data[k] == orig[k])
+    print("Segmen DATA   : %d / %d byte  (%.1f%%)  [%s]"
+          % (dg_ok, dg_tot, dg_ok * 100.0 / dg_tot, src))
 
     total_target = 26000 + 1200 + (dg_tot or 9556)      # kode C + assembly + data
     total_ok = ok_bytes + dg_ok

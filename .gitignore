@@ -64,3 +64,6 @@ work/assets/
 # ── Sementara ──────────────────────────────────────────────────────────────
 *.tmp
 *.log
+
+# konfigurasi DOSBox-X yang DIBANGKITKAN tiap build (compile/link/probe)
+src_c/build/_*.conf

@@ -61,6 +61,39 @@ sebagai parameter.** Tidak ada penempatan implisit/tersembunyi.
 | `FUN_1000_657c` | Blok kecil bermasker (varian) | `(mask,data,dst)` + posisi var 0x260/0x268 |
 | `FUN_1000_6869` | Pengisi blok tingkat-rendah (dipanggil 6453) | dipakai text renderer |
 | `FUN_1000_5d98/5da1` | Tunggu vertical retrace | — |
+| `FUN_1000_5dce` | **Geser layar ke kiri** (dipakai strip palet `review`) | `(y,x,h,w,1)` |
+| `FUN_1000_6600` | **Geser layar ke kanan** (varian arah `-1`) | `(y,x,h,w,-1)` |
+
+Dua yang terakhir ditemukan 2026-07-30 saat merekonstruksi `FUN_1000_3c4f`;
+keduanya assembly tulisan tangan (prolog `push bp; mov bp,sp; push es; push ds`),
+jadi masuk daftar hutang MASM, bukan target rekonstruksi C.
+
+**Sudah direkonstruksi byte-identical** (lihat `src_c/`):
+- `FUN_1000_34cc` = `runmenu()` (547 B) — loop pilih menu + tabel switch tombol.
+- `FUN_1000_3c4f` = `review()` (704 B) — browse mekanisme. Nilai balik: `cur`
+  (Enter), `cur | 0x8000` (SPASI), `-1` (ESC), `0xfe` (waktu habis di mode 4).
+- `FUN_1000_10fd` = `setmark()` (259 B) — pilih slot yang dikosongkan untuk soal;
+  maksimal `rnd(1)+1` (mudah) atau `rnd(1)+3` (sulit) slot, TIDAK boleh
+  bersebelahan, menyerah setelah 0x19 tabrakan. Hasilnya dipecah ke dua daftar
+  menurut `tab[i] == -1`.
+- `FUN_1000_1200` = `setzany()` (282 B) — KEMBARAN `setmark()` untuk mode Zany
+  Objects (94 byte ekornya identik byte-per-byte). Bedanya: mengocok
+  `zsel[0]`/`zsel[1]` @0x836 lebih dulu, dan slot hanya boleh dipilih kalau
+  `tab[c] == 1`.
+- `FUN_1000_2d11` = `runfill()` (383 B) — loop isi jawaban per slot: `nvar()`
+  menyusun daftar varian, `pickvar()` (0x42ca) membiarkan pemain memilih.
+  Hasilnya ke tiga tabel sejajar (varian / id record / jenis part). Bit 15 pada
+  nilai balik `pickvar()` adalah penanda, jadi nomornya diambil `& 0x7fff`.
+- `FUN_1000_3909` = `mkpal()` (634 B) — bangun palet mekanisme: susuri 35 record
+  pertama, lewati yang identik dengan pendahulunya (id DAN row sama = bagian
+  lanjutan), muat sprite, catat ke `idtab[]`/`spr[]`. Kalau `shufflg == 1`,
+  daftar dikocok lalu di-DEDUP (id sama, ATAU keduanya >= 0x8c). Mekanisme yang
+  diminta soal (`want`) dilindungi dari pembuangan.
+- `FUN_1000_2504` = `bounce()` (398 B) — animasi bola memantul di layar judul:
+  6 lemparan ke tepi bergantian searah jarum jam (kiri→bawah→kanan→atas), titik
+  acak di tiap tepi. Jumlah langkah = hampiran jarak oktagonal
+  `(maks + min/2) / 2 / 2`, dibatasi 0x96. Dilewati kalau `prevtop`/`prevx`
+  masih 0x140 (belum ada bola di layar).
 
 **Kesimpulan tentang kekhawatiran "gambar berantakan":** koordinat komposisi bukan
 tebakan — semuanya parameter eksplisit ke fungsi-fungsi ini. Yang perlu dilacak
@@ -251,11 +284,29 @@ dipilih via tabel indireksi (@0xC / @0x1B0). **Aturan pasti pembangunan tabel in
 belum ditelusuri** — ini polish untuk jalur pixel-exact, bukan blocker jalur port Python.
 
 ## Fungsi I/O aset (dipakai loader)
-- `FUN_1000_6b57(nama, mode)` — buka file (return handle / -1)
-- `FUN_1000_6d31(handle, buf, n)` — baca n byte
-- `FUN_1000_6e8b(handle, off_lo, off_hi, whence)` — seek
-- `FUN_1000_6fb6(handle)` — tutup
-- `FUN_1000_5a5b(n)` — random 0..n-1 (pemilih varian)
+
+Semua yang di alamat ≥0x69d7 adalah **rutin `MC.LIB`**, dan nama sungguhannya sudah
+dipastikan byte-per-byte lewat `python src_c/verify/libmatch.py` (23 modul cocok):
+
+| alamat | nama sungguhan | catatan |
+|---|---|---|
+| 0x6a48 | `printf` | modul PRINTF; dipakai untuk pesan galat loader |
+| 0x6b57 | `open` | modul IOS1 |
+| 0x6d31 | `read` | `read(fh, buf, n)` |
+| 0x6e8b | `lseek` | **TIGA argumen** `lseek(fh, long off, mode)` — offsetnya `long`, jadi terlihat sebagai 4 push. Menulisnya 4 argumen `int` menghasilkan kode 4 byte lebih pendek. |
+| 0x6fb6 | `close` | |
+| 0x735a | `getch` | modul CONIO |
+| 0x7443 | `kbhit` | modul CONIO |
+| 0x7539 | `fopen` | modul FOPN |
+| 0x69d7 | `CXM33` | pembantu kali 32-bit — MS C 1.04 MEMANG punya `long` |
+
+⚠ Nama-nama tebakan lama (`err`, `fopen_`, `fread_`, `avail`, `togsnd`, `xlate`) SALAH
+dan sudah dihapus dari `src_c/`: 0x6a48 itu `printf`, 0x6e8b itu **`lseek`** (bukan fopen),
+0x6d31 `read`, 0x7443 `kbhit`, dan `togsnd`/`xlate` DUA NAMA untuk fungsi yang SAMA (`getch`).
+
+Bukan pustaka (kode game, assembly tulisan tangan):
+- `FUN_1000_5a5b(n)` — random 0..n-1 (pemilih varian); memakai `mul` + word tinggi DX
+- `FUN_1000_6853(mode)` — pembungkus INT 16h (0x100 = intip, 0 = buang)
 
 ## ⭐ "Fisika bola" = VM animasi ber-skrip (BUKAN simulasi fisika)
 

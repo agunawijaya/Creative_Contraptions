@@ -8,7 +8,7 @@
  *   mode @0x792, lvl @0x734, timer @0x7f2, tx @0x7ee, best @0x82e,
  *   cur2 @0x7f8, lvl6 @0x7f6, nmax @0x3b4, range @0x830, mflag @0x834
  *   postab[] @0x3b6 = pasangan (a,b) per posisi, stride 4 byte
- *   rnd()=5a5b, step()=5d98, text()=6453, pickmax()=4e01 (sudah direkonstruksi)
+ *   rnd()=5a5b, vbwait()=5d98, text()=6453, pickmax()=4e01 (sudah direkonstruksi)
  *
  * SLOT dari disassembly: bp+4,6,8,0ah,0ch,0eh,10h; bingkai 12h (2 slot temp).
  * `buf` dipakai sebagai string 2 karakter (huruf + NUL) lewat &buf.
@@ -58,7 +58,7 @@ hintmark()
             nb = postab[cur2].b;
             oa = postab[prev].a;
             ob = postab[prev].b;
-            step();
+            vbwait();
             if (prev <= nmax) {
                 buf = prev + 0x41;
                 text(&buf, ob, oa, 1, 1, 3);
@@ -80,7 +80,13 @@ hintmark()
     }
 }
 
-/* ⏳ BELUM COCOK — 319 byte vs 301, bingkai 14h vs 12h (satu slot berlebih).
+/* ✅ COCOK BYTE-PER-BYTE (301 byte).
+ *
+ * Catatan di bawah ini adalah RIWAYAT dari masa fungsi ini masih near-miss.
+ * Bagian "sudah terbukti" dan "sudah dicoba & gagal" tetap berlaku dan
+ * berguna; bagian "sisa" / "langkah berikut" SUDAH SELESAI — abaikan.
+ * ---------------------------------------------------------------------
+ * (riwayat) BELUM COCOK — 319 byte vs 301, bingkai 14h vs 12h (satu slot berlebih).
  * Perjalanan: 323 -> 319 (mengurangi lokal dari 10 jadi 8).
  * SUDAH TERBUKTI:
  *   - bentuk gabungan "if (mode == 4 && lvl == 2)" BENAR; menulisnya sebagai

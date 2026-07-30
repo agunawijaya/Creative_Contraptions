@@ -167,7 +167,7 @@ Perbedaan berhenti di +116 = akhir record LEDATA `C.OBJ`; setelahnya game lanjut
 berikutnya (`55 81 ec` = prolog fungsi). Artinya: **game ini di-link dengan `C.OBJ` dari
 distribusi ini persis.**
 
-**Bukti 2 — 41 fungsi ternyata milik pustaka, bukan game.** Mencocokkan tiap fungsi ke
+**Bukti 2 — sebagian kode ternyata milik pustaka, bukan game.** Mencocokkan tiap fungsi ke
 `MC.LIB`:
 
 | kategori | jumlah | byte | konsekuensi |
@@ -175,11 +175,26 @@ distribusi ini persis.**
 | kode PUSTAKA (MC.LIB) | 41 fungsi | 6.951 | **tak perlu direkonstruksi** — cukup di-link |
 | kode GAME asli | 103 fungsi | 22.036 | inilah yang harus ditulis jadi source |
 
+> ⚠ **ANGKA DI TABEL DI ATAS SUDAH TERBANTAH (2026-07-30).** Itu hasil pencocokan
+> per-fungsi yang meleset. Pencocokan per-MODUL OMF (`python src_c/verify/libmatch.py`)
+> membuktikan angka yang benar:
+>
+> | | byte | keterangan |
+> |---|---|---|
+> | modul `MC.LIB` cocok byte-per-byte | **9.935** | 23 modul, wilayah 0x69d7..0x9062 |
+> | wilayah kode game (<0x69d7) | **27.095** | yang harus ditulis ulang |
+> | — di antaranya assembly tulisan tangan | ±1.200 | primitif grafis + rutin suara |
+> | — sisanya kode C | **±25.900** | target rekonstruksi sebenarnya |
+>
+> Jadi **target ≈ 26 KB, BUKAN 24,5 KB**, dan batas pustaka ada di **0x69d7** (modul
+> pertamanya `CXM33`), bukan 0x6a48. Lihat `src_c/README.md` §"Sisa pekerjaan".
+
 Celah tak-terdekompilasi juga sebagian pustaka — mis. `0x7fd3` (1.760 byte, penanganan
 printf/varargs) ada di `MC.LIB @0x023b4`. Sisa celah yang benar-benar kode game = handler VM
 (`0x1da8`, ±1.811 byte) dan drawer (`0x2714`, ±668 byte), keduanya sudah dibedah tangan.
 
-**Target rekonstruksi sesungguhnya ≈ 24,5 KB kode game**, bukan 36 KB. Beban turun ~1/3.
+~~**Target rekonstruksi sesungguhnya ≈ 24,5 KB kode game**, bukan 36 KB.~~ — dikoreksi
+2026-07-30 menjadi **≈ 26 KB** (lihat kotak peringatan di atas).
 
 Lalu, pilih jalur:
 

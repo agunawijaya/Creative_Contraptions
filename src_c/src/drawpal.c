@@ -44,7 +44,13 @@ int sel, base;
     }
 }
 
-/* ⏳ BELUM COCOK — 192 byte vs 204 (12 KURANG).
+/* ✅ COCOK BYTE-PER-BYTE (204 byte).
+ *
+ * Catatan di bawah ini adalah RIWAYAT dari masa fungsi ini masih near-miss.
+ * Bagian "sudah terbukti" dan "sudah dicoba & gagal" tetap berlaku dan
+ * berguna; bagian "sisa" / "langkah berikut" SUDAH SELESAI — abaikan.
+ * ---------------------------------------------------------------------
+ * (riwayat) BELUM COCOK — 192 byte vs 204 (12 KURANG).
  * SUDAH DICOBA & GAGAL:
  *   - nmech dipakai inline tanpa lokal t            -> 186 (makin pendek)
  *   - t > -1 sbg ganti t >= 0                       -> 181 (makin pendek)

@@ -51,7 +51,13 @@ timedrw()
     }
 }
 
-/* ⏳ BELUM COCOK — 206 byte vs 208 (2 KURANG).
+/* ✅ COCOK BYTE-PER-BYTE (208 byte).
+ *
+ * Catatan di bawah ini adalah RIWAYAT dari masa fungsi ini masih near-miss.
+ * Bagian "sudah terbukti" dan "sudah dicoba & gagal" tetap berlaku dan
+ * berguna; bagian "sisa" / "langkah berikut" SUDAH SELESAI — abaikan.
+ * ---------------------------------------------------------------------
+ * (riwayat) BELUM COCOK — 206 byte vs 208 (2 KURANG).
  * SUDAH DICOBA & GAGAL: menambah lokal tak terpakai (dihapus kompiler),
  * "i = i + 8" sbg ganti "i += 8" (tak berpengaruh).
  * Kurang tepat 2 byte = satu instruksi kecil; periksa bentuk penugasan

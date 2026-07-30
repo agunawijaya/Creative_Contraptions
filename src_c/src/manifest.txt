@@ -42,3 +42,18 @@ pickloop   2e90  334
 hintmark   4cd4  301
 fillans    149d  307
 drawpair   4a31  392
+redraw   5936    30
+pause    31b0     42
+show     381a    108
+setsel   3769    177
+blend    5ea6    234
+load     53ff    262   art=134
+place    4e3e    503
+nvar     4094    566
+runmenu  34cc    547
+review   3c4f    704
+setmark  10fd    259
+setzany  1200    282
+bounce   2504    398
+runfill  2d11    383
+mkpal    3909    634

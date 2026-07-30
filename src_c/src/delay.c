@@ -22,7 +22,7 @@
  *   c3            ret
  */
 
-int ticks;
+extern int ticks;           /* @0x2e4 — definisinya di gdata.c */
 
 delay(n)
 int n;

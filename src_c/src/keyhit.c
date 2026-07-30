@@ -1,7 +1,7 @@
 /* FUN_1000_1791 @ 1000:1791, 131 byte — polling keyboard dgn penanganan tombol khusus.
  *
- *   avail() = FUN_1000_7443 ; rdkey() = FUN_1000_6853 (0x100 = intip, 0 = buang)
- *   togsnd() = FUN_1000_735a ; sndflag @0x83c
+ *   kbhit() = FUN_1000_7443 ; rdkey() = FUN_1000_6853 (0x100 = intip, 0 = buang)
+ *   getch() = FUN_1000_735a ; sndflag @0x83c
  *
  * Balikan: 0 = tak ada tombol, 1 = tombol panah / buffer kosong,
  *          selain itu = kode ASCII-nya. 'S'/'s' = saklar suara, ditelan di sini.
@@ -22,7 +22,7 @@ keyhit()
     char c;
 
     for (;;) {
-        if (avail() == 0)
+        if (kbhit() == 0)
             return 0;
         k = rdkey(0x100);
         c = k;
@@ -36,7 +36,7 @@ keyhit()
            yaitu KEBALIKAN urutan sumber */
         case 0x73:
         case 0x53:
-            togsnd();
+            getch();
             sndflag ^= 1;
             continue;      /* continue, bukan break: tiap case melompat BALIK ke awal loop */
         case 0:
@@ -57,7 +57,13 @@ keyhit()
 }
 
 
-/* ⏳ BELUM COCOK — 126 byte vs 131 (5 KURANG).
+/* ✅ COCOK BYTE-PER-BYTE (131 byte).
+ *
+ * Catatan di bawah ini adalah RIWAYAT dari masa fungsi ini masih near-miss.
+ * Bagian "sudah terbukti" dan "sudah dicoba & gagal" tetap berlaku dan
+ * berguna; bagian "sisa" / "langkah berikut" SUDAH SELESAI — abaikan.
+ * ---------------------------------------------------------------------
+ * (riwayat) BELUM COCOK — 126 byte vs 131 (5 KURANG).
  * Kemajuan besar putaran ini: 137 -> 133 -> 126 (menyeberang dari kepanjangan
  * ke kependekan), dan STRUKTURNYA kini terbukti `switch`, bukan if/else.
  * Yang sudah dipastikan dari biner:

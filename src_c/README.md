@@ -10,29 +10,87 @@ manusia (862 tipe `undefined`, 217 variabel `in_*`, 0 `#include`), tidak bisa di
 ## Isi
 ```
 src/      berkas .c hasil rekonstruksi (satu fungsi/kelompok per berkas)
-build/    compile.ps1 — kompilasi lewat MS C 1.04 di dalam DOSBox-X
+          gdata.c  — DIBANGKITKAN (build/gendata.py), rekonstruksi segmen DATA
+          stubs.c  — DIBANGKITKAN, definisi kosong untuk fungsi yang belum digarap
+build/    compile.ps1 — kompilasi satu berkas lewat MS C 1.04 di dalam DOSBox-X
+          buildall.ps1 — lint + kompilasi semua
+          link.ps1    — LINK semua .OBJ + MC.LIB -> out/CONTRAP.EXE
+          gendata.py  — bangkitkan src/gdata.c dari DGROUP biner asli
 verify/   objcode.py  — banding byte .OBJ kita vs biner asli
-out/      keluaran build (.OBJ, log) — tidak diversikan
+          verifyall.py — tabel status semua fungsi + segmen DATA
+          dgroup.py   — alat segmen DATA (dump, string, banding)
+          symbols.py  — PUBDEF vs EXTDEF, cari simbol yang belum ada
+          truesize.py — ukuran fungsi sebenarnya (functions.txt sering kurang)
+          lintsrc.py  — deteksi kode tertelan komentar blok
+out/      keluaran build (.OBJ, .EXE, .MAP, log) — tidak diversikan
 ```
 
 ## Cara pakai
 ```
 pwsh src_c/build/compile.ps1 -Name delay          # -> src_c/out/delay.OBJ
 python src_c/verify/objcode.py src_c/out/delay.OBJ 2692 28
+
+pwsh src_c/build/buildall.ps1                     # semua .c -> .OBJ
+pwsh src_c/build/link.ps1                         # -> src_c/out/CONTRAP.EXE
+python src_c/verify/verifyall.py                  # tabel status
 ```
 Argumen ke-2 dan ke-3 = alamat & ukuran fungsi di biner asli (lihat
-`work/ghidra_out/functions.txt`).
+`work/ghidra_out/functions.txt`, tapi cek ulang dengan `truesize.py`).
 
 ## Status
-Jalankan `pwsh src_c/build/buildall.ps1` lalu `python src_c/verify/verifyall.py`
-untuk tabel status terkini.
-
 **Status terkini dihasilkan oleh alat, bukan ditulis tangan** — jalankan
-`python src_c/verify/verifyall.py` untuk tabel lengkap per fungsi.
+`pwsh src_c/build/buildall.ps1`, `pwsh src_c/build/link.ps1`, lalu
+`python src_c/verify/verifyall.py`.
 
-Ringkasan per 2026-07-29: **31 dari 32 fungsi yang digarap COCOK byte-per-byte,
-3.418 byte terverifikasi (~13% dari target ±26.000 byte kode C game).**
-Satu yang masih terbuka: `loadarc` (2 byte, bingkai sudah tepat).
+Ringkasan per 2026-07-30 (sesi ke-3):
+- **LINK BERHASIL, tanpa error** — 59 `.OBJ` + `MC.LIB` → `out/CONTRAP.EXE`.
+- **Segmen DATA 9.556/9.556 byte, 0 beda** vs biner asli.
+- **Kode C: 55/57 fungsi COCOK, 10.771 byte (41,4%); TOTAL 20.327 / 36.756 (55,3%).**
+  Dua near-miss, keduanya dengan
+  peta slot dan daftar "sudah dicoba & gagal" di ujung berkasnya:
+  - `place` (0x4e3e): panjang tepat 503, 2 byte beda (pilihan register SI/DI)
+  - `nvar` (0x4094): 551 vs 566, bingkai 3ch vs 38h (2 temp kelebihan)
+- Satu byte di `load` adalah artefak kompiler, dilaporkan terpisah.
+- Stub sisa: 22 fungsi (BARU: `shftl`/`shftr` primitif geser layar assembly,
+  `putmsk` @0x6524, `pickvar` @0x42ca).
+- ✅ **`put()` yang bertabrakan SUDAH dipecah** (2026-07-30): `put` = 0x65e0
+  (shuffle/askopts), `putmsk` = 0x6524 (xform/bounce). Keduanya rutin assembly
+  berbeda — prolognya sama (`push bp; push es; mov bp,sp; mov ax,0b800h`) tapi
+  alamatnya beda. Dulu satu nama, jadi LINK menyatukan dua alamat.
+
+⚠ `.EXE` ini **belum bisa dimainkan**: `main` dan fungsi lain masih stub
+kosong di `src/stubs.c`. Nilainya ada di dua hal — link membuktikan sumber kita
+konsisten (tak ada simbol menggantung, tak ada definisi ganda), dan tata letak
+DGROUP hasil link bisa dibanding langsung ke aslinya.
+
+## ⭐ SEGMEN DATA mulai di offset 4, bukan 0
+
+Empat byte pertama DGROUP disumbang `C.OBJ` (crt0) yang selalu di-link paling
+depan. Karena itu `gendata.py` punya `START = 4` dan `gdata.c` hanya memancarkan
+offset 4..akhir. Kalau `gdata.c` ikut memancarkan offset 0..3, SELURUH DGROUP
+bergeser 4 byte dan tiap alamat (`ticks @0x2e4`, dst) jadi salah — gejalanya:
+`gdata.OBJ` sendiri cocok 100% tapi hasil link beda 5.821 byte mulai di
+`DGROUP+0x2cc`. Bukti: peta link menunjukkan `DATA+0x0004` = `DGROUP+0x0000`.
+
+Aturan turunannya: **ukur segmen DATA dari .EXE hasil link**, jangan dari
+`.OBJ` tunggal. `.OBJ` bisa "cocok 100%" sementara hasil link-nya salah.
+
+## ⭐ Alamat GANJIL wajib array byte
+
+`int x[n]` dibulatkan ke atas ke batas kata. Simbol di alamat ganjil (kasus
+nyata: `tune2 @0x1ddb`) harus dideklarasikan `char x[n]`, kalau tidak seluruh
+sisa DGROUP bergeser satu byte. Sudah ditangani `gendata.py`.
+
+## Menjalankan LINK: baris perintah DOS hanya 127 karakter
+
+Daftar 44 objek jauh melewati batas itu. `link.ps1` menulis masukan ke berkas
+lalu me-redirect: `y:\LINK < x:\link.in`. Format prompt LINK 1.10 = modul objek
+/ run file / list file / pustaka; tanda `+` di ujung baris berarti lanjut.
+`C.OBJ` (crt0) HARUS objek pertama.
+
+⚠ Hapus `.OBJ` basi sebelum link. `rnd.OBJ` peninggalan probe yang berkasnya
+sudah tak ada membuat LINK melaporkan "Symbol defined more than once" dan
+menyembunyikan bahwa `rnd` sebenarnya belum direkonstruksi.
 
 ## Catatan penting: byte-identical ≠ source aslinya
 
@@ -44,6 +102,451 @@ menyebutnya "kode asli yang dipulihkan".
 Contohnya variabel `unused` di beberapa fungsi: biner asli menyisihkan slot bingkai yang
 tak pernah ditulisi. Kita mereproduksinya dengan variabel tak-terpakai. Penulis aslinya
 mungkin menulis sesuatu yang lain yang kebetulan menghasilkan bingkai sama.
+
+## ⭐ `&&` di syarat loop vs `if (...) return;` di badan
+
+Dua bentuk ini punya arti yang SAMA tapi byte-nya beda jauh:
+
+| bentuk | yang dipancarkan |
+|---|---|
+| `if (cond) return;` di dalam badan | epilog DIPANCARKAN ULANG di tempat (`add sp,N; pop bp; ret`) lalu dilompati `je` |
+| `for (i=0; i<n && cond==0; i++)` | `jne` langsung ke epilog BERSAMA |
+
+Cirinya di biner: kalau ada **satu epilog saja** dan **beberapa "jump false"**
+(`jge`, `jne`, ...) semuanya menuju ke sana, itu tanda tangan `&&` — bukan
+`return` di tengah badan. Kalau epilog muncul lebih dari sekali, memang ada
+`return` di tengah. Kasus nyata: `pause` (0x31b0) turun 47 → 42 byte, langsung
+cocok, hanya dengan memindahkan cek `keyhit()` dari badan ke syarat `for`.
+
+## ⭐ DISPLACEMENT 8-BIT vs 16-BIT: field struct vs array global
+
+Ini pembeda paling tajam yang ditemukan sejauh ini, dan gampang terlewat karena
+alamatnya sama-sama kecil:
+
+| biner | artinya |
+|---|---|
+| `8b 47 0a` — `mov ax,[bx+0ah]`, displacement **8-bit** | 0x0a = **offset field** di dalam struct |
+| `8b 87 0a 00` — `mov ax,[bx+0000ah]`, displacement **16-bit** | 0x0a = **alamat global** yang direlokasi linker |
+
+Kompiler memakai bentuk 8-bit kalau offsetnya konstanta kecil yang sudah pasti,
+dan bentuk 16-bit kalau nilainya alamat simbol (belum diketahui saat kompilasi).
+Jadi displacement 16-bit membuktikan ada **array/variabel global** di sana.
+
+Kasus nyata `drawpair` (0x4a31): `8b 87 0a 00` semula dibaca sebagai
+"`*(int *)(idx*0xc + 10)`" — offset field 10. Salah: itu **array global 12-byte
+per entri di DGROUP 0x0a**, dan field yang dibaca adalah kata PERTAMA entri.
+Ditulis `sprtab[k].spr` dengan `extern struct slot sprtab[]`, langsung cocok.
+
+## ⭐ ARAH TERNARY ditentukan oleh cabang mana yang MEMUAT ULANG dari memori
+
+`(v >= 0x80) ? v - 0x100 : v` dan `(v < 0x80) ? v : v - 0x100` sama artinya tapi
+BEDA byte. Yang menentukan: kompiler menaruh cabang TRUE di fall-through dan
+melompat ke cabang FALSE.
+
+```
+asli : cmp ax,80h / mov [bp+8],ax / jl +5 / sub ax,100h / jmp +3 / mov ax,[bp+8]
+                                    └ cabang FALSE memuat ULANG dari slot
+```
+Cabang yang isinya "nilai apa adanya" dipancarkan sebagai **muat ulang dari
+slot bingkai** (`mov ax,[bp+8]`), sedangkan cabang yang menghitung dipakai apa
+adanya di AX. Jadi: **cari cabang yang berisi `mov ax,[bp+N]` — itu cabang
+FALSE**, dan tulis ternary-nya supaya nilai-apa-adanya ada di posisi FALSE.
+Menulis arah terbalik memberi 9 byte bukan 10 per pemulihan tanda; di
+`drawpair` itu 4 tempat = 4 byte, cukup untuk menggagalkan seluruh fungsi.
+
+Konstanta juga harus tepat: `>= 0x80` memberi `cmp ax,80h`, sedangkan
+`> 0x7f` memberi `cmp ax,7fh`. Perhatikan mana yang ada di biner.
+
+## ⭐ MS C 1.04 PUNYA `long` — dan itu terlihat di cara argumen didorong
+
+Anggapan lama "1983 belum ada long" SALAH. Buktinya dua lapis:
+- MC.LIB berisi modul pembantu aritmetika 32-bit: `CXM33` (kali), `CXD33` (bagi),
+  `CXC33`, `CXVFD`/`CXVDF` (konversi). Lihat `python src_c/verify/libmatch.py`.
+- Konstanta `long` didorong sebagai DUA kata yang masing-masing di-nol-kan
+  SENDIRI, bukan satu register dipakai ulang:
+
+```
+0L  ->  xor bx,bx / push bx / xor bx,bx / push bx      (8 byte, 2 push)
+0   ->  xor bx,bx / push bx                            (4 byte, 1 push)
+0,0 ->  xor bx,bx / push bx / push bx                  (5 byte, 2 push)  <- CSE
+```
+
+Jadi kalau biner me-nol-kan register ULANG untuk push yang berurutan, itu satu
+argumen `long`, bukan dua argumen `int`. Kasus nyata `loadarc` (0x531d):
+`lseek(fh, 0L, 0)` (3 argumen) — bukan `lseek(fh, 0, 0, 0)` (4 argumen);
+selisihnya tepat 4 byte dan itu byte terakhir yang menutup fungsi.
+
+Konsekuensi lain: **jangan buru-buru menyimpulkan sebuah fungsi mustahil ditulis
+di C 1983 hanya karena memakai 32-bit.** Yang benar-benar tak ada adalah
+`unsigned long` (`rnd` di 0x5a5b mengambil kata tinggi dari DX setelah `mul` —
+itu tetap assembly).
+
+## ⭐ CSE: yang dipakai ulang itu PENUNJUK atau OFFSET?
+
+`b[k*0xc + 1]` dan `(b + k*0xc)[1]` sama artinya, beda kode. Yang menentukan:
+subekspresi mana yang jadi common subexpression.
+
+```
+(b + k*0xc)[1] ... (b + k*0xc)[0]      <- CSE PENUNJUK
+   mov si,[b] / add si,ax / mov al,[si+1] / ... / mov al,[si]
+   → penunjuk dihitung SEKALI, akses kedua pakai displacement
+
+b[k*0xc + 1] ... b[k*0xc]              <- CSE OFFSET
+   mov [bp],ax / inc ax / mov si,[b] / add si,ax / mov al,[si]
+   ... mov si,[b] / add si,[bp] / mov al,[si]
+   → offset yang dipakai ulang, penunjuk dihitung ULANG (+12 byte)
+```
+
+Ciri di biner: **`mov al,[si+1]`** (displacement) → CSE penunjuk.
+**`inc ax` sebelum `add si,ax`** → CSE offset. Kasus nyata `pickpart` (0x131a):
+selisihnya 12 byte, dan mengubah bentuknya saja menutup fungsi.
+
+Terkait: kalau biner menyimpan sesuatu ke slot temp yang **tak pernah dibaca**
+(`mov word ptr [bp],si` tanpa pembaca), itu temp CSE — BUKAN variabel lokal.
+Menambah lokal untuk itu justru memperbesar bingkai dan menggagalkan fungsi.
+
+## ⭐ `else` EKSPLISIT mencegah kompiler MELIPAT lompatan
+
+Dua bentuk ini sama artinya — dan beda 2 byte:
+
+```c
+if (cond) goto X;              if (cond) goto X;
+stmt;                          else { stmt; }
+```
+```
+kita/dilipat : cmp .. / je X                    (2 byte)
+asli/tak dilipat: cmp .. / jne stmt / jmp X     (4 byte)
+```
+
+Untuk suku TERAKHIR sebuah rantai `||` yang badannya cuma `goto`, kompiler
+melipat lompatan bersyarat langsung ke label tujuan. Dengan `else` eksplisit ia
+tidak melipat: ia memancarkan "lompat ke badan-else kalau salah" lalu
+"jmp label" sebagai badan `if`-nya.
+
+Ciri di biner: **`jne <alamat setelah jmp>` diikuti `jmp <target>`** — dua
+lompatan berurutan yang bisa disederhanakan jadi satu. Kalau melihat pola itu,
+sumbernya memakai `else`. Kasus nyata `getkey` (0x1814): byte TERAKHIR yang
+menutup fungsi setelah 199 vs 197 bertahan lama.
+
+## ⭐ `if` BERSARANG vs rantai `&&` rata: mempengaruhi pemuatan register
+
+Rantai `&&` yang panjang dan rata membuat MS C 1.04 membandingkan **langsung
+dari slot bingkai** (`cmp word ptr [bp+4],imm` = 5 byte per uji). Memecahnya
+jadi `if` bersarang membuat kompiler memuat nilainya **sekali** ke AX lalu
+memakai `cmp ax,imm` (3 byte per uji).
+
+```c
+if (a && b && c && d && e)   ->  cmp word ptr [bp+4], imm   x4   (20 byte)
+if (a && b) { if (c && d && e) }  ->  mov ax,[bp+4] + cmp ax,imm x4 (15 byte)
+```
+
+Jadi kalau biner memakai `cmp ax,imm` untuk beberapa uji berturut, uji-uji itu
+ada di dalam `if` bersarang — bukan satu rantai rata. Kasus nyata `getkey`:
+selisihnya 5 byte.
+
+## ⚠ BATAS KERAS PERTAMA: byte yang TIDAK ditentukan sumber C
+
+`load` (0x53ff) cocok 261 dari 262 byte. Satu byte di +134 **tidak bisa
+disamakan lewat bentuk sumber apa pun**, dan ini sudah dibuktikan, bukan
+diduga.
+
+**Apa byte itu.** MS C 1.04 salah memancarkan kode untuk `p == -1L` ketika `p`
+bertipe long dan berasal dari panggilan fungsi:
+
+```
+3d ff ff    cmp ax,0ffffh      ; banding kata rendah
+75 03       jne +3
+05 49 94    add ax,9449h       ; <- SEHARUSNYA "cmp bx,-1"; ini SAMPAH
+89 46 0c    mov [bp+0ch],ax
+89 5e 0e    mov [bp+0eh],bx
+75 12       jne ...            ; flag-nya sudah DIRUSAK oleh `add`
+```
+Karena `add` merusak flag, `jne` sesudahnya SELALU diambil, sehingga blok
+`printf("...")` di 0x548e **tidak pernah tercapai**. Ghidra melaporkannya:
+`WARNING: Removing unreachable block (ram,0x0001548e)`. Jadi pemeriksaan
+gagal-seek di game asli memang mati sejak 1985 — jangan "diperbaiki".
+
+**Buktinya bukan sumber C.** Sumber yang SAMA PERSIS, dikompilasi dengan nama
+berkas berbeda, memberi imm yang berbeda:
+
+| nama berkas | panjang | imm |
+|---|---|---|
+| `ab.c` | 2 | `0x3a49` |
+| `abcd.c` | 4 | `0x3849` |
+| `abcdef.c` | 6 | `0x3649` |
+| `abcdefgh.c` | 8 | `0x3449` |
+
+Yaitu byte tinggi = `0x3c - panjang_nama`. Isi berkas TIDAK berpengaruh: 60
+fungsi dummy, 80 deklarasi extern, dan array lokal 1500 byte semuanya tidak
+menggesernya. Aslinya `0x94` — di luar jangkauan nama 8.3 mana pun di
+lingkungan kita, jadi selisihnya berasal dari lingkungan build 1985 (tata letak
+memori DOS / direktori kerja), bukan dari sumbernya.
+
+**Cara melaporkannya.** `manifest.txt` menerima kolom keempat `art=N` yang
+menandai offset artefak. `verifyall.py` melaporkannya TERPISAH dan TIDAK
+menghitungnya sebagai cocok:
+```
+load   0x53ff   262   COCOK kecuali 1 byte ARTEFAK KOMPILER (+134)
+       1 byte di antaranya ARTEFAK KOMPILER yang TIDAK cocok
+```
+Pakai `art=` HANYA kalau sudah ada bukti seperti di atas — bukan untuk menutupi
+byte yang belum dipahami.
+
+## ⭐ STORE konstanta ter-hoist dipancarkan TERBALIK dari urutan sumber
+
+Kalau beberapa penugasan berurutan memakai konstanta yang sama, MS C 1.04
+mengangkat konstanta itu ke register SEKALI lalu memancarkan store-nya dalam
+urutan **kebalikan** urutan sumber.
+
+```c
+cnt = 0; grp[1] = 0; grp[0] = 0; i = 0; ok = 1; last = 0xff; rp = recbase;
+```
+menghasilkan
+```
+xor ax,ax / mov [ok],1 / mov [last],0ffh / mov bx,[recbase]
+mov [i],ax / mov [grp0],ax / mov [grp1],ax / mov [cnt],ax / mov [rp],bx
+```
+— perhatikan `i, grp0, grp1, cnt` adalah kebalikan dari `cnt, grp1, grp0, i`.
+
+Konsekuensi praktis: **jangan urutkan penugasan awal menurut yang "masuk akal"**.
+Baca urutan store dari biner, lalu BALIK untuk mendapat urutan sumbernya. Kasus
+nyata `nvar` (0x4094): urutan yang tampak wajar (`ok, last, i, grp[0], grp[1],
+cnt, rp`) membuat `xor ax,ax` jatuh SESUDAH dua store immediate dan urutan
+grp tertukar; urutan terbalik memberi prolog yang cocok byte-per-byte.
+
+Catatan: yang dibalik hanya store yang memakai register ter-hoist. Store
+immediate (`mov [x],1`) tetap di urutan sumber dan dipancarkan lebih dulu.
+
+## ⭐ `x[cnt++]`: bentuk TEMP vs `inc <memori>` ditentukan pemakaian nilai BARU
+
+`cnt++` menghasilkan DUA bentuk kode yang berbeda, dan yang menentukan adalah
+apakah nilai SESUDAH increment dipakai di dekatnya:
+
+| konteks | kode |
+|---|---|
+| nilai baru dipakai (mis. langsung dibandingkan) | `mov ax,[cnt] / mov [bp],ax / inc ax / mov bx,[bp]` — nilai LAMA ke temp, baru di AX |
+| nilai baru TIDAK dipakai | `mov ax,[cnt] / inc word ptr [cnt]` — increment langsung di memori |
+
+Kasus nyata `nvar` — DUA fase, dua bentuk, dari sumber yang sama-sama `cnt++`:
+```c
+list[cnt++] = i;                    /* fase 1 */
+if (cnt >= 0x32) ok = 0;            /* nilai baru dipakai -> bentuk TEMP */
+
+out[cnt++] = list[r];               /* fase 2: nilai baru tak dipakai -> inc memori */
+```
+Jadi kalau biner memakai bentuk temp, JANGAN buru-buru menulis dua pernyataan
+(`x[cnt] = v; cnt = cnt + 1;`) — itu memberi kode LAIN lagi. Yang benar tetap
+`cnt++`; yang berbeda adalah apa yang datang sesudahnya.
+
+## ⭐ Hanya perubahan TIPE yang mematahkan CSE nilai — teks tidak cukup
+
+Kalau biner MEMUAT ULANG field yang sama dua kali sedangkan hasil kompilasi kita
+memakai ulang nilai di AX (dengan spill `mov [bp],ax`), berarti sumber aslinya
+membuat kompiler menganggap kedua pembacaan itu ekspresi BERBEDA. Yang
+menentukan cuma satu hal: **tipe aksesnya**.
+
+Diuji pada `place` (0x4e3e), `while (...)` lalu `if (sp->id == id ...)`:
+
+| bentuk di `while` | hasil |
+|---|---|
+| `sp->id != 0` | di-CSE (nilai dipakai ulang) |
+| `sp[0].id != 0` | di-CSE |
+| `(*sp).id != 0` | di-CSE |
+| `((struct slot *)sp)->id != 0` | di-CSE |
+| **`*(char *)sp != 0`** | **TIDAK di-CSE** — memuat ulang, cocok dgn biner |
+
+Jadi menulis ulang ekspresi yang sama dengan sintaks lain TIDAK ada efeknya;
+hanya cast yang mengubah tipe akses (di sini `struct` → `char`) yang memisahkan
+keduanya di tabel temp kompiler.
+
+⚠ Efek sampingnya: cast `char *` menahan penunjuknya di SI, sehingga penunjuk
+LAIN di pernyataan berikutnya jatuh ke DI. Di `place` itu menyisakan 2 byte beda
+(`mov si,[bp+8]` vs `mov di,[bp+8]`). Jadi trik ini menutup satu masalah dan
+membuka masalah lain — pakai sadar.
+
+## ⭐ FUNGSI BER-SWITCH LEBIH PANJANG DARI YANG DILAPORKAN ALAT
+
+`truesize.py` mencari epilog (`add sp,N; pop bp; ret`). Untuk fungsi yang
+`switch`-nya jadi TABEL, masih ada kode SESUDAH epilog terakhir:
+
+```
+  <badan case terakhir: ... ret>
+  jmp <atas loop>          <- back-edge, 3 byte
+  <TABEL (nilai,label)>    <- 4 byte per entri, di SEGMEN KODE
+  mov si,<4*(n-1)>         <- loop pencari
+  cmp ax, cs:[si+tabel]
+  jne +5
+  jmp word ptr cs:[si+tabel+2]
+  sub si,4
+  jns ulang
+  jmp <default>
+```
+
+Ukuran sebenarnya = sampai fungsi BERIKUTNYA, bukan sampai epilog. Kasus nyata:
+`runmenu` 497 (truesize) / 430 (functions.txt) vs **547** sebenarnya;
+`review` 650 / 362 vs **704**. Cara cepat: `alamat_fungsi_berikutnya - alamat`.
+
+## ⭐ `default: break;` MEMANCARKAN back-edge loop sebagai jmp TERSENDIRI
+
+`for (;;) { ... switch (k) { ... } }` — kalau semua badan `case` berakhir
+`break`/`return`, ujung switch tak pernah tercapai. MS C 1.04 TETAP
+memancarkan jmp back-edge di sana, TAPI hanya kalau ada `default:`:
+
+| sumber | yang dipancarkan sebelum tabel |
+|---|---|
+| tanpa `default:` | (tidak ada) — back-edge dilipat ke jump default saja |
+| **`default: break;`** | **`jmp <atas loop>` 3 byte, tepat sebelum tabel** |
+
+Diuji `probes/probe8.c`: dari enam varian (tanpa default, `default: break;`,
+`continue` di badan case, `while (1)`, `do {} while (1)`, pernyataan kosong
+sesudah switch) HANYA `default: break;` yang menghasilkan pola itu. Ciri di
+biner: **DUA** `jmp` ke alamat yang sama — satu sebelum tabel, satu di ujung
+loop pencari. Kasus nyata: `runmenu` (3 byte terakhir) dan `review`.
+
+## ⭐ Uji POSITIF berblok + `goto` menahan nilai di AX
+
+Dua bentuk ini sama artinya dan menghasilkan LOMPATAN yang sama — tapi beda
+dalam hal nilai yang tersimpan di register:
+
+```c
+if (g >= k) goto top;        if (g < k) {
+<blok>                           <blok>
+                             }
+                             goto top;
+```
+```
+keduanya : mov ax,[g] / cmp ax,[k] / jl +3 / jmp top
+kiri     : mov si,[g]        <- DIMUAT ULANG dari memori
+kanan    : mov si,ax         <- nilai DIPAKAI ULANG (AX jadi sibuk, jadi
+                                muatan berikutnya jatuh ke BL: "mov bl,[si+..]"
+                                lalu "mov ax,bx")
+```
+
+Lompatannya tetap bentuk dua langkah karena kompiler MERANTAI lompatan-salah
+ke `goto` yang **langsung menyusul** blok. Kalau ada pernyataan lain di antara
+blok dan `goto`, perantaian batal dan keluar lompat pendek (`jge +N`) — jadi
+bentuk ini hanya berlaku saat `goto`-nya persis sesudah `}`.
+
+Berlaku bersarang juga: `if (g >= 0) { if (g < 0x32) { ... } } goto top;`
+memberi `test ax,ax / jns +3 / jmp top / cmp ax,0x32 / jl +3 / jmp top` —
+KEDUA uji memakai AX yang sama.
+
+Ciri di biner: **`mov si,ax` (atau register lain) sesudah `jmp` jauh** =
+uji positif berblok. **`mov si,[alamat]`** = `if (...) goto`.
+Dibuktikan `probes/probe9.c` (enam varian yang SEMUANYA gagal) dan
+`probes/probe10.c` (yang berhasil). Kasus nyata `review`: 128 byte, dua tempat.
+
+## ⭐ DUA bentuk tabel `switch`: RAPAT (indeks) vs JARANG (nilai,label)
+
+MS C 1.04 memilih sendiri, dan bentuknya kelihatan jelas di biner:
+
+| nilai case | kode dispatch | tabel |
+|---|---|---|
+| berurutan 0..n (`bounce`: 0,1,2,3) | `mov si,ax / cmp si,4 / jae default / shl si,1 / jmp cs:[si+tab]` | **1 kata per case**, urut nilai |
+| jarang (`runmenu`: 0x1b,0x0d,0x250,…) | `mov si,4*(n-1) / cmp ax,cs:[si+tab] / jne +5 / jmp cs:[si+tab+2] / sub si,4 / jns` | **2 kata per case** (nilai,label) |
+
+Konsekuensi praktis: kalau melihat `cmp si,<jumlah case>` + `shl si,1`, jangan
+cari nilai case di tabel — tabelnya cuma alamat, dan nilainya = indeks. Kedua
+bentuk sama-sama menaruh badan case LEBIH DULU dan dispatch-nya di BAWAH.
+Untuk bentuk rapat, urutan tabel = urutan case di sumber (tidak dibalik);
+untuk bentuk jarang, tabel muncul TERBALIK (lihat aturan 8f).
+
+## ⭐ URUTAN PERNYATAAN: yang butuh REGISTER didahulukan, immediate menyusul
+
+Untuk deretan penugasan ke global, MS C 1.04 memancarkan store dengan cara
+berbeda tergantung asal nilainya, dan itu membocorkan urutan sumbernya:
+
+```
+nilai butuh register  -> nilai dihitung DI TEMPAT, store DITUNDA
+                         (bisa sampai sesudah push argumen panggilan berikutnya)
+nilai immediate       -> "c7 06 <alamat> <imm>" dipancarkan DI TEMPAT
+```
+
+Jadi urutan yang terlihat = pemuatan register (urut sumber), diselingi store
+immediate (urut sumber), lalu semua store tertunda sekaligus di akhir.
+
+⚠ Efek sampingnya nyata di UKURAN: store dari AX memakai bentuk akumulator
+`a3 <alamat>` (**3 byte**), dari register lain bentuk umum `89 06 <alamat>`
+(**4 byte**). Kalau satu penugasan immediate diselipkan lebih dulu, nilai yang
+tadinya di AX pindah register dan fungsi jadi 1 byte lebih panjang. Kasus
+nyata `bounce` (0x2504): menaruh `sndnull[2] = 8;` sebelum `sndnull[0] = 500;`
+memberi 399 vs 398. Urutan yang benar dibaca dari **urutan pemuatan register**,
+bukan dari urutan store.
+
+## ⭐ MENULIS ULANG ekspresi (bukan memakai penampungnya) MEMESAN temp
+
+Kebalikan dari aturan CSE yang lain, dan menambah byte:
+
+```c
+a = sel & 0x7fff;                a = sel & 0x7fff;
+if (a != vsel[slot]) {           if (a != vsel[slot]) {
+    vsel[slot] = a;                  vsel[slot] = sel & 0x7fff;   /* DITULIS ULANG */
+```
+```
+kiri  : ... cmp ax,[si] / mov [bp+74],ax / mov [bp+0],si          (1 spill)
+kanan : ... cmp ax,[si] / mov [bp+74],ax / mov [bp+0],ax
+                                         / mov [bp+2],si          (2 spill, +3 byte)
+```
+
+Ekspresi yang SAMA muncul dua kali membuat kompiler memperlakukannya sebagai
+common subexpression dan **memesan slot temp untuk NILAI-nya**, bukan cuma
+untuk penunjuknya — meski nilai itu tetap dipakai dari register dan spill-nya
+tak pernah dibaca. Memakai variabel penampung (`= a`) tidak memesan apa pun.
+
+Ciri di biner: **dua `mov [bp+N],..` berurutan yang tak pernah dibaca**, satu
+berisi nilai dan satu berisi penunjuk. Kasus nyata `runfill` (0x2d11): 380 vs
+383 byte. Bandingkan dengan aturan sebaliknya di §"Hanya perubahan TIPE yang
+mematahkan CSE nilai" — di sana yang dikejar adalah MEMISAHKAN dua pembacaan.
+
+## ⭐ NILAI BOOLEAN yang DISIMPAN terlihat jelas di biner
+
+`c = (a != b);` — hasil perbandingan ditugaskan ke `int` — dipancarkan sebagai:
+
+```
+cmp bx,ax / jne L1 / xor cx,cx / jmp L2 / L1: xor cx,cx / inc cx / L2:
+```
+
+Dua cabang yang SAMA-SAMA me-nol-kan register, satu di antaranya lalu `inc`.
+Kalau melihat pola itu, sumbernya **menyimpan hasil perbandingan ke variabel**,
+bukan memakai perbandingannya langsung di dalam `if`. Rantai `||` atas
+variabel-variabel itu (`ok = (i == 0 || c1 || c2);`) memancarkan pola yang sama
+sekali lagi untuk `ok`. Kasus nyata `mkpal` (0x3909), tiga kali.
+
+## ⭐ STORE TERTUNDA yang DITIMPA akan GUGUR — pakai variabel yang SAMA
+
+Dua pertukaran berurutan yang memakai variabel temp BERBEDA memancarkan dua
+store; memakai variabel yang SAMA hanya memancarkan satu:
+
+```c
+t = a[r]; a[r] = a[i]; a[i] = t;        t = a[r]; a[r] = a[i]; a[i] = t;
+u = b[r]; b[r] = b[i]; b[i] = u;        t = b[r]; b[r] = b[i]; b[i] = t;   <- SAMA
+   -> mov [bp+12],cx / mov [bp+10],bx      -> mov [bp+10],cx saja
+```
+
+Sebabnya: store `t` yang pertama masih TERTUNDA (nilainya dipakai dari
+register) dan keburu ditimpa penugasan kedua, jadi tidak pernah dipancarkan.
+Ciri di biner: jumlah store ke slot lokal LEBIH SEDIKIT dari jumlah penugasan
+di sumber. Kasus nyata `mkpal`: 3 store vs 2.
+
+## ⭐ TURUNKAN pencacah LEBIH DULU kalau nilai barunya jadi indeks
+
+```c
+idtab[j] = idtab[cnt-1];        cnt = cnt - 1;
+spr[j]   = spr[cnt-1];          idtab[j] = idtab[cnt];
+cnt = cnt - 1;                  spr[j]   = spr[cnt];
+   -> dec word ptr [cnt]           -> mov ax,[cnt] / dec ax / mov si,ax
+      + indeks [si-1]                 ... / mov [cnt],ax   (store DITUNDA)
+```
+
+Kalau biner memuat `cnt` ke register, menguranginya, memakainya sebagai indeks
+lewat `mov si,ax`, lalu menyimpannya kembali di AKHIR blok — itu tanda
+`cnt = cnt - 1;` ditulis **sebelum** baris yang memakainya, bukan sesudah.
+
+## ⚠ `#define` bersambung backslash TIDAK didukung
+
+MS C 1.04 menolak makro multi-baris: `Error 1: invalid pre-processor command`,
+lalu MC2 gagal dengan `Can't open quad file`. Tulis makronya satu baris, atau
+salin isinya manual.
 
 ## ⭐ METODE UTAMA: kejar DIVERGENSI PERTAMA, jangan menebak bentuk fungsi
 
@@ -124,7 +627,7 @@ Yang sudah terbukti salah tampil (masing-masing memakan beberapa putaran):
 (`grep "bp + "` pada keluaran `show.py --asm`), tentukan variabel mana di slot
 mana, BARU tulis C-nya. Pseudo-C dipakai hanya untuk menebak maksud fungsinya.
 
-## ⭐ BENTUK AKSES TABEL menentukan kode — tiga varian, tiga hasil berbeda
+## ⭐ BENTUK AKSES TABEL menentukan kode — empat varian, empat hasil berbeda
 
 Tabel yang sama bisa ditulis tiga cara, dan MS C 1.04 menghasilkan kode BERBEDA
 untuk masing-masing. Cocokkan dgn instruksi di biner:
@@ -142,9 +645,26 @@ Contoh nyata:
   memberi `add ax,OFFSET`; hanya **array struct 12-byte** (`sprtab[ans[i]].w`)
   menghasilkan `mov ax,[si+1aeh]` — satu byte terakhir yang menutupnya.
 
+### Varian ke-4: PENUNJUK struct (bukan array struct)
+
+Kalau biner memuat basis **sekali** ke SI lalu memakai displacement dari SI untuk
+byte MAUPUN kata dari record yang sama — `8a 44 07` (`mov al,[si+7]`) dan
+`ff 74 02` (`push [si+2]`) — sumbernya adalah **penunjuk struct**, dan biasanya
+penunjuk itu MAJU sendiri (`p++` → `add word ptr [bp+0ch], 0ch`).
+
+| tulis begini | hasil |
+|---|---|
+| `*(int *)(p + 10)` dgn `char *p` | `mov ax,si; add ax,0ah; push [..]` — boros, +3 temp |
+| `p->spr` dgn `struct item *p` | `ff 74 0a` (`push [si+0ah]`) — displacement langsung |
+
+Kasus nyata `show` (0x381a): bentuk `*(int *)(p + n)` memberi **176 byte,
+bingkai 0eh**; penunjuk struct memberi **108 byte, bingkai 8 — cocok persis**.
+Selisihnya bukan satu-dua byte, jadi kalau bingkai kita kelebihan beberapa temp
+dan record diakses campur byte+kata, CURIGAI struct lebih dulu.
+
 Aturan praktis: lihat apakah biner memakai **displacement** (`[si+OFS]`) atau
-**penjumlahan basis** (`add ax,OFFSET`). Displacement → subscript array/struct.
-Penjumlahan → aritmetika penunjuk.
+**penjumlahan basis** (`add ax,OFFSET`). Displacement → subscript array/struct
+atau penunjuk struct. Penjumlahan → aritmetika penunjuk.
 
 ## Hasil NEGATIF yang berguna (probes/probe7.c)
 
@@ -256,13 +776,19 @@ Angka yang lebih jujur, dihitung dari wilayah alamat (bukan dari daftar fungsi):
 | wilayah | byte | keterangan |
 |---|---|---|
 | Segmen kode seluruhnya | 36.976 | 0x0000..0x9070 |
-| Wilayah pustaka (≥0x6a48) | 9.768 | rutin `MC.LIB` — cukup di-link |
-| **Wilayah kode game (<0x6a48)** | **27.208** | yang harus ditulis ulang |
+| Wilayah pustaka (≥0x69d7) | 9.881 | rutin `MC.LIB` — cukup di-link |
+| **Wilayah kode game (<0x69d7)** | **27.095** | yang harus ditulis ulang |
 | — di antaranya assembly tulisan tangan | ±1.200 | primitif grafis (`5cbb`,`6453`,`6524`,`657c`,`672f`,`6869`,`6939`) |
 | — sisanya kode C | **±26.000** | target rekonstruksi sebenarnya |
 
 Jadi targetnya **±26.000 byte, bukan 19.750** — sekitar 32% lebih besar.
 Kemajuan 787 byte = **±3,0%**, bukan 4,0%.
+
+Batas pustaka **0x69d7 sudah TERBUKTI, bukan taksiran**: `libmatch.py`
+mencocokkan 23 modul MC.LIB byte-per-byte ke 0x69d7..0x9062 (9.935 byte), dan
+modul pertamanya `CXM33` mulai tepat di 0x69d7. Jalankan
+`python src_c/verify/libmatch.py` untuk daftar simbol + alamatnya — itu juga
+cara tercepat memastikan sebuah "stub" sebenarnya rutin pustaka.
 
 **Aturan baru:** jangan percaya `size=` di `functions.txt`. Selalu cek di mana epilog
 (`add sp,N; pop bp; ret`) yang cocok dengan `sub sp,N` di prolog.

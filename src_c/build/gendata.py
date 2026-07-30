@@ -25,9 +25,17 @@ from dgroup import dgroup                                    # noqa: E402
 SRC = os.path.join(ROOT, "src_c", "src")
 OUTC = os.path.join(SRC, "gdata.c")
 
+# gdata.c mulai dari offset 4, BUKAN 0. Empat byte pertama DGROUP disumbang
+# oleh C.OBJ (crt0) yang selalu di-link paling depan; kalau gdata.c ikut
+# memancarkannya, seluruh DGROUP bergeser 4 byte dan tiap alamat jadi salah.
+# Terbukti dari peta link: DATA+0x0004 = DGROUP+0x0000 biner asli.
+START = 4
+
+# Alamat DGROUP dipanen dari komentar di ujung deklarasi extern. Komentarnya
+# boleh berisi teks lain sebelum alamatnya (mis. "tabel entri menu @0x1634").
 DECL = re.compile(
-    r"extern\s+(?:unsigned\s+)?(?:struct\s+\w+\s+)?(char|int|unsigned)?\s*\**\s*"
-    r"(\w+)\s*(\[\s*\])?\s*;\s*/\*\s*@?0x([0-9a-fA-F]+)")
+    r"extern\s+(?:unsigned\s+)?(?:struct\s+(\w+)\s+)?(char|int|unsigned)?\s*\**\s*"
+    r"(\w+)\s*(\[\s*\])?\s*;.*?@?0x([0-9a-fA-F]{2,4})")
 
 
 def harvest():
@@ -38,8 +46,9 @@ def harvest():
             continue
         s = io.open(f, encoding="utf-8", errors="replace").read()
         for m in DECL.finditer(s):
-            typ, name, arr, addr = m.group(1), m.group(2), m.group(3), int(m.group(4), 16)
-            out.setdefault(name, (addr, typ or "int", bool(arr)))
+            st, typ, name, arr, addr = m.groups()
+            # penunjuk & struct diperlakukan sebagai kata/byte biasa di sini
+            out.setdefault(name, (int(addr, 16), typ or ("char" if st else "int"), bool(arr)))
     return out
 
 
@@ -60,7 +69,8 @@ def emit_list(fh, items, per):
 def main():
     d = dgroup()
     limit = int(sys.argv[1], 0) if len(sys.argv) > 1 else len(d)
-    syms = sorted((a, n, t, arr) for n, (a, t, arr) in harvest().items() if a < limit)
+    syms = sorted((a, n, t, arr) for n, (a, t, arr) in harvest().items()
+                  if START <= a < limit)
 
     fh = io.open(OUTC, "w", encoding="utf-8", newline="")
     fh.write("/* gdata.c — DIBANGKITKAN oleh src_c/build/gendata.py. JANGAN disunting tangan.\n"
@@ -75,7 +85,7 @@ def main():
              " *   python src_c/verify/dgroup.py --cmp src_c/out/gdata.OBJ 0\n"
              " */\n\n")
 
-    pos = 0
+    pos = START
     pad = 0
     for k, (a, name, typ, arr) in enumerate(syms):
         if a < pos:
@@ -92,7 +102,10 @@ def main():
         if not arr:
             fh.write("int %s = %s;\n\n" % (name, words(d, a, 1)[0]))
             pos = a + 2
-        elif typ == "char":
+        elif typ == "char" or size % 2 or a % 2:
+            # Ukuran/alamat GANJIL wajib pakai array byte: array int akan
+            # dibulatkan ke atas dan menggeser seluruh sisa DGROUP satu byte.
+            # (Kasus nyata: tune2 @0x1ddb, alamat ganjil.)
             fh.write("char %s[%d] = {\n" % (name, size))
             emit_list(fh, bytes_(d, a, size), 12)
             fh.write("};\n\n")

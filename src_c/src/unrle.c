@@ -52,7 +52,13 @@ int n;
     return out;
 }
 
-/* ⏳ BELUM COCOK — 141 byte vs 147 (6 kurang).
+/* ✅ COCOK BYTE-PER-BYTE (147 byte).
+ *
+ * Catatan di bawah ini adalah RIWAYAT dari masa fungsi ini masih near-miss.
+ * Bagian "sudah terbukti" dan "sudah dicoba & gagal" tetap berlaku dan
+ * berguna; bagian "sisa" / "langkah berikut" SUDAH SELESAI — abaikan.
+ * ---------------------------------------------------------------------
+ * (riwayat) BELUM COCOK — 141 byte vs 147 (6 kurang).
  * Tata letak slot & pemajuan penunjuk sudah benar (dari 11 kurang jadi 6).
  * Sisa selisih ada SETELAH loop dalam; periksa bagaimana i dan s dimajukan
  * di ujung cabang 0xE4 (mungkin bukan "i = i + 3" melainkan tiga penambahan,

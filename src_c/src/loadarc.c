@@ -4,14 +4,14 @@
  * Kalau `all` nol, hanya record yang id-nya cocok dengan tabel `tab` yang disimpan
  * (pembandingan dua arah: id penuh, atau id tanpa bit tinggi / 0x7f).
  *
- *   fopen_() = FUN_1000_6e8b ; fread_() = FUN_1000_6d31 ; err() = FUN_1000_6a48
+ *   lseek() = FUN_1000_6e8b ; read() = FUN_1000_6d31 ; printf() = FUN_1000_6a48
  *   Balikan: -1 kalau gagal, jumlah record kalau berhasil.
  *
  * TATA LETAK SLOT dari biner (bingkai 10h):
  *   bp+2 id, bp+4 idx, bp+6 ?, bp+8 j, bp+0ah ok, bp+0ch p, bp+0eh cnt
  *
  * TIGA HAL YANG SEMPAT SALAH — semuanya karena percaya bentuk Ghidra:
- *  1. Hasil fopen_ TIDAK pernah disimpan, hanya diuji ("inc ax; jne").
+ *  1. Hasil lseek TIDAK pernah disimpan, hanya diuji ("inc ax; jne").
  *     Ghidra menampilkannya sebagai "local_a = iVar3 + 1" padahal tak ada store.
  *  2. Loop dalam punya pencacah SENDIRI (bp+8), bukan memakai ulang cnt.
  *     Ghidra menggabungkan keduanya jadi satu local_a.
@@ -33,16 +33,14 @@ int   n;
     int m;                   /* m@bp+0eh = id & 0x7f (nilai ter-mask) */
 
     p = rec;
-    if (fopen_(fh, 0, 0, 0) + 1 == 0) {
-        err(0x1e52);
+    if (lseek(fh, 0L, 0) + 1 == 0) {
+        printf(0x1e52);
         return -1;
     }
     idx = 0;
-    for (;;) {
-        if (idx > 0x77)
-            return m;
-        if (fread_(fh, rec, 0xc) != 0xc) {
-            err(0x1e63);
+    while (idx < 0x78) {
+        if (read(fh, rec, 0xc) != 0xc) {
+            printf(0x1e63);
             return -1;
         }
         id = *rec;
@@ -58,10 +56,8 @@ int   n;
                 }
             }
         }
-        else {
+        else
             ok = 1;
-            m = id;
-        }
         if (ok == 1) {
             rec = rec + 0xc;
             idx = idx + 1;
@@ -69,15 +65,13 @@ int   n;
     }
 }
 
-/* ⏳ BELUM COCOK — 228 byte vs 226. Bingkai & peta slot SUDAH BENAR.
- * Dua beda yang tersisa:
- *  1. tiga argumen 0 pada fopen_: asli me-nol-kan register ULANG tiap argumen
- *     (xor bx/push, xor bx/push, xor cx/push = 9 byte), kita memakai ulang satu
- *     register (xor bx sekali, push tiga kali = 5 byte). Di sini kita 4 byte
- *     lebih PENDEK.
- *  2. cabang "idx > 0x77" -> asli melompat ke keluar bersama (e9 9e 00),
- *     kita memancarkan epilog di tempat (83 c4 10 5d c3).
- * SUDAH DICOBA & GAGAL: menjadikan 0x77 sebagai kondisi while -> 231 byte.
- * Karena (1) membuat kita lebih pendek tapi total lebih panjang, ada ~6 byte
- * kelebihan lain yang tertutup oleh divergensi pertama.
+/* ✅ COCOK BYTE-PER-BYTE (226 byte). Tiga hal yang menutupnya:
+ *  1. `lseek(fh, 0L, 0)` — TIGA argumen, bukan empat. Offsetnya `long`, jadi
+ *     didorong sebagai DUA kata yang masing-masing di-nol-kan sendiri:
+ *     "xor bx,bx / push bx / xor bx,bx / push bx / xor cx,cx / push cx".
+ *     Bentuk `lseek(fh, 0, 0, 0)` memakai ulang satu register (5 byte, kurang 4).
+ *  2. `while (idx < 0x78)`, BUKAN `for(;;)` + `if (idx > 0x77) return m;`.
+ *     Aslinya melompat jauh ke SATU epilog di ujung tanpa memuat nilai balik —
+ *     artinya loop biasa yang jatuh-tembus, bukan `return` dengan nilai.
+ *  3. Cabang `all != 0` hanya `ok = 1;` — TIDAK ada `m = id;`.
  */
