@@ -66,7 +66,12 @@ if ($errs) { "--- pesan kompiler ---"; $errs | ForEach-Object { "  " + $_.Line }
 # --- modul ASSEMBLY (tidak bisa direkonstruksi sebagai C) ---
 # Fungsi dgn prolog "push bp; push es; mov bp,sp" dsb. adalah assembly tulisan
 # tangan di biner asli. Dirakit dgn MASM 1.27 (1984), lihat build/masm.ps1.
-$asm = Get-ChildItem "$root/src_c/asm/*.asm" -ErrorAction SilentlyContinue
+# HANYA modul yang sudah TERVERIFIKASI byte-per-byte yang dirakit ke out/.
+# Draf yang belum cocok masih memakai EXTRN "X...." bikinan asmgen.py dan
+# akan membuat LINK gagal dengan "Unresolved Externals".
+$asmOk = @("vbio","fillrec")
+$asm = Get-ChildItem "$root/src_c/asm/*.asm" -ErrorAction SilentlyContinue |
+        Where-Object { $asmOk -contains $_.BaseName }
 foreach ($a in $asm) {
     & "$PSScriptRoot\masm.ps1" -Name $a.BaseName | Out-Null
 }

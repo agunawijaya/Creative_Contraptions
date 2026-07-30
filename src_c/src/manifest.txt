@@ -60,3 +60,4 @@ mkpal    3909    634
 loadcon  5035    739
 runplay  5505    964
 vbio     5d98     54
+fillrec  6869    208
