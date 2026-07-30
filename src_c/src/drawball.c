@@ -50,4 +50,14 @@ int n;
     prevx = ballx;
 }
 
-
+/* ⚠ TEMUAN symcheck.py yang BELUM dibereskan (2026-07-30).
+ * Byte-nya cocok, tapi IDENTITAS simbolnya bergeser satu putaran:
+ *     biner baca : ballx, ballrow, bally   -- kita: ballrow, bally, ballx
+ *     biner tulis: prevrow, prevy, prevx   -- kita: prevy, prevx, prevrow
+ * Dipasangkan lewat aturan store-terbalik, urutan sumber yang cocok adalah
+ * `prevx = ballx; prevy = ballrow; prevrow = bally;` -- yang TIDAK masuk akal
+ * secara semantik. Kemungkinan besar LABEL alamatnya sendiri yang salah
+ * (prevy/prevrow/bally/ballrow tertukar di komentar @0x...), bukan kodenya.
+ * Jangan asal tukar urutan penugasan sebelum label alamatnya diverifikasi
+ * dari pemakaian di fungsi lain.
+ */

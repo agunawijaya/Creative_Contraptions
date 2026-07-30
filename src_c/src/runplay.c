@@ -34,7 +34,7 @@ extern int  both;           /* @0x844 */
 extern int  state[];        /* @0x4f2 */
 extern int  seed;           /* @0x72a */
 extern int  nmech;          /* @0x3ac */
-extern int  cur;            /* @0x2e6 */
+extern int  curz;            /* @0x2e6 */
 extern char idtab[];        /* @0x2ea */
 extern char *base;          /* @0x73a */
 extern int  slot;           /* @0x51a */
@@ -94,20 +94,20 @@ top:
                 nmech = mkpal(seed, p1, p3, p2, p7);
                 /* ENAM argumen, dan nilainya didorong LANGSUNG dari [si]/[bx]
                    -- bukan lewat lokal. Ghidra menampilkan argumen ke-7
-                   (cur*3*2) yang TIDAK ada di biner: hanya 6 push. */
-                sel = review(p1, p3[3 * cur], p3[3 * cur + 1], list, p5,
-                             p6[cur]);
+                   (curz*3*2) yang TIDAK ada di biner: hanya 6 push. */
+                sel = review(p1, p3[3 * curz], p3[3 * curz + 1], list, p5,
+                             p6[curz]);
                 if (sel != -1 && sel != 0xfe) {
                     a1 = sel & 0x7fff;
-                    if (p6[cur] != a1) {
+                    if (p6[curz] != a1) {
                         chg1 = 1;
-                        p6[cur] = a1;
-                        p8[cur] = idtab[a1];
-                        p9[cur] = base[p8[cur] * 0xc];
+                        p6[curz] = a1;
+                        p8[curz] = idtab[a1];
+                        p9[curz] = base[p8[curz] * 0xc];
                     }
-                    cur++;
-                    if (cur >= p2)
-                        cur = 0;
+                    curz++;
+                    if (curz >= p2)
+                        curz = 0;
                 }
             }
             else {

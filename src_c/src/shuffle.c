@@ -3,11 +3,11 @@
  *   rnd()   = FUN_1000_5a5b (assembly)
  *   vbwait()  = FUN_1000_5d98
  *   put()   = FUN_1000_65e0
- *   cur @0x522, ctx @0x524
- * Setelah loop, gambar sekali lagi dengan nilai tetap (cur) — hasil akhir.
+ *   curopt @0x522, ctx @0x524
+ * Setelah loop, gambar sekali lagi dengan nilai tetap (curopt) — hasil akhir.
  */
 
-extern int cur;             /* @0x522 */
+extern int curopt;             /* @0x522 */
 extern int ctx;             /* @0x524 */
 
 shuffle()
@@ -19,5 +19,5 @@ shuffle()
         vbwait();
         put(k, ctx);
     }
-    put(cur, ctx);
+    put(curopt, ctx);
 }

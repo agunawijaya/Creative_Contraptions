@@ -22,8 +22,9 @@ timebar()
 {
     if (mode != 4)
         return;
-    ta = tw;
+    /* dibalik: store ter-hoist dipancarkan TERBALIK, biner menulis ta dulu */
     tb = tw;
+    ta = tw;
     tx = tx - 1;
     if (tx < 0x140 && tx >= 0) {
         fillrect(tx, 0xa2, 0x13f, 0xa5, 0);

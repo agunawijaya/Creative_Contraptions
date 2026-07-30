@@ -17,6 +17,10 @@ build/    compile.ps1 — kompilasi satu berkas lewat MS C 1.04 di dalam DOSBox-
           link.ps1    — LINK semua .OBJ + MC.LIB -> out/CONTRAP.EXE
           gendata.py  — bangkitkan src/gdata.c dari DGROUP biner asli
 verify/   objcode.py  — banding byte .OBJ kita vs biner asli
+          symcheck.py — VERIFIKASI IDENTITAS SIMBOL (target call + alamat
+                        global). objcode.py mem-wildcard slot relokasi, jadi
+                        fungsi bisa "COCOK" padahal memanggil fungsi yang
+                        SALAH. WAJIB dijalankan bersama verifyall.py.
           verifyall.py — tabel status semua fungsi + segmen DATA
           dgroup.py   — alat segmen DATA (dump, string, banding)
           symbols.py  — PUBDEF vs EXTDEF, cari simbol yang belum ada
@@ -62,6 +66,38 @@ Ringkasan per 2026-07-30 (sesi ke-3):
 kosong di `src/stubs.c`. Nilainya ada di dua hal — link membuktikan sumber kita
 konsisten (tak ada simbol menggantung, tak ada definisi ganda), dan tata letak
 DGROUP hasil link bisa dibanding langsung ke aslinya.
+
+## ⚠ "COCOK BYTE-PER-BYTE" TIDAK memverifikasi IDENTITAS SIMBOL
+
+Ini batas terpenting dari `objcode.py` dan harus dipahami sebelum mempercayai
+angka mana pun: **slot relokasi diperlakukan sebagai WILDCARD**. Target `call`
+dan alamat global tidak ikut dibandingkan. Akibatnya sebuah fungsi bisa
+dilaporkan cocok byte-per-byte padahal:
+  - memanggil fungsi yang SALAH (asal jumlah argumennya sama), atau
+  - membaca/menulis variabel global yang SALAH (asal ukurannya sama).
+
+Yang diverifikasi objcode.py: encoding instruksi, alokasi register, tata letak
+bingkai, alur kendali, konstanta, jumlah & urutan argumen — semuanya eksak.
+Yang TIDAK: identitas simbol di balik slot relokasi.
+
+`symcheck.py` menutup lubang itu: ia membaca FIXUPP+EXTDEF dari .OBJ, membaca
+BINER ASLI di posisi yang sama, menghitung alamat yang sebenarnya dituju, lalu
+membandingkannya dengan alamat yang kita klaim untuk simbol itu.
+
+Sekali dijalankan (2026-07-30) ia menemukan **57 ketidakcocokan nyata**, semua
+lolos dari objcode.py:
+  - **tabrakan nama**: `put` (0x6524/0x65e0), `pause` (0x2b11/0x31b0),
+    `cur` (0x51c/0x522/0x2e6), `mark` (0x742/0x76a), `t1`/`t2`
+    (0x1a2a/0x1ad2), plus `sel` dan `cur` = dua nama untuk 0x51c.
+    LINK menyatukan nama yang sama, jadi salah satunya PASTI salah.
+  - **nama callee salah**: `drawslot`/`fillans`/`pickloop` menulis `shuffle()`
+    padahal memanggil 0x3909 (`mkpal`); `pickloop` menulis `waitkey()`
+    padahal memanggil 0x5911 (`clrbot`).
+  - **urutan store terbalik**: `setupscr` (prevtop/prevx) dan `timebar`
+    (ta/tb) — sumbernya harus DIBALIK supaya emisinya cocok.
+
+⚠ Jangan menamai dua alamat berbeda dengan nama yang sama, dan jangan
+menamai satu alamat dengan dua nama berbeda. Keduanya lolos objcode.py.
 
 ## ⭐ SEGMEN DATA mulai di offset 4, bukan 0
 

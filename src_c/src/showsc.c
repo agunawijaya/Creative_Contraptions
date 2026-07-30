@@ -2,7 +2,7 @@
  *
  *   fmtnum(buf, fmt, lo, hi) = FUN_1000_7464 (rutin format angka, pustaka)
  *   fillrect() = FUN_1000_6869 ; text() = FUN_1000_6453 ; line() = FUN_1000_5cbb
- *   tone() = FUN_1000_370e (sudah direkonstruksi) ; pause() = FUN_1000_2b11
+ *   tone() = FUN_1000_370e (sudah direkonstruksi) ; waitn() = FUN_1000_2b11 (BUKAN pause() @0x31b0 -- fungsi BERBEDA)
  *   Skor 32-bit disimpan sebagai PASANGAN word (lo,hi) — MS C 1.04 tidak punya
  *   unsigned long, jadi penjumlahannya dikerjakan tangan dengan carry.
  *
@@ -24,7 +24,7 @@ int lo, hi, flash;
     if (flash >= 2) {      /* aslinya cmp 2 / jl -- bentuk >1 jadi cmp 1 / jle */
         line(0, 0, 0x13f, 7, 1);
         tone();
-        pause(0x14);
+        waitn(0x14);
         line(0, 0, 0x13f, 7, 1);
     }
 }

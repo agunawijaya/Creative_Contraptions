@@ -5,8 +5,8 @@
  * cari id itu di daftar kandidat, dan catat indeks + jawabannya.
  * Terakhir gambar seluruh contraption.
  *
- *   busy @0x840 (1 = sedang mengisi), nmech @0x3ac, lvl3 @0x738, mark[] @0x76a
- *   shuffle()=3909, rnd()=5a5b, place()=4e3e
+ *   busy @0x840 (1 = sedang mengisi), nmech @0x3ac, lvl3 @0x738, markf[] @0x76a
+ *   mkpal()=3909, rnd()=5a5b, place()=4e3e
  *
  * SLOT dari disassembly: bp+2, bp+8, bp+0ah, bp+0eh dipakai; bingkai 12h.
  * Strukturnya sekeluarga dengan autofill (0x5954).
@@ -15,7 +15,7 @@
 extern int busy;            /* @0x840 */
 extern int nmech;           /* @0x3ac */
 extern int lvl3;            /* @0x738 */
-extern int mark[];          /* @0x76a */
+extern int markf[];          /* @0x76a */
 
 fillans(a, b, c, d, e, n, ans, flag, tq, tr, ts, tt, s1, s2)
 int   a;
@@ -29,21 +29,21 @@ int  *ts;
 int  *tt;
 int   s1, s2;
 {
-    /* EMPAT lokal di biner (bp+2, 8, 0ah, 0eh): hasil shuffle dan rnd
+    /* EMPAT lokal di biner (bp+2, 8, 0ah, 0eh): hasil mkpal dan rnd
        DITAMPUNG dulu, bukan langsung dipakai. Urutan di biner:
-       busy=0; u=shuffle(); busy=1; i=0; nmech=u; */
-    /* i@bp+8, j@bp+0ah, found@bp+0eh. Hasil shuffle() TIDAK ditampung lokal:
+       busy=0; u=mkpal(); busy=1; i=0; nmech=u; */
+    /* i@bp+8, j@bp+0ah, found@bp+0eh. Hasil mkpal() TIDAK ditampung lokal:
        biner langsung "a3 [nmech]" tanpa store perantara. */
     int i, j, t, found, unused;   /* t & unused: slot bp+0ch dan bp+10h
                                     memang DILEWATI biner (bingkai 12h) */
 
     busy = 0;
-    nmech = shuffle(c, s1, tq, n, s2);
+    nmech = mkpal(c, s1, tq, n, s2);
     busy = 1;
     i = 0;
     /* "while (i < n)" dgn place() DI LUAR loop (pola sama spt autofill). */
     while (i < n) {
-        if (lvl3 == 3 && mark[i] != 0) {
+        if (lvl3 == 3 && markf[i] != 0) {
             tt[i] = b[rnd(nmech) * 0xc];
         }
         else

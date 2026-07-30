@@ -5,7 +5,7 @@
  * tergantung apakah ini pemuatan pertama (ans[0] == -1) atau bukan.
  *
  *   nmech @0x3ac, seed @0x72a, sprtab[] @0x1ae
- *   shuffle()=3909, fillrect()=6869, blit()=672f
+ *   mkpal()=3909, fillrect()=6869, blit()=672f
  *
  * SLOT dari disassembly: bp+6, 8, 0ah, 0ch, 0eh; bingkai 10h (3 slot temp).
  */
@@ -33,7 +33,7 @@ int *ans;
 
     if (*ans == -1) {
         flag = 0;
-        nmech = shuffle(seed, base, tab, n);
+        nmech = mkpal(seed, base, tab, n);
     }
     else
         flag = 1;

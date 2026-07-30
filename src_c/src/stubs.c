@@ -32,6 +32,7 @@ putmsk() { return 0; }     /* @0x6524 -- dipakai xform/bounce; rutin BERBEDA,
                               dulu keliru ikut bernama put() sehingga LINK
                               menyatukan dua alamat jadi satu. */
 rnd() { return 0; }
+waitn() { return 0; }      /* @0x2b11 -- BUKAN pause() @0x31b0 */
 rdkey() { return 0; }
 refresh() { return 0; }
 sndoff() { return 0; }

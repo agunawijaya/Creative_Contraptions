@@ -137,6 +137,7 @@ Rekonstruksi source C (produk ke-2, folder `src_c/`):
 pwsh src_c/build/buildall.ps1   # semua src_c/src/*.c -> .OBJ (lint dijalankan lebih dulu)
 pwsh src_c/build/link.ps1       # -> src_c/out/CONTRAP.EXE + CONTRAP.MAP
 python src_c/verify/verifyall.py   # tabel status per fungsi + segmen DATA
+python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
 ```
 
 ## Status decompile→source (per 2026-07-30)

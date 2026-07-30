@@ -39,8 +39,11 @@ int sub;
         fillrect(0, 0xa0, 0x13f, 199, col);
     blit(hdrspr, 0, 0x88, 8, 0x30);
     for (i = 0; i < goal; i++) {
-        prevx = 0x140;
+        /* URUTAN INI dibalik dari yang "masuk akal": store konstanta
+           ter-hoist dipancarkan TERBALIK, dan biner menulis prevx dulu.
+           Diverifikasi src_c/verify/symcheck.py. */
         prevtop = 0x140;
+        prevx = 0x140;
         setball(0, i * 10);
     }
     if (sub == 1 && mode != 0 && mode != 1)
