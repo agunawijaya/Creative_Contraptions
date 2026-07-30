@@ -20,13 +20,13 @@ mainmenu()
     int y1, y2, y3, y4, h;
 
     y1 = ytop_;
-    h = drawitem(mode_, level_, 7, y1);
+    h = load(mode_, level_, 7, y1);
     y2 = y1 + h;
-    h = drawitem(mode_, level_, 8, y2);
+    h = load(mode_, level_, 8, y2);
     y3 = y2 + h;
-    h = drawitem(mode_, level_, 9, y3);
+    h = load(mode_, level_, 9, y3);
     y4 = y3 + h;
-    h = drawitem(mode_, level_, 10, y4);
+    h = load(mode_, level_, 10, y4);
     mtabmn[0].y = y1;
     mtabmn[1].y = y2;
     mtabmn[2].y = y3;
