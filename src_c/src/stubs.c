@@ -28,12 +28,6 @@ drawitem() { return 0; }
 fmtnum() { return 0; }
 pickvar() { return 0; }    /* @0x42ca, 1.730 byte -- belum direkonstruksi */
 waitn() { return 0; }      /* @0x2b11 -- BUKAN pause() @0x31b0 */
-tone3() { return 0; }      /* @0x5b73 -- di dalam rentang snd2 yang
-                              belum dirakit; sementara stub */
-rdkey() { return 0; }
-refresh() { return 0; }
-sndoff() { return 0; }
-sndon() { return 0; }
 
 /* Simbol DATA yang tidak bisa lewat gdata.c:
  *   sndbuf -- alamat aslinya 0x670e, DI LUAR DGROUP (itu segmen kode).

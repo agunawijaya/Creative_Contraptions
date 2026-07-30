@@ -14,7 +14,7 @@ DATA    ENDS
 PROG    SEGMENT BYTE PUBLIC 'PROG'
         ASSUME  CS:PGROUP, DS:DGROUP
 
-        PUBLIC  rnd, sndrest, sndsave
+        PUBLIC  rnd, snda, sndb, sndc, sndd, sndini, sndoff, sndon, sndrest, sndsave
 
 rnd:    MOV	BX, SP                  ; 5A5B  8b dc
         MOV	AX, 3E85H               ; 5A5D  b8 85 3e
@@ -25,11 +25,11 @@ rnd:    MOV	BX, SP                  ; 5A5B  8b dc
         MUL	WORD PTR DS:[71AH]      ; 5A6D  f7 26 1a 07
         MOV	AX, DX                  ; 5A71  8b c2
         RET                         ; 5A73  c3
-        CLI                         ; 5A74  fa
+sndoff: CLI                         ; 5A74  fa
         RET                         ; 5A75  c3
-        STI                         ; 5A76  fb
+sndon:  STI                         ; 5A76  fb
         RET                         ; 5A77  c3
-        SUB	AH, AH                  ; 5A78  2a e4
+sndini: SUB	AH, AH                  ; 5A78  2a e4
         INT	1AH                     ; 5A7A  cd 1a
         MOV	AX, DX                  ; 5A7C  8b c2
         RET                         ; 5A7E  c3
@@ -49,7 +49,7 @@ sndsave:PUSH	ES                     ; 5A7F  06
         MOV	WORD PTR ES:[DI+2], AX  ; 5AA3  26 89 45 02
         MOV	BX, WORD PTR DS:[71EH]  ; 5AA7  8b 1e 1e 07
         MOV	AX, 36H                 ; 5AAB  b8 36 00
-        CALL	L5B23                  ; 5AAE  e8 72 00
+        CALL	SNDA                   ; 5AAE  e8 72 00
         MOV	WORD PTR DS:[1F06H], 0FFFFH; 5AB1  c7 06 06 1f ff ff
         PUSH	DS                     ; 5AB7  1e
         MOV	AX, CS                  ; 5AB8  8c c8
@@ -74,7 +74,7 @@ sndrest:PUSH	ES                     ; 5AC9  06
         MOV	WORD PTR ES:[DI+2], AX  ; 5ADE  26 89 45 02
         MOV	BX, 0FFFFH              ; 5AE2  bb ff ff
         MOV	AX, 36H                 ; 5AE5  b8 36 00
-        CALL	L5B23                  ; 5AE8  e8 38 00
+        CALL	SNDA                   ; 5AE8  e8 38 00
         MOV	WORD PTR DS:[1F06H], 0  ; 5AEB  c7 06 06 1f 00 00
         STI                         ; 5AF1  fb
         POP	ES                      ; 5AF2  07
@@ -103,7 +103,7 @@ L5B0D:  MOV	AX, 5                   ; 5B0D  b8 05 00
         POP	AX                      ; 5B20  58
         STI                         ; 5B21  fb
         IRET                        ; 5B22  cf
-L5B23:  OUT	43H, AL                 ; 5B23  e6 43
+snda:   OUT	43H, AL                 ; 5B23  e6 43
         MOV	DX, 40H                 ; 5B25  ba 40 00
         ADD	DL, AH                  ; 5B28  02 d4
         MOV	AL, BL                  ; 5B2A  8a c3
@@ -113,14 +113,14 @@ L5B23:  OUT	43H, AL                 ; 5B23  e6 43
         MOV	AL, BH                  ; 5B2F  8a c7
         OUT	DX, AL                  ; 5B31  ee
         RET                         ; 5B32  c3
-        PUSH	AX                     ; 5B33  50
+sndb:   PUSH	AX                     ; 5B33  50
         MOV	AL, CL                  ; 5B34  8a c1
         OUT	42H, AL                 ; 5B36  e6 42
         MOV	AL, CH                  ; 5B38  8a c5
         OUT	42H, AL                 ; 5B3A  e6 42
         POP	AX                      ; 5B3C  58
         RET                         ; 5B3D  c3
-        PUSH	AX                     ; 5B3E  50
+sndc:   PUSH	AX                     ; 5B3E  50
         CMP	WORD PTR DS:[83CH], 0   ; 5B3F  83 3e 3c 08 00
         JE	L5B4C                    ; 5B44  74 06
         IN	AL, 61H                  ; 5B46  e4 61
@@ -128,7 +128,7 @@ L5B23:  OUT	43H, AL                 ; 5B23  e6 43
         OUT	61H, AL                 ; 5B4A  e6 61
 L5B4C:  POP	AX                      ; 5B4C  58
         RET                         ; 5B4D  c3
-        PUSH	AX                     ; 5B4E  50
+sndd:   PUSH	AX                     ; 5B4E  50
         IN	AL, 61H                  ; 5B4F  e4 61
         AND	AL, 0FCH                ; 5B51  24 fc
         OUT	61H, AL                 ; 5B53  e6 61

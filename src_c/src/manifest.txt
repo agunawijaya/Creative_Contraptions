@@ -69,3 +69,4 @@ blitmsk  6524     326
 keyio    66fd      50
 blit     672f     314
 prep     6939     271
+snd2     5b57     356

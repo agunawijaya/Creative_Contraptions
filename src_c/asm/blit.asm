@@ -14,7 +14,7 @@ DATA    ENDS
 PROG    SEGMENT BYTE PUBLIC 'PROG'
         ASSUME  CS:PGROUP, DS:DGROUP
 
-        PUBLIC  blit
+        PUBLIC  blit, rdkey
 
 blit:   PUSH	BP                     ; 672F  55
         PUSH	ES                     ; 6730  06
@@ -138,7 +138,7 @@ L684B:  POP	BX                      ; 684B  5b
 L6850:  POP	ES                      ; 6850  07
         POP	BP                      ; 6851  5d
         RET                         ; 6852  c3
-        PUSH	BP                     ; 6853  55
+rdkey:  PUSH	BP                     ; 6853  55
         MOV	BP, SP                  ; 6854  8b ec
         MOV	AX, WORD PTR [BP+4]     ; 6856  8b 46 04
         INT	16H                     ; 6859  cd 16

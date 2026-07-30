@@ -34,7 +34,12 @@ NAMES = {
     0x5dce: "shftl",    0x6453: "text",    0x6524: "putmsk",
     0x657c: "draw",     0x65e0: "put",     0x6600: "shftr",
     0x672f: "blit",     0x6869: "fillrect", 0x6939: "prep",
-    0x2b11: "waitn",  0x5b73: "tone3",
+    0x2b11: "waitn",  0x5b73: "tone3",  0x5a74: "sndoff",
+    0x5a76: "sndon",  0x5c84: "refresh", 0x6853: "rdkey",
+    # pembantu suara di dalam snd1 yang dipanggil snd2 -- harus bernama
+    # supaya terekspor, kalau tidak LINK melaporkan unresolved.
+    0x5a78: "sndini", 0x5b23: "snda", 0x5b33: "sndb",
+    0x5b3e: "sndc",   0x5b4e: "sndd",
 }
 
 
@@ -165,6 +170,18 @@ def gen(name, ranges):
         # aslinya 2 byte. Ini penyebab tersering modul asm meleset panjang.
         if i.mnemonic == "jmp" and len(i.bytes) == 2 and m:
             txt = "JMP\tSHORT " + conv(i.op_str, labels, lo, hi)
+        # MASM memendekkan imm16 yang muat di int8 jadi bentuk sign-extended
+        # (opcode 81 -> 83). Kalau ASLINYA memakai 81, tidak ada sintaks MASM
+        # untuk memaksanya -- pakai DB supaya bytenya persis.
+        if i.bytes[0] == 0x81 and len(i.bytes) >= 4:
+            imm = int.from_bytes(bytes(i.bytes[-2:]), "little", signed=True)
+            if -128 <= imm <= 127:
+                out.append("%-8s%-28s; %04X  %s  ;; DB: MASM akan memendekkannya"
+                           % ((lab + ":") if lab else "",
+                              "DB      " + ",".join(hexs(c) for c in i.bytes),
+                              i.address,
+                              " ".join("%02x" % c for c in i.bytes)))
+                continue
         raw = " ".join("%02x" % c for c in i.bytes)
         out.append("%-8s%-28s; %04X  %s" % ((lab + ":") if lab else "", txt,
                                             i.address, raw))
