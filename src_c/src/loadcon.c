@@ -142,11 +142,19 @@ int want;
     total = total + read(fh, postab, nmax << 2);
     total = total + read(fh, &nmech, 2);
     nmechc = nmech;
-    total = total + read(fh, recB, nmech * 6);
+    /* `* 3 * 2` (3 kata per record x 2 byte), BUKAN `* 6`: biner
+       memancarkan "mov bx,3 / imul bx / shl ax,1", sedangkan `* 6`
+       memberi "mov bx,6 / imul bx" -- 2 byte lebih pendek. */
+    total = total + read(fh, recB, nmech * 3 * 2);
     total = total + read(fh, &nzany, 2);
-    total = total + read(fh, recC, nzany * 6);
+    total = total + read(fh, recC, nzany * 3 * 2);
     total = total + read(fh, state, (nzany + nmech) * 2);
-    expect = nmax * 4 + nmech * 6 + 6 + nzany * 6 + (nzany + nmech) * 2;
+    /* Konstanta 2 ditulis TERPISAH di depan tiap bagian (ukuran kata pencacah
+       masing-masing), bukan digabung jadi `+ 6`. Kompiler melipat dua yang
+       pertama jadi "add cx,4" lalu memancarkan yang ketiga sebagai
+       "inc cx; inc cx" -- jadi urutannya terbaca langsung dari biner. */
+    expect = 2 + nmax * 4 + 2 + nmech * 3 * 2 + 2 + nzany * 3 * 2 +
+             (nzany + nmech) * 2;
     if (total == expect) {
         nmechb = nmech;
         i = 0;
@@ -165,38 +173,46 @@ done:
     return -1;
 }
 
-/* ⏳ BELUM COCOK — 729 dari 739 byte, bingkai 0x124 SUDAH TEPAT.
+/* ⏳ BELUM COCOK — PANJANG SUDAH TEPAT 739/739, bingkai 0x124 juga tepat.
  *
- * Byte 0..223 COCOK PERSIS. Divergensi pertama di +224 lalu MENGKASKADE
- * sampai akhir (412 byte beda, tapi hanya SATU sebab).
+ * Byte 0..223 dan 624..738 COCOK PERSIS. Seluruh sisa (321 byte, rentang
+ * 224..623) adalah SATU kaskade dari satu keputusan register.
  *
- * SEBABNYA SUDAH DIPERSEMPIT, bukan diduga:
+ * SEBAB — sudah dipersempit sampai satu instruksi:
  *   asli : add ax,[first] / mov [pick],ax / mov ax,[lastgoal] / cmp ax,[sub]
  *   kita : add ax,[first] / mov bx,[lastgoal] / cmp bx,[sub] / mov [pick],ax
  * Asli MENG-COMMIT store `pick` segera sehingga AX bebas dan pemuatan global
- * berikutnya memakai bentuk akumulator `a1` (3 byte). Kami MENUNDA store-nya,
- * jadi AX masih terpakai dan pemuatannya jatuh ke `8b 1e` (4 byte) lewat BX.
- * Semua beda sesudahnya adalah akibat pergeseran register ini.
+ * berikutnya memakai bentuk akumulator `a1` (3 byte). Kita MENUNDA store-nya,
+ * jadi AX terpakai dan pemuatannya jatuh ke `8b 1e` lewat BX (4 byte).
  *
- * SUDAH DICOBA & GAGAL (ketiganya menghasilkan byte yang SAMA PERSIS,
- * jadi bentuk loop BUKAN pemicunya):
- *   1. do { pick = rnd(cnt) + first; if (lastgoal != sub || cnt < 2) break; }
- *      while (pick == lastvar);
- *   2. sama, tapi `||` dipecah jadi dua `if (...) break;`
- *   3. do { pick = rnd(cnt) + first; }
- *      while (lastgoal == sub && cnt >= 2 && pick == lastvar);
+ * HIPOTESIS YANG SUDAH DIGUGURKAN LEWAT PROBE (probes/probe11..13.c).
+ * Ketiga probe mereproduksi bentuk sumber ini dan SEMUA VARIAN-nya
+ * memancarkan perilaku yang BENAR (store di-commit segera). Jadi yang berikut
+ * TERBUKTI BUKAN pemicunya — jangan diulang:
+ *   probe11 (6 varian) : bentuk penugasan `pick = rnd(cnt) + first`,
+ *                        urutan operan penjumlahan, hasil panggilan ditampung
+ *                        variabel sendiri, `first` disalin ke lokal lain,
+ *                        syarat pertama memakai lokal, pick dipakai sesudah loop
+ *   probe12 (2 varian) : UKURAN BINGKAI / lebar displacement (bp+0ah vs bp+0deh)
+ *   probe13 (2 varian) : konteks `if (want == -1) { ... } else pick = ...`
+ * Sebelumnya juga digugurkan langsung di fungsi ini (ketiganya memberi byte
+ * SAMA PERSIS): `if (...) break` dengan `||`, dengan dua `if` terpisah, dan
+ * `do {} while (&& && )`.
  *
- * Yang SUDAH terbukti benar dan jangan diubah lagi:
- *   - `pick = rnd(cnt) + first;` SATU pernyataan (dua pernyataan memberi DUA
- *     store: satu di +220 dan satu tertunda di +236)
- *   - struktur `goto done` ke ekor bersama, bukan blok bersarang -- itu yang
- *     memberi "cmp word ptr [cnt],0" dan memutus CSE `cnt` (menutup +169)
+ * Yang SUDAH terbukti benar — jangan diubah:
+ *   - entri directory { int id; long off; } = 6 byte -> lseek 3 argumen
+ *   - `goto done` ke ekor bersama (memutus CSE `cnt`, menutup +169)
  *   - `cnt = cnt + 1; if (cnt == 1)` bukan `cnt++` (menutup +147)
- *   - urutan "cnt = 0; i = 0;" (store terbalik, menutup +81/+85)
- *   - entri directory { int id; long off; } = 6 byte, lseek 3 argumen
+ *   - urutan "cnt = 0; i = 0;" (menutup +81/+85)
+ *   - `pick = rnd(cnt) + first;` SATU pernyataan (menutup +220)
+ *   - `nmech * 3 * 2`, bukan `* 6` (imul 3 + shl, menutup +443)
+ *   - konstanta di `expect` ditulis `2 + ... + 2 + ... + 2 + ...`, bukan `+ 6`
+ *     (kompiler melipat dua yang pertama jadi "add cx,4", yang ketiga jadi
+ *      "inc cx; inc cx") -- inilah yang menutup 6 byte terakhir
  *
- * LANGKAH BERIKUT yang belum dicoba: cari apa yang memaksa kompiler
- * meng-commit store tertunda. Tulis PROBE kecil (lihat README §"Teknik: pakai
- * PROBE") berisi `v = f(x) + g;` diikuti uji atas global, dengan beberapa
- * varian bentuk penugasan -- JANGAN iterasi fungsi 739 byte ini lagi.
+ * LANGKAH BERIKUT: karena probe TIDAK bisa mereproduksinya, pemicunya ada di
+ * interaksi dengan sisa fungsi. Cara paling murah berikutnya bukan probe lagi
+ * melainkan BISECT: salin loadcon.c, buang blok demi blok (baca-baca di
+ * bawahnya, lalu loop init) sampai perilakunya berubah jadi benar. Blok yang
+ * ketika dibuang mengubah perilaku adalah pemicunya.
  */
