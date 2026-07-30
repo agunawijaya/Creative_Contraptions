@@ -29,23 +29,25 @@ int   n, i, sp;
        dan memakainya untuk KEDUA record. */
     /* Urutan slot dari biner: dx@bp+8, dy@0ah, id2@0ch, id1@0eh, rb@10h,
        r1@12h, r2@14h, spr@16h. */
-    int dx, dy, id2, id1, rb;
+    int dx, dy, id2, id1;
+    char *rb;               /* penunjuk, bukan int: menghindari "mov cx,..; mov si,cx" */
     char *r1;
     char *r2;
     int spr;
 
-    rb = recbase;
+    rb = (char *)recbase;
     id1 = tab[i];
-    r1 = (char *)(rb + id1 * 0xc);
+    r1 = rb + id1 * 0xc;
     id2 = tab[i + 1];
-    r2 = (char *)(rb + id2 * 0xc);
+    r2 = rb + id2 * 0xc;
     if (i + 1 < n && r2[1] - 100 == r1[1]) {
+        /* TERNARY, bukan "if" tanpa else. Biner: cmp ax,80h / store dx /
+           jl skip / sub ax,100h / jmp done / skip: reload dx / done:
+           -- ada cabang else yang MEMUAT ULANG nilainya. */
         dx = r2[4];
-        if (dx > 0x7f)
-            dx = dx - 0x100;
+        dx = (dx > 0x7f) ? dx - 0x100 : dx;
         dy = r2[5];
-        if (dy > 0x7f)
-            dy = dy - 0x100;
+        dy = (dy > 0x7f) ? dy - 0x100 : dy;
         if (sp < 0) {
             load(a, rb, id2, b);
             spr = b;
@@ -55,11 +57,9 @@ int   n, i, sp;
         blit(spr, x + dx, y + dy, r2[2], r2[3]);
     }
     dx = r1[4];
-    if (dx > 0x7f)
-        dx = dx - 0x100;
+    dx = (dx > 0x7f) ? dx - 0x100 : dx;
     dy = r1[5];
-    if (dy > 0x7f)
-        dy = dy - 0x100;
+    dy = (dy > 0x7f) ? dy - 0x100 : dy;
     if (sp < 0) {
         load(a, recbase, id1, b);
         spr = b;
@@ -69,16 +69,21 @@ int   n, i, sp;
     blit(spr, x + dx, y + dy, r1[2], r1[3]);
 }
 
-/* ⏳ BELUM COCOK — 373 byte vs 392 (19 KURANG). Bingkai DAN urutan slot
- * SUDAH COCOK: dx@bp+8, dy@0ah, id2@0ch, id1@0eh, rb@10h, r1@12h, r2@14h,
- * spr@16h (bingkai 18h = 8 lokal + 4 temp).
+/* ⏳ BELUM COCOK — 397 byte vs 392 (5 KELEBIHAN). Perjalanan:
+ * 370 -> 373 -> 399 -> 397. Divergensi pertama bergerak +3 -> +26 -> +62.
  *
- * Beda pertama tinggal di +62, dan bentuknya alokasi register:
- *     kita: 8b 4e 10  03 c8  8b f1     (mov cx,[rb]; add cx,ax; mov si,cx)
- *     asli: 8b 76 10  03 f0            (mov si,[rb]; add si,ax)
- * Kita punya "mov si,cx" ekstra -- kompiler menghitung ke CX lalu memindah.
- * Karena di titik ini kita 2 byte LEBIH PANJANG padahal total 19 byte KURANG,
- * ada ~21 byte yang belum ditulis di tempat lain.
- * Kandidat: pemulihan tanda dx/dy mungkin ditulis empat kali terpisah di asli
- * (dua blok gambar x dua sumbu) dengan bentuk yang lebih panjang dari milik kita.
+ * SUDAH COCOK & JANGAN DIUBAH:
+ *   - bingkai 18h dan URUTAN SLOT: dx@bp+8, dy@0ah, id2@0ch, id1@0eh,
+ *     rb@10h, r1@12h, r2@14h, spr@16h
+ *   - `rb` = salinan lokal recbase (biner memuatnya sekali "a1 3c 07")
+ *   - pemulihan tanda dx/dy memakai TERNARY, bukan "if" tanpa else
+ *     (biner punya cabang else yang MEMUAT ULANG nilainya) -- ini yang
+ *     memindahkan hasil dari 19 byte KURANG ke 7 byte KELEBIHAN
+ *   - record diakses lewat penunjuk char (r1[1], r1[2], ...) = displacement
+ *
+ * SISA 5 byte, di +62:
+ *     kita: mov cx,[rb] / add cx,ax / mov si,cx     (7 byte)
+ *     asli: mov si,[rb] / add si,ax                 (5 byte)
+ * SUDAH DICOBA & GAGAL: rb sebagai penunjuk char (399 -> 397, membantu 2 byte
+ * tapi belum menghapus "mov si,cx").
  */
