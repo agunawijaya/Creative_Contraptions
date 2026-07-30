@@ -84,6 +84,12 @@ int   n, i, sp;
  * SISA 5 byte, di +62:
  *     kita: mov cx,[rb] / add cx,ax / mov si,cx     (7 byte)
  *     asli: mov si,[rb] / add si,ax                 (5 byte)
- * SUDAH DICOBA & GAGAL: rb sebagai penunjuk char (399 -> 397, membantu 2 byte
- * tapi belum menghapus "mov si,cx").
+ * SUDAH DICOBA & GAGAL:
+ *   - rb sebagai penunjuk char        -> 399 -> 397 (membantu 2 byte, disimpan)
+ *   - "&rb[id * 0xc]" sbg ganti "rb + id * 0xc"  -> tak berubah
+ * Divergensi TIDAK bergerak dari +62 selama dua perbaikan terakhir, jadi
+ * masalahnya bukan bentuk ekspresi di titik itu melainkan pilihan register
+ * (SI vs CX) yang ditentukan oleh apa yang kompiler anggap masih hidup.
+ * Langkah berikut: periksa perhitungan r1 (sebelum +62) -- kalau di sana kita
+ * juga memakai register berbeda, penyebabnya ada di urutan/bentuk r1.
  */
