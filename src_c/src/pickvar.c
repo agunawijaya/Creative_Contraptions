@@ -182,8 +182,18 @@ int  n, idx, flag;
     sel = -1;
     if (idx + 1 < n) {
         if ((0xc * list[idx + 1] + recbase)[1] - 100 ==
-                ((struct rec *)recbase)[list[idx]].row)
+                ((struct rec *)recbase)[list[idx]].row) {
+            /* Blok load/blit IDENTIK dengan yang di 0x43F6 -- bentuk yang
+               sudah terbukti dipakai ulang tanpa perubahan. */
             sel = list[idx + 1];
+            rp2 = rb + sel * 0xc;
+            dx2 = ((char *)rp2)[4];
+            dx2 = (dx2 >= 0x80) ? dx2 - 0x100 : dx2;
+            dy2 = ((char *)rp2)[5];
+            dy2 = (dy2 >= 0x80) ? dy2 - 0x100 : dy2;
+            load(fh, recbase, sel, buf);
+            blit(buf, x + dx2, y + dy2, ((char *)rp2)[2], ((char *)rp2)[3]);
+        }
     }
 done:
     return idx;
