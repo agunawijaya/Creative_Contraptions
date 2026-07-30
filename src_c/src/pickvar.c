@@ -44,7 +44,11 @@ int  n, idx, flag;
                            bp+2ch padahal biner memakai bp+44h */
     int  a, b, c, d, e, f, g, h2, i, j, k, m;
     int  x1, y1, x2, y2, w2, h3;
-    int  cnt, rp2, rb, rp, unused1, unused2, unused3, unused4, unused5;
+    /* URUTAN EKOR DIUKUR, bukan ditebak (aturan 8i). Biner memakai
+       rb@44h, cnt@48h, rp@4Ch -- jadi harus ada slot pengganjal di antaranya. */
+    int  t1, t2, rb, t3, cnt, t4;
+    struct rec *rp;
+    int  t5, t6;
 
     rb = (int)recbase;
     if (lvl == 2)
@@ -54,45 +58,51 @@ int  n, idx, flag;
     if (n <= 0)
         return 0;
     if (idx < 0) {
+        /* SATU do-while dengan `||`, bukan dua loop bersarang: kedua syarat
+           melompat ke ATAS loop yang sama (jg 430d / jl 430d). Bentuk
+           bersarang akan memberi lompatan ke label yang berbeda. */
         if (flag != 0) {
             cnt = 0;
             do {
-                do {
-                    idx = rnd(n);
-                    cnt++;
-                    rp = (int)recbase + list[idx] * 0xc;
-                } while (((struct rec *)rp)->row > 100);
-            } while (((struct rec *)rp)->id < 0x80 && cnt < 0x73);
+                idx = rnd(n);
+                cnt++;
+                rp = recbase + list[idx];
+            } while (rp->row > 100 || (rp->id < 0x80 && cnt < 0x73));
         }
         else {
             do {
-                do {
-                    idx = rnd(n);
-                    rp = (int)recbase + list[idx] * 0xc;
-                } while (((struct rec *)rp)->row > 100);
-            } while (((struct rec *)rp)->id >= 0x80);
+                idx = rnd(n);
+                rp = recbase + list[idx];
+            } while (rp->row > 100 || rp->id >= 0x80);
         }
     }
     return idx;
 }
 
-/* ⏳ DRAF — 53 byte pertama COCOK, badan utama (~1.600 byte) belum ditulis.
+/* ⏳ DRAF — 193 dari 1.730 byte COCOK. Badan utama belum ditulis.
  *
- * SUDAH TERVERIFIKASI (bukan dugaan):
- *   - bingkai `sub sp,52h` TEPAT
- *   - `rb` di bp+44h TEPAT
- *   - byte 0..53 cocok: pembuka, cabang lvl/tw, dan `if (n <= 0) return 0;`
+ * TERVERIFIKASI byte-per-byte (0x42ca..0x438a):
+ *   - bingkai `sub sp,52h`, `rb`@bp+44h, `cnt`@bp+48h, `rp`@bp+4Ch
+ *   - pembuka, cabang lvl/tw, `if (n <= 0) return 0;`
+ *   - KEDUA loop rnd: masing-masing SATU do-while dengan `||`, bukan dua loop
+ *     bersarang (kedua syarat melompat ke ATAS loop yang sama):
+ *         flag != 0 : while (rp->row > 100 || (rp->id < 80h && cnt < 73h))
+ *         flag == 0 : while (rp->row > 100 || rp->id >= 80h)
  *
- * Cara mendapatkannya: `char pad0[26]` di depan + lima lokal tak terpakai di
- * belakang. Itu DIUKUR lewat aturan 8i (kompilasi, lihat selisih sub sp dan
- * posisi slot, sesuaikan), bukan diteorikan. Jangan mengubah jumlah pad tanpa
- * mengukur ulang -- seluruh 36 slot bergeser.
+ * PETA SLOT yang sudah diukur dari disassembly 0x4388 ke atas -- pakai ini,
+ * JANGAN menambah lokal di belakang (itu memperbesar bingkai jadi 0x5c):
+ *     bp+00,02,04,06  TEMP (dipakai untuk row-100 dsb.)
+ *     bp+0Ah  q     = idx + 141h   <- INI yang Ghidra rusak jadi
+ *                                     `if (param_7 + 0x141 != param_7)`
+ *     bp+16h  k2    = list[idx]  (salinan kedua)
+ *     bp+1Ah  sel   = -1  (nilai balik awal)
+ *     bp+1Eh  k     = list[idx]
+ *     bp+44h  rb    bp+48h  cnt    bp+4Ch  rp
  *
- * BELUM ditulis: 0x4350 ke atas. Divergensi pertama sekarang di +54, yaitu
- * cabang `if (idx < 0)` dan dua loop rnd di bawahnya.
- *
- * PERINGATAN yang paling penting untuk siapa pun yang melanjutkan: pseudo-C
- * Ghidra untuk fungsi ini TIDAK BISA DIPERCAYA (9 blok tak-terjangkau, dan
- * satu syarat yang selalu benar). Kerjakan dari disassembly. Peta slot yang
- * masih kosong: bp+02..2Ch belum diketahui perannya sama sekali.
+ * LANGKAH BERIKUT: susun ulang deklarasi supaya q/k2/sel/k jatuh di slot di
+ * atas (ganti pengganjal, bukan menambah), lalu tulis blok
+ * `if (idx + 1 < n) { if (recbase[list[idx+1]].row - 100 == recbase[k].row) ...`
+ * yang mulai di 0x43bd. Perkaliannya: `0xc * list[idx+1]` (konstanta di KIRI,
+ * operan memori) tapi `k * 0xc` (nilai di kiri) -- ikuti biner, jangan
+ * diseragamkan.
  */
