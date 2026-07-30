@@ -177,6 +177,14 @@ int  n, idx, flag;
             dy2 = (dy2 >= 0x80) ? dy2 - 0x100 : dy2;
         }
     }
+    /* Pola yang SAMA berulang di 0x45DD, tapi `q = idx` (bukan idx+141h). */
+    q = idx;
+    sel = -1;
+    if (idx + 1 < n) {
+        if ((0xc * list[idx + 1] + recbase)[1] - 100 ==
+                ((struct rec *)recbase)[list[idx]].row)
+            sel = list[idx + 1];
+    }
 done:
     return idx;
 }
