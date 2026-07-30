@@ -20,6 +20,61 @@ misalnya urutan eksak eksperimen. Jangan jadikan sumber status.
 
 ---
 
+## 2026-07-31 — `pickvar`: misteri Ghidra terpecahkan; ada BLOK MATI ~200 byte
+
+Kondisi mustahil `if (param_7 + 0x141 != param_7)` yang saya peringatkan
+kemarin sekarang **sepenuhnya terjelaskan**. Ia berasal dari DUA perbandingan
+nyata di 0x4500..0x4519:
+
+```
+mov bx,[bp+0Ah] ; cmp bx,ax ; jne .. ; jmp 4713   ->  if (q == idx) goto L4713;
+add ax,141h     ; cmp ax,bx ; jne .. ; jmp 45DD   ->  if (idx+141h != q) {...}
+```
+
+Karena `q = idx + 141h` diset di 0x439C, syarat pertama SELALU salah dan yang
+kedua SELALU salah. Akibatnya **blok 0x451A..0x45DC (~200 byte) tidak pernah
+tercapai** di biner asli. Ghidra melipat keduanya jadi satu syarat mustahil.
+
+⚠ Blok mati itu **tetap harus direproduksi byte-per-byte** — byte-nya ada di
+biner. Ini bukti KEDUA (sesudah bug `load` @0x53ff+134) bahwa biner ini memuat
+kode yang tidak pernah jalan. Pola umumnya: kalau Ghidra melaporkan blok
+tak-terjangkau ATAU syarat yang mustahil, jangan "diperbaiki" — cari
+perbandingan aslinya di disassembly dan tulis apa adanya.
+
+### Empat bentuk penulisan akses record yang terbukti
+
+Diukur satu per satu di `pickvar`, dan semuanya berlaku umum:
+
+1. **`recbase` dideklarasikan `char *`**, bukan `struct rec *` lalu di-cast.
+   Dengan cast, kompiler memuat basis ke DX dulu (`mov dx,[73Ch] / mov si,dx`)
+   — 2 byte berlebih di TIAP akses. Sisi yang butuh struct di-cast BALIK.
+2. **Sisi kiri char-pointer + sisi kanan struct** memutus CSE atas `recbase`:
+   biner memuatnya DUA KALI, bukan sekali lalu dipakai ulang.
+3. **Bentuk penunjuk** `(... + basis)[1]`, bukan offset `basis[... + 1]`.
+4. **Urutan operan** `(0xc*idx + basis)` — basis dimuat SESUDAH perkalian.
+
+### Jebakan peta slot
+
+`bp+08h` itu **temp kelima**, bukan lokal. Temp menempati bp+00..09, lokal
+mulai bp+0Ah. Daftar "slot tidak terpakai" yang saya susun sendiri
+(00 08 14 22 4E) MENYESATKAN — 00 dan 08 itu temp yang kebetulan tak dipakai.
+Memberi pengganjal di 08h menggeser SELURUH slot dan membuat bingkai 54h.
+
+### Teknik: pengganjal temp bertahap
+
+Jumlah temp TUMBUH seiring badan fungsi ditulis, jadi selama badan belum
+lengkap bingkai kurang dan semua slot bergeser — tak ada divergensi yang bisa
+dibaca. `char tpad[]` di depan menutup selisih itu dan dikecilkan tiap kali
+menambah kode (6 → 4 → 0). Tanpa ini, fungsi 1.730 byte praktis tak bisa
+didiagnosa.
+
+### Status pickvar
+
+543 byte draf, 256 cocok, divergensi pertama +231. Sisa diagnosis: dengan
+geseran +3 byte blok 240..249 cocok instruksi demi instruksi — strukturnya
+benar, kurang satu spill `[bp+2] = si`. Empat urutan penugasan k/k2 sudah
+diukur dua kali; semuanya tercatat di ujung `src/pickvar.c`.
+
 ## 2026-07-30 (lanjutan ke-6) — ASSEMBLY TUNTAS; stub tinggal dua
 
 MASM 1.27 dipasang di sesi ini juga (lihat entri sebelumnya). Hasil akhir

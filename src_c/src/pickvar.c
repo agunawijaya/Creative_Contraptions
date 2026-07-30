@@ -146,41 +146,46 @@ done:
     return idx;
 }
 
-/* ⏳ DRAF — 543 byte ditulis, 256 byte cocok. Divergensi pertama +231.
+/* ⏳ DRAF — 543 byte ditulis, 256 cocok. Divergensi pertama +231.
  *
- * ⭐ EMPAT bentuk penulisan yang sudah TERBUKTI, semuanya diukur satu per satu.
- * Keempatnya akan dipakai ulang di ~1.200 byte sisanya dan kemungkinan di
- * `main` juga:
+ * ⭐⭐ MISTERI GHIDRA TERPECAHKAN. `if (param_7 + 0x141 != param_7)` berasal
+ * dari DUA perbandingan nyata di 0x4500..0x4519:
+ *       mov bx,[bp+0Ah] ; cmp bx,ax ; jne .. ; jmp 4713   -> if (q == idx) goto L4713;
+ *       add ax,141h     ; cmp ax,bx ; jne .. ; jmp 45DD   -> if (idx+141h != q) {...}
+ * Karena `q = idx + 141h` (diset di 0x439C), syarat pertama SELALU salah dan
+ * kedua SELALU salah -- jadi blok 0x451A..0x45DC (~200 byte) TIDAK PERNAH
+ * TERCAPAI di biner asli. Ghidra melipat keduanya jadi satu syarat mustahil.
  *
- * 1. `recbase` dideklarasikan **char\***, bukan `struct rec *` lalu di-cast.
- *    Dengan cast, kompiler memuat basis ke DX dulu lalu `mov si,dx` -- 2 byte
- *    berlebih di TIAP akses. Sebagai char* ia memuat LANGSUNG ke register
- *    indeks. Sisi yang butuh bentuk struct di-cast BALIK.
- * 2. Sisi kiri char-pointer, sisi kanan struct: campuran ini MEMUTUS CSE atas
- *    `recbase` -- biner memuatnya DUA KALI, bukan sekali lalu dipakai ulang.
- * 3. Bentuk PENUNJUK `(... + basis)[1]`, bukan offset `basis[... + 1]`.
- *    Yang pertama melipat +1 jadi displacement; yang kedua memberi `inc ax`.
- * 4. URUTAN OPERAN: `(0xc * idx + basis)`, bukan `(basis + 0xc * idx)`.
- *    Basis harus dimuat SESUDAH perkalian. Hemat 4 byte.
+ * ⚠ Blok mati itu TETAP HARUS DIREPRODUKSI byte-per-byte. Jangan "diperbaiki"
+ * dan jangan dihapus -- byte-nya ada di biner. Ini bukti kedua (sesudah bug
+ * `load`) bahwa biner ini memuat kode yang tak pernah jalan.
  *
- * ⭐ bp+08h itu TEMP KELIMA, bukan lokal. Temp menempati bp+00..09, lokal
- * mulai bp+0Ah. Daftar "slot tidak terpakai" (00 08 14 22 4E) MENYESATKAN.
+ * ⭐ EMPAT bentuk penulisan akses record yang sudah TERBUKTI (pakai ulang di
+ * sisa fungsi dan kemungkinan di `main`):
+ * 1. `recbase` dideklarasikan char*, BUKAN struct rec* lalu di-cast (cast
+ *    memaksa lewat DX: `mov dx,[73Ch] / mov si,dx` = 2 byte berlebih/akses).
+ * 2. sisi kiri char-pointer + sisi kanan struct = MEMUTUS CSE atas recbase.
+ * 3. bentuk PENUNJUK `(... + basis)[1]`, bukan offset `basis[... + 1]`.
+ * 4. urutan operan `(0xc*idx + basis)` -- basis dimuat SESUDAH perkalian.
  *
- * DIAGNOSIS SISA (diukur dengan menyejajarkan geseran, bukan ditebak):
- * dengan geseran +3 byte, blok 240..249 cocok INSTRUKSI DEMI INSTRUKSI. Jadi
- * strukturnya benar; yang kurang cuma:
- *   a. `[bp+2] = si` -- asli MENYIMPAN penunjuk &list[idx]; kita tidak.
- *      Inilah sumber geseran 3 byte itu, DAN kemungkinan besar juga sumber
- *      urutan flush [16h]/[1Eh] yang beda di +231.
- *   b. register SI vs DI di akses record (panjang sama, byte beda).
+ * ⭐ bp+08h itu TEMP KELIMA, bukan lokal (temp = bp+00..09, lokal dari 0Ah).
+ * Daftar "slot tidak terpakai" (00 08 14 22 4E) MENYESATKAN.
  *
- * Karena (a) menjelaskan dua gejala sekaligus, itu yang harus dikejar: cari
- * di blok BELUM DITULIS (0x44ea ke atas) di mana &list[idx] dipakai lagi --
- * pemakaian ulang itulah yang memaksa kompiler menyimpannya.
+ * DIAGNOSIS SISA di +231, diukur dengan menyejajarkan geseran: dengan geseran
+ * +3 byte, blok 240..249 cocok INSTRUKSI DEMI INSTRUKSI. Strukturnya benar;
+ * yang kurang cuma `[bp+2] = si`.
+ * ⚠ [bp+2] itu SLOT TEMP yang dipakai ulang (store di 43B5, 4547, 45C3, 4633;
+ * push di 4553, 45CF), dan yang di 43B5 MATI. Jadi mengejarnya lewat bentuk
+ * ekspresi kemungkinan sia-sia: sudah dicoba menulis `list[idx]` DUA KALI
+ * (aturan runfill "menulis ulang memesan temp") -- hasilnya IDENTIK, kompiler
+ * tetap meng-CSE-nya. Kemungkinan besar alokasi temp baru berubah setelah
+ * blok 0x451A..0x4713 ditulis.
  *
  * SUDAH DICOBA & GAGAL (urutan k/k2, diukur DUA KALI):
  *   `q;sel;k;k2` -> +193 | `k2=list[idx];k=k2` -> +220
  *   `k2=list[idx];k=list[idx]` -> +220 | `k=list[idx];k2=k` -> +231 (terbaik)
+ *   `k=list[idx];k2=list[idx]` -> IDENTIK dengan yang terbaik (di-CSE)
  *
- * BELUM ditulis: 0x44ea ke atas (~1.200 byte).
+ * BELUM ditulis: 0x44ea ke atas (~1.200 byte), termasuk blok mati di
+ * 0x451A..0x45DC.
  */
