@@ -210,9 +210,23 @@ done:
  *     (kompiler melipat dua yang pertama jadi "add cx,4", yang ketiga jadi
  *      "inc cx; inc cx") -- inilah yang menutup 6 byte terakhir
  *
- * LANGKAH BERIKUT: karena probe TIDAK bisa mereproduksinya, pemicunya ada di
- * interaksi dengan sisa fungsi. Cara paling murah berikutnya bukan probe lagi
- * melainkan BISECT: salin loadcon.c, buang blok demi blok (baca-baca di
- * bawahnya, lalu loop init) sampai perilakunya berubah jadi benar. Blok yang
- * ketika dibuang mengubah perilaku adalah pemicunya.
+ * BISECT SUDAH DIJALANKAN (~15 kompilasi) — DAN HASILNYA TIDAK SAH.
+ * Semua varian potong yang berperilaku BENAR ternyata punya `pick` di bp+0ech,
+ * sedangkan yang SALAH punya `pick` di bp+0f0h. Sebabnya: memotong ekor
+ * membuat `total`/`expect` (dan/atau `pad1`) mati sehingga kompiler
+ * MEMBUANGNYA dan seluruh tata letak bingkai bergeser 4 byte. Jadi varian
+ * "benar" itu bukan kontrol yang sebanding — jangan percayai daftar di bawah
+ * sebagai bukti bahwa blok-blok itu tidak bersalah:
+ *     open+read+loop pencarian+if(cnt==0)+if(want>cnt)+if/else+off/lseek
+ *     +read(&gid) semuanya "benar" TAPI dengan bingkai yang salah.
+ *
+ * ⚠ PELAJARAN UMUM (berlaku untuk bisect fungsi apa pun): memotong kode
+ * MENGUBAH ALOKASI LOKAL karena kompiler membuang lokal yang jadi mati.
+ * Sebelum menyimpulkan apa pun dari varian potong, PERIKSA DULU bahwa slot
+ * bp-nya masih sama dengan fungsi utuh. Cara aman: ganti blok yang dibuang
+ * dengan pemakaian palsu atas lokal yang sama, bukan menghapusnya.
+ *
+ * LANGKAH BERIKUT: ulangi bisect dengan slot DIPERTAHANKAN — mis. ganti tiap
+ * blok yang dibuang dengan `total = expect = gid = 0;` supaya semua lokal
+ * tetap hidup dan bingkai tetap 0x124. Baru varian-variannya sebanding.
  */
