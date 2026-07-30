@@ -57,3 +57,4 @@ setzany  1200    282
 bounce   2504    398
 runfill  2d11    383
 mkpal    3909    634
+loadcon  5035    739

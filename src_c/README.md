@@ -542,6 +542,19 @@ Kalau biner memuat `cnt` ke register, menguranginya, memakainya sebagai indeks
 lewat `mov si,ax`, lalu menyimpannya kembali di AKHIR blok — itu tanda
 `cnt = cnt - 1;` ditulis **sebelum** baris yang memakainya, bukan sesudah.
 
+## ⚠ JANGAN beri nama KEDUA untuk alamat DGROUP yang sudah bernama
+
+`gendata.py` memanen simbol dari komentar `@0xNNN` di semua `src/*.c`. Kalau
+dua berkas memberi nama berbeda untuk alamat yang SAMA, simbol kedua dapat
+ukuran NOL dan `gdata.c` memancarkan `int x[0] = { };` → MC1 menolak dengan
+`Error 34: invalid initializer expression`, lalu MC2 gagal dengan pesan yang
+menyesatkan: **`Can't open quad file`** (itu cuma akibat MC1 tidak menghasilkan
+`.Q`, bukan masalah berkas sementara).
+
+Sebelum menamai global baru, `grep` alamatnya dulu di `src/*.c`. Kasus nyata:
+`0x3b6` sudah bernama `postab[]` di `hintmark.c`; menamainya `arrA` di
+`loadcon.c` mematahkan seluruh build.
+
 ## ⚠ `#define` bersambung backslash TIDAK didukung
 
 MS C 1.04 menolak makro multi-baris: `Error 1: invalid pre-processor command`,
