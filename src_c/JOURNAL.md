@@ -20,6 +20,46 @@ misalnya urutan eksak eksperimen. Jangan jadikan sumber status.
 
 ---
 
+## 2026-07-30 (lanjutan ke-5) — `runplay` tuntas; `0x42ca` baru diintai
+
+**`runplay` (0x5505, 964 B) COCOK byte-per-byte** — fungsi terbesar yang
+tertutup sejauh ini. 11.735 byte kode C (45,1%), TOTAL **57,9%**.
+
+Delapan temuan menutupnya; tiga di antaranya berlaku umum dan sudah masuk
+kebiasaan kerja:
+1. **Jumlah argumen dari Ghidra tidak bisa dipercaya.** `review()` dipanggil
+   dengan 6 argumen (Ghidra menampilkan 7), `pickvar()` dengan 7 di sini tapi
+   8 di `runfill`. HITUNG PUSH-nya di biner, jangan percaya tanda tangan.
+2. **Argumen ke-8 `pickvar` menciptakan CSE atas `3*slot`** yang mengubah
+   bentuk perkalian dari "mov ax,3 / imul [slot]" jadi bentuk offset. Argumen
+   yang kelebihan bukan cuma sia-sia — ia mengubah kode di sekitarnya.
+3. **`p2` bertipe `char`**, terbaca dari "mov al,[bp+8ah] + xor ah,ah" di tiap
+   pemakaian. Ghidra menandainya `byte` dan saya mengabaikannya satu putaran.
+
+### `0x42ca` — pengintaian, BELUM ditulis
+
+Ukuran sebenarnya **1.730 byte** (bukan 1.517 dari functions.txt).
+
+```
+sub sp,0x52        bingkai 82 byte
+argumen  : bp+56h..64h = 8 argumen
+slot lokal terpakai (36 buah):
+  02 04 06 0a 0c 0e 10 12 16 18 1a 1c 1e 20 24 26 28 2a 2c 2e
+  30 32 34 36 38 3a 3c 3e 40 42 44 46 48 4a 4c 50
+slot TIDAK terpakai: 00 08 14 22 4e
+```
+
+⚠ Ghidra hanya menamai 16 lokal padahal ada ~40 slot, DAN melaporkan
+**9 blok tak-terjangkau** (0x1451a, 0x14566, 0x14580, 0x14585, 0x14588,
+0x1459c, 0x145a2, 0x145a5, 0x1471b). Artinya pseudo-C-nya jauh kurang bisa
+dipercaya daripada fungsi-fungsi sebelumnya — kemungkinan besar ada pola
+seperti bug `load` (kompiler merusak flag) yang membuat cabang mati.
+
+**Saran urutan:** kerjakan dari disassembly langsung, bukan dari pseudo-C.
+Mulai dengan memetakan mana dari 36 slot itu yang lokal sungguhan vs temp,
+memakai cara yang sama seperti `runplay`: tulis kerangka, cocokkan `sub sp`,
+lalu kejar divergensi pertama.
+
 ## 2026-07-30 (lanjutan ke-4) — `0x5035` DIMULAI, belum selesai
 
 Commit `95d9cd7` menyimpan tujuh fungsi sesi ini (55,3%). Sesudah itu saya

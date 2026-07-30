@@ -34,7 +34,9 @@ baru dulu, bukan near-miss" terbukti (sesi sebelumnya: nol byte).
    TERVALIDASI di `CODE_MAP.md`, jadi maknanya tidak perlu ditebak — tinggal
    dinamai lalu ditulis. 46 byte tak-terreferensi di ujung bingkai diselesaikan
    SECARA EMPIRIS (aturan 8i), bukan diteorikan dulu.
-   Sesudah itu: `0x5505` (964 B), `0x42ca` (1.730 B, `pickvar`).
+   `0x5505` SUDAH SELESAI (964 B, cocok). Berikutnya `0x42ca` (1.730 B,
+   `pickvar`) — pengintaian bingkai + peringatan soal pseudo-C-nya ada di
+   `src_c/JOURNAL.md`; kerjakan dari disassembly, bukan dari Ghidra.
    ⚠ Cek ukuran sebenarnya dengan `alamat_fungsi_berikutnya - alamat`, JANGAN
    percaya `truesize.py` untuk fungsi ber-`switch` (lihat README).
    ⚠ Kalau ekor sebuah fungsi mirip fungsi lain, cek dulu apakah itu KEMBARAN
@@ -139,9 +141,9 @@ python src_c/verify/verifyall.py   # tabel status per fungsi + segmen DATA
 
 ## Status decompile→source (per 2026-07-30)
 
-- **LINK berhasil**: 59 `.OBJ` + `MC.LIB` → `src_c/out/CONTRAP.EXE`, tanpa error.
+- **LINK berhasil**: 61 `.OBJ` + `MC.LIB` → `src_c/out/CONTRAP.EXE`, tanpa error.
 - **Segmen DATA 9.556/9.556 byte, 0 beda** vs biner asli (diukur dari .EXE hasil link).
-- **Kode C: 55/57 fungsi COCOK, 10.771 byte**; TOTAL 55,3%. Stub sisa 22.
+- **Kode C: 56/59 fungsi COCOK, 11.735 byte**; TOTAL 57,9%. Stub sisa 22.
 - ✅ Tabrakan nama `put()` sudah dibereskan: `put`=0x65e0, `putmsk`=0x6524.
 - Dua near-miss: `place` (503 byte tepat, 2 byte beda = register SI/DI) dan
   `nvar` (551/566, 2 temp kelebihan). Peta slot & daftar gagal ada di berkasnya.
