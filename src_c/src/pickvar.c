@@ -31,7 +31,11 @@ struct rec {
     char rest[6];
 };                          /* = 0xc byte */
 
-extern struct rec *recbase; /* @0x73c */
+/* Dideklarasikan char* (bukan struct rec*) supaya akses ber-indeks memuat
+   basis LANGSUNG ke register indeks (`mov di,[73Ch]`). Dengan struct rec*
+   lalu di-cast, kompiler memuatnya ke DX dulu lalu `mov si,dx` -- 2 byte
+   berlebih di TIAP akses. Sisi yang butuh bentuk struct di-cast balik. */
+extern char *recbase;       /* @0x73c */
 extern int lvl;             /* @0x734 */
 extern int tw;              /* @0x7f0 */
 
@@ -52,13 +56,16 @@ int  n, idx, flag;
        bp+00..09), bukan lokal. Memberinya pengganjal menggeser SEMUA slot
        2 byte dan membuat bingkai 54h. */
     int  q;             /* 0Ah  = idx + 141h */
-    char f1[10];        /* 0Ch..15h */
+    int  dy3;           /* 0Ch  geser y record UTAMA, BERTANDA */
+    int  dx3;           /* 0Eh  geser x record UTAMA, BERTANDA */
+    char f1[6];         /* 10h..15h */
     int  k2;            /* 16h  salinan kedua list[idx] */
     char f2[2];         /* 18h */
     int  sel;           /* 1Ah  nilai balik, mulai -1 */
     char f3[2];         /* 1Ch */
     int  k;             /* 1Eh  = list[idx] */
-    char f4a[8];        /* 20h..27h */
+    char f4a[6];        /* 20h..25h */
+    int  hh;            /* 26h  tinggi record utama */
     int  dx2;           /* 28h  geser x record ke-2, BERTANDA */
     int  dy2;           /* 2Ah  geser y record ke-2, BERTANDA */
     char f4b[24];       /* 2Ch..43h */
@@ -85,13 +92,13 @@ int  n, idx, flag;
             do {
                 idx = rnd(n);
                 cnt++;
-                rp = recbase + list[idx];
+                rp = (struct rec *)(recbase + list[idx] * 0xc);
             } while (rp->row > 100 || (rp->id < 0x80 && cnt < 0x73));
         }
         else {
             do {
                 idx = rnd(n);
-                rp = recbase + list[idx];
+                rp = (struct rec *)(recbase + list[idx] * 0xc);
             } while (rp->row > 100 || rp->id >= 0x80);
         }
     }
@@ -110,8 +117,8 @@ int  n, idx, flag;
            (`mov ax,cx / mov dx,0Ch / imul dx`). Campuran ini juga yang
            MEMUTUS CSE atas `recbase` -- biner memuatnya DUA KALI
            ([73Ch] ke DI lalu ke SI), bukan sekali lalu dipakai ulang. */
-        if ((0xc * list[idx + 1] + (char *)recbase)[1] - 100 ==
-                recbase[k].row) {
+        if ((0xc * list[idx + 1] + recbase)[1] - 100 ==
+                ((struct rec *)recbase)[k].row) {
             /* Pola drawpair: char di MS C 1.04 itu unsigned, jadi tandanya
                dipulihkan lewat TERNARY dengan nilai-apa-adanya di posisi
                FALSE (cabang yang MEMUAT ULANG dari slot). */
@@ -125,43 +132,55 @@ int  n, idx, flag;
             blit(buf, x + dx2, y + dy2, ((char *)rp2)[2], ((char *)rp2)[3]);
         }
     }
+    if (k2 < 0 || k2 > 0x78) {
+        printf(0x1de8, k2);
+        goto done;
+    }
+    rp2 = rb + k2 * 0xc;
+    dx3 = ((char *)rp2)[4];
+    dx3 = (dx3 >= 0x80) ? dx3 - 0x100 : dx3;
+    dy3 = ((char *)rp2)[5];
+    dy3 = (dy3 >= 0x80) ? dy3 - 0x100 : dy3;
+    hh = ((char *)rp2)[3];
+done:
     return idx;
 }
 
-/* ⏳ DRAF — 231 dari 1.730 byte cocok; draf 433 byte dan blok pembanding
- * kini nyaris identik (sisa 2 byte per akses).
+/* ⏳ DRAF — 543 byte ditulis, 256 byte cocok. Divergensi pertama +231.
  *
- * ⭐ TEMUAN: bp+08h itu TEMP KELIMA, bukan lokal. Temp menempati bp+00..09,
- * lokal mulai bp+0Ah. Daftar "slot tidak terpakai" (00 08 14 22 4E)
- * MENYESATKAN -- 00 dan 08 itu temp yang kebetulan tak dipakai.
+ * ⭐ EMPAT bentuk penulisan yang sudah TERBUKTI, semuanya diukur satu per satu.
+ * Keempatnya akan dipakai ulang di ~1.200 byte sisanya dan kemungkinan di
+ * `main` juga:
  *
- * TIGA bentuk penulisan yang sudah TERBUKTI benar untuk blok pembanding
- * `recbase[list[idx+1]].row - 100 == recbase[k].row` (diukur satu per satu):
- *   1. sisi kiri CHAR-POINTER, sisi kanan STRUCT. Campuran ini yang memutus
- *      CSE atas `recbase` -- biner memuatnya DUA KALI, bukan sekali.
- *   2. sisi kiri bentuk PENUNJUK `(... + basis)[1]`, BUKAN offset
- *      `basis[... + 1]`. Yang pertama melipat +1 jadi displacement `[si+1]`;
- *      yang kedua memancarkan `inc ax` lalu `[si]`.
- *   3. URUTAN OPERAN dibalik: `(0xc * list[idx+1] + (char *)recbase)`, bukan
- *      `((char *)recbase + 0xc * list[idx+1])`. Basis harus dimuat SESUDAH
- *      perkalian; urutan sebaliknya menghoist pemuatan basis dan menambah
- *      spill. Ini menghemat 4 byte.
+ * 1. `recbase` dideklarasikan **char\***, bukan `struct rec *` lalu di-cast.
+ *    Dengan cast, kompiler memuat basis ke DX dulu lalu `mov si,dx` -- 2 byte
+ *    berlebih di TIAP akses. Sebagai char* ia memuat LANGSUNG ke register
+ *    indeks. Sisi yang butuh bentuk struct di-cast BALIK.
+ * 2. Sisi kiri char-pointer, sisi kanan struct: campuran ini MEMUTUS CSE atas
+ *    `recbase` -- biner memuatnya DUA KALI, bukan sekali lalu dipakai ulang.
+ * 3. Bentuk PENUNJUK `(... + basis)[1]`, bukan offset `basis[... + 1]`.
+ *    Yang pertama melipat +1 jadi displacement; yang kedua memberi `inc ax`.
+ * 4. URUTAN OPERAN: `(0xc * idx + basis)`, bukan `(basis + 0xc * idx)`.
+ *    Basis harus dimuat SESUDAH perkalian. Hemat 4 byte.
  *
- * SISA di blok itu: kita `mov dx,[73Ch] / mov si,dx` (2 instruksi), asli
- * `mov di,[73Ch]` (1). Asli memuat langsung ke register indeks. Cast
- * `(char *)` tampaknya memaksa lewat DX dulu. Belum ketemu bentuk yang
- * menghindarinya TANPA memakai nama extern kedua untuk alamat yang sama --
- * dan itu TIDAK BOLEH (gendata.py akan memancarkan array ukuran nol).
+ * ⭐ bp+08h itu TEMP KELIMA, bukan lokal. Temp menempati bp+00..09, lokal
+ * mulai bp+0Ah. Daftar "slot tidak terpakai" (00 08 14 22 4E) MENYESATKAN.
  *
- * SUDAH DICOBA & GAGAL (urutan k/k2, diukur DUA KALI: sebelum dan sesudah
- * badan membesar, hasilnya sama):
+ * DIAGNOSIS SISA (diukur dengan menyejajarkan geseran, bukan ditebak):
+ * dengan geseran +3 byte, blok 240..249 cocok INSTRUKSI DEMI INSTRUKSI. Jadi
+ * strukturnya benar; yang kurang cuma:
+ *   a. `[bp+2] = si` -- asli MENYIMPAN penunjuk &list[idx]; kita tidak.
+ *      Inilah sumber geseran 3 byte itu, DAN kemungkinan besar juga sumber
+ *      urutan flush [16h]/[1Eh] yang beda di +231.
+ *   b. register SI vs DI di akses record (panjang sama, byte beda).
+ *
+ * Karena (a) menjelaskan dua gejala sekaligus, itu yang harus dikejar: cari
+ * di blok BELUM DITULIS (0x44ea ke atas) di mana &list[idx] dipakai lagi --
+ * pemakaian ulang itulah yang memaksa kompiler menyimpannya.
+ *
+ * SUDAH DICOBA & GAGAL (urutan k/k2, diukur DUA KALI):
  *   `q;sel;k;k2` -> +193 | `k2=list[idx];k=k2` -> +220
  *   `k2=list[idx];k=list[idx]` -> +220 | `k=list[idx];k2=k` -> +231 (terbaik)
  *
- * DIVERGENSI di +231: urutan flush [16h]/[1Eh]. Asli juga menyimpan
- * `[bp+2]=si` (penunjuk &list[idx]) di sana. Dugaan terkuat: sumbernya
- * MEMAKAI ULANG penunjuk itu di blok berikutnya (0x4474 ke atas) yang belum
- * ditulis -- jadi tulis dulu blok itu sebelum mengejar urutan flush lagi.
- *
- * BELUM ditulis: 0x4474 ke atas (~1.400 byte).
+ * BELUM ditulis: 0x44ea ke atas (~1.200 byte).
  */
