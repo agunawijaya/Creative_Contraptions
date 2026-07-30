@@ -105,8 +105,13 @@ int  n, idx, flag;
         /* Pola "row berselisih 100 = bagian lanjutan", sama seperti drawpair
            dan nvar. Perkaliannya BEDA bentuk di dua sisi -- ikuti biner:
            `0xc * list[idx+1]` (konstanta kiri, operan memori) vs `k * 0xc`. */
-        if (((char *)recbase)[0xc * list[idx + 1] + 1] - 100 ==
-                ((char *)recbase)[k * 0xc + 1]) {
+        /* DUA BENTUK BERBEDA dengan sengaja: sisi kiri char-pointer
+           (`mov ax,0Ch / imul word ptr [bx]`), sisi kanan struct
+           (`mov ax,cx / mov dx,0Ch / imul dx`). Campuran ini juga yang
+           MEMUTUS CSE atas `recbase` -- biner memuatnya DUA KALI
+           ([73Ch] ke DI lalu ke SI), bukan sekali lalu dipakai ulang. */
+        if ((0xc * list[idx + 1] + (char *)recbase)[1] - 100 ==
+                recbase[k].row) {
             /* Pola drawpair: char di MS C 1.04 itu unsigned, jadi tandanya
                dipulihkan lewat TERNARY dengan nilai-apa-adanya di posisi
                FALSE (cabang yang MEMUAT ULANG dari slot). */
@@ -123,38 +128,40 @@ int  n, idx, flag;
     return idx;
 }
 
-/* ⏳ DRAF — 231 dari 1.730 byte cocok; blok load/blit SUDAH ditulis (436 byte
- * draf) dan bagian-bagiannya terbukti benar.
+/* ⏳ DRAF — 231 dari 1.730 byte cocok; draf 433 byte dan blok pembanding
+ * kini nyaris identik (sisa 2 byte per akses).
  *
- * ⭐ TEMUAN PENTING giliran ini: bp+08h itu TEMP KELIMA, bukan lokal.
- * Temp menempati bp+00..09 (5 slot), lokal mulai bp+0Ah. Memberi pengganjal
- * di 08h menggeser SELURUH slot 2 byte dan membuat bingkai 54h. Daftar "slot
- * tidak terpakai" (00 08 14 22 4E) MENYESATKAN: 00 dan 08 itu temp yang
- * kebetulan tak terpakai, bukan lokal kosong.
+ * ⭐ TEMUAN: bp+08h itu TEMP KELIMA, bukan lokal. Temp menempati bp+00..09,
+ * lokal mulai bp+0Ah. Daftar "slot tidak terpakai" (00 08 14 22 4E)
+ * MENYESATKAN -- 00 dan 08 itu temp yang kebetulan tak dipakai.
  *
- * TERVERIFIKASI byte-per-byte (0x42ca..0x43b0) + bagian yang cocok sesudahnya:
- *   - bingkai 52h, seluruh peta slot, kedua loop rnd
- *   - bentuk lompatan `jl +3 / jmp jauh` SEKARANG COCOK (dulu `jge` pendek) --
- *     ini membenarkan keputusan giliran lalu: menulis badan lebih dulu memang
- *     memperbaiki bentuk lompatan dengan sendirinya
- *   - perkalian `mov ax,0Ch / imul word ptr [bx]` COCOK (bentuk char-pointer)
- *   - blok load/blit dengan pemulihan tanda gaya drawpair sudah ditulis
+ * TIGA bentuk penulisan yang sudah TERBUKTI benar untuk blok pembanding
+ * `recbase[list[idx+1]].row - 100 == recbase[k].row` (diukur satu per satu):
+ *   1. sisi kiri CHAR-POINTER, sisi kanan STRUCT. Campuran ini yang memutus
+ *      CSE atas `recbase` -- biner memuatnya DUA KALI, bukan sekali.
+ *   2. sisi kiri bentuk PENUNJUK `(... + basis)[1]`, BUKAN offset
+ *      `basis[... + 1]`. Yang pertama melipat +1 jadi displacement `[si+1]`;
+ *      yang kedua memancarkan `inc ax` lalu `[si]`.
+ *   3. URUTAN OPERAN dibalik: `(0xc * list[idx+1] + (char *)recbase)`, bukan
+ *      `((char *)recbase + 0xc * list[idx+1])`. Basis harus dimuat SESUDAH
+ *      perkalian; urutan sebaliknya menghoist pemuatan basis dan menambah
+ *      spill. Ini menghemat 4 byte.
  *
- * SUDAH DICOBA & GAGAL (urutan k/k2, DIULANG sesudah badan membesar):
- *   - `q; sel; k; k2`               -> +193
- *   - `k2 = list[idx]; k = k2;`     -> +220 (dicoba DUA KALI, sebelum dan
- *                                      sesudah badan membesar -- tetap +220)
- *   - `k2 = list[idx]; k = list[idx];` -> +220
- *   - `k = list[idx]; k2 = k;`      -> +231  <- terbaik
+ * SISA di blok itu: kita `mov dx,[73Ch] / mov si,dx` (2 instruksi), asli
+ * `mov di,[73Ch]` (1). Asli memuat langsung ke register indeks. Cast
+ * `(char *)` tampaknya memaksa lewat DX dulu. Belum ketemu bentuk yang
+ * menghindarinya TANPA memakai nama extern kedua untuk alamat yang sama --
+ * dan itu TIDAK BOLEH (gendata.py akan memancarkan array ukuran nol).
  *
- * DIVERGENSI SEKARANG di +231, tinggal DUA sebab:
- *   1. urutan flush: kita [16h] lalu [1Eh]; asli [1Eh] lalu [16h].
- *      Empat urutan sumber sudah diukur, tak ada yang membalikkannya.
- *   2. asli menyimpan temp `[bp+2] = si` (penunjuk &list[idx]) sesudah kedua
- *      store itu; kita malah MEMUAT ULANG global (`mov dx,[73Ch]`) di blok
- *      berikutnya. Artinya asli memakai ulang penunjuk yang sudah dihitung,
- *      kita menghitung ulang dari `recbase`. Ini kemungkinan besar SEBAB
- *      dari (1) juga -- kejar ini dulu, bukan urutan store-nya.
+ * SUDAH DICOBA & GAGAL (urutan k/k2, diukur DUA KALI: sebelum dan sesudah
+ * badan membesar, hasilnya sama):
+ *   `q;sel;k;k2` -> +193 | `k2=list[idx];k=k2` -> +220
+ *   `k2=list[idx];k=list[idx]` -> +220 | `k=list[idx];k2=k` -> +231 (terbaik)
+ *
+ * DIVERGENSI di +231: urutan flush [16h]/[1Eh]. Asli juga menyimpan
+ * `[bp+2]=si` (penunjuk &list[idx]) di sana. Dugaan terkuat: sumbernya
+ * MEMAKAI ULANG penunjuk itu di blok berikutnya (0x4474 ke atas) yang belum
+ * ditulis -- jadi tulis dulu blok itu sebelum mengejar urutan flush lagi.
  *
  * BELUM ditulis: 0x4474 ke atas (~1.400 byte).
  */
