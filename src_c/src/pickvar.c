@@ -73,13 +73,13 @@ int  n, idx, flag;
     int  dy2;           /* 2Ah  geser y record ke-2, BERTANDA */
     char f4b1[8];       /* 2Ch..33h */
     int  x1;            /* 34h  = x + dx3 */
-    char f4b2[2];       /* 36h */
+    int  xa;            /* 36h  set KEDUA, dipakai blok 46CD/471B */
     int  x2;            /* 38h  = x1 + ww */
-    char f4b3[2];       /* 3Ah */
+    int  xb;            /* 3Ah */
     int  y1;            /* 3Ch  = y + dy3 */
-    char f4b4[2];       /* 3Eh */
+    int  ya;            /* 3Eh */
     int  y2;            /* 40h  = y1 + hh */
-    char f4b5[2];       /* 42h */
+    int  yb;            /* 42h */
     int  rb;            /* 44h  salinan recbase */
     int  rp2;           /* 46h  penunjuk record ke-2 (dari salinan rb) */
     int  cnt;           /* 48h  pencacah percobaan acak */
@@ -162,7 +162,7 @@ int  n, idx, flag;
        TIDAK PERNAH TERCAPAI di biner asli -- tapi byte-nya ada, jadi tetap
        harus ditulis. Jangan "diperbaiki". */
     if (q == idx)
-        goto done;
+        goto part2;
     /* BLOK MATI: `idx + 141h != q` selalu salah karena q diset = idx + 141h.
        Byte-nya ada di biner (0x451A..0x45DC) jadi tetap ditulis apa adanya. */
     if (idx + 0x141 != q) {
@@ -192,9 +192,35 @@ int  n, idx, flag;
             dy2 = ((char *)rp2)[5];
             dy2 = (dy2 >= 0x80) ? dy2 - 0x100 : dy2;
             load(fh, recbase, sel, buf);
-            blit(buf, x + dx2, y + dy2, ((char *)rp2)[2], ((char *)rp2)[3]);
+            /* BEDA dengan kembarannya di 0x4455: yang ini MENYIMPAN keempat
+               sudutnya ke slot 34/38/3c/40 sebelum memanggil blit. */
+            x1 = x + dx2;
+            y1 = y + dy2;
+            x2 = x1 + ((char *)rp2)[2];
+            y2 = y1 + ((char *)rp2)[3];
+            blit(buf, x1, y1, ((char *)rp2)[2], ((char *)rp2)[3]);
         }
     }
+    /* 0x46CD -- di LUAR kedua if; kedua kegagalan syarat melompat ke sini. */
+    load(fh, recbase, k2, buf);
+    xa = x + dx3;
+    ya = y + dy3;
+    xb = xa + ww;
+    yb = ya + hh;
+    blit(buf, xa, ya, ww, hh);
+    goto tail;
+part2:
+    /* 0x4713 -- badannya DUPLIKAT PERSIS blok 0x46CD (68 byte, byte demi
+       byte). Sumbernya karena itu juga harus identik. */
+    if (k != k2) {
+        load(fh, recbase, k2, buf);
+        xa = x + dx3;
+        ya = y + dy3;
+        xb = xa + ww;
+        yb = ya + hh;
+        blit(buf, xa, ya, ww, hh);
+    }
+tail:
 done:
     return idx;
 }
