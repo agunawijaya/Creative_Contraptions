@@ -58,7 +58,9 @@ int  n, idx, flag;
     int  q;             /* 0Ah  = idx + 141h */
     int  dy3;           /* 0Ch  geser y record UTAMA, BERTANDA */
     int  dx3;           /* 0Eh  geser x record UTAMA, BERTANDA */
-    char f1[6];         /* 10h..15h */
+    int  oy;            /* 10h */
+    int  ox;            /* 12h */
+    char f1[2];         /* 14h  tak dipakai di biner */
     int  k2;            /* 16h  salinan kedua list[idx] */
     char f2[2];         /* 18h */
     int  sel;           /* 1Ah  nilai balik, mulai -1 */
@@ -161,6 +163,20 @@ int  n, idx, flag;
        harus ditulis. Jangan "diperbaiki". */
     if (q == idx)
         goto done;
+    /* BLOK MATI: `idx + 141h != q` selalu salah karena q diset = idx + 141h.
+       Byte-nya ada di biner (0x451A..0x45DC) jadi tetap ditulis apa adanya. */
+    if (idx + 0x141 != q) {
+        fillrect(y + oy, x + ox,
+                 y + oy + ((char *)recbase)[k * 0xc + 3] - 1,
+                 x + ox + ((char *)recbase)[k * 0xc + 2] - 1, 1);
+        if (sel != -1) {
+            rp2 = rb + sel * 0xc;
+            dx2 = ((char *)rp2)[4];
+            dx2 = (dx2 >= 0x80) ? dx2 - 0x100 : dx2;
+            dy2 = ((char *)rp2)[5];
+            dy2 = (dy2 >= 0x80) ? dy2 - 0x100 : dy2;
+        }
+    }
 done:
     return idx;
 }
