@@ -14,9 +14,9 @@ DATA    ENDS
 PROG    SEGMENT BYTE PUBLIC 'PROG'
         ASSUME  CS:PGROUP, DS:DGROUP
 
-        PUBLIC  F5CBB
+        PUBLIC  line
 
-F5CBB:  PUSH	BP                     ; 5CBB  55
+line:   PUSH	BP                     ; 5CBB  55
         PUSH	ES                     ; 5CBC  06
         MOV	BP, SP                  ; 5CBD  8b ec
         MOV	AX, 0B800H              ; 5CBF  b8 00 b8
@@ -113,7 +113,7 @@ L5D54:  XOR	DI, 2000H               ; 5D54  81 f7 00 20
         JNE	L5D92                   ; 5D88  75 08
         NOT	AL                      ; 5D8A  f6 d0
         AND	BYTE PTR ES:[BX], AL    ; 5D8C  26 20 07
-        JMP	L5D95                   ; 5D8F  eb 04
+        JMP	SHORT L5D95             ; 5D8F  eb 04
         NOP                         ; 5D91  90
 L5D92:  OR	BYTE PTR ES:[BX], AL     ; 5D92  26 08 07
 L5D95:  POP	ES                      ; 5D95  07

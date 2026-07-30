@@ -14,15 +14,15 @@ DATA    ENDS
 PROG    SEGMENT BYTE PUBLIC 'PROG'
         ASSUME  CS:PGROUP, DS:DGROUP
 
-        PUBLIC  F5DCE
+        PUBLIC  shftl
 
-F5DCE:  PUSH	BP                     ; 5DCE  55
+shftl:  PUSH	BP                     ; 5DCE  55
         MOV	BP, SP                  ; 5DCF  8b ec
         PUSH	ES                     ; 5DD1  06
         PUSH	DS                     ; 5DD2  1e
         MOV	AX, WORD PTR [BP+4]     ; 5DD3  8b 46 04
         SHR	AX, 1                   ; 5DD6  d1 e8
-        MUL	WORD PTR [1F60H]        ; 5DD8  f7 26 60 1f
+        MUL	WORD PTR DS:[1F60H]     ; 5DD8  f7 26 60 1f
         MOV	BX, WORD PTR [BP+6]     ; 5DDC  8b 5e 06
         ADD	BX, WORD PTR [BP+0AH]   ; 5DDF  03 5e 0a
         CMP	BX, 0                   ; 5DE2  83 fb 00
@@ -44,7 +44,7 @@ L5DF8:  MOV	DI, AX                  ; 5DF8  8b f8
         MOV	AX, 0B800H              ; 5E09  b8 00 b8
         MOV	ES, AX                  ; 5E0C  8e c0
         MOV	DS, AX                  ; 5E0E  8e d8
-        JMP	L5E16                   ; 5E10  eb 04
+        JMP	SHORT L5E16             ; 5E10  eb 04
         NOP                         ; 5E12  90
         MOV	AX, 0ABCDH              ; 5E13  b8 cd ab
 L5E16:  PUSH	CX                     ; 5E16  51

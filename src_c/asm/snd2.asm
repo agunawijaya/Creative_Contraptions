@@ -30,7 +30,7 @@ L5B57:  PUSH	DX                     ; 5B57  52
         MOV	AX, 34DEH               ; 5B64  b8 de 34
         DIV	CX                      ; 5B67  f7 f1
         MOV	CX, AX                  ; 5B69  8b c8
-        JMP	L5B70                   ; 5B6B  eb 03
+        JMP	SHORT L5B70             ; 5B6B  eb 03
 L5B6D:  CALL	X5B4E                  ; 5B6D  e8 de ff
 L5B70:  POP	AX                      ; 5B70  58
         POP	DX                      ; 5B71  5a
@@ -44,26 +44,26 @@ L5B70:  POP	AX                      ; 5B70  58
         MOV	AX, 907H                ; 5B7A  b8 07 09
         MOV	DS, AX                  ; 5B7D  8e d8
         MOV	DX, 0                   ; 5B7F  ba 00 00
-        CMP	WORD PTR [83CH], DX     ; 5B82  39 16 3c 08
+        CMP	WORD PTR DS:[83CH], DX  ; 5B82  39 16 3c 08
         JNE	L5B8B                   ; 5B86  75 03
         CALL	X5B4E                  ; 5B88  e8 c3 ff
-L5B8B:  CMP	WORD PTR [720H], DX     ; 5B8B  39 16 20 07
+L5B8B:  CMP	WORD PTR DS:[720H], DX  ; 5B8B  39 16 20 07
         JE	L5BBE                    ; 5B8F  74 2d
-        MOV	AX, WORD PTR [720H]     ; 5B91  a1 20 07
-        MOV	WORD PTR [1EF6H], AX    ; 5B94  a3 f6 1e
-        MOV	WORD PTR [1EF8H], AX    ; 5B97  a3 f8 1e
-        MOV	WORD PTR [720H], DX     ; 5B9A  89 16 20 07
-        MOV	AX, WORD PTR [722H]     ; 5B9E  a1 22 07
-        MOV	WORD PTR [1EFAH], AX    ; 5BA1  a3 fa 1e
-        MOV	WORD PTR [722H], DX     ; 5BA4  89 16 22 07
+        MOV	AX, WORD PTR DS:[720H]  ; 5B91  a1 20 07
+        MOV	WORD PTR DS:[1EF6H], AX ; 5B94  a3 f6 1e
+        MOV	WORD PTR DS:[1EF8H], AX ; 5B97  a3 f8 1e
+        MOV	WORD PTR DS:[720H], DX  ; 5B9A  89 16 20 07
+        MOV	AX, WORD PTR DS:[722H]  ; 5B9E  a1 22 07
+        MOV	WORD PTR DS:[1EFAH], AX ; 5BA1  a3 fa 1e
+        MOV	WORD PTR DS:[722H], DX  ; 5BA4  89 16 22 07
         CMP	AX, DX                  ; 5BA8  3b c2
         JNE	L5BBB                   ; 5BAA  75 0f
         CALL	X5B4E                  ; 5BAC  e8 9f ff
-        MOV	WORD PTR [1EFEH], 0     ; 5BAF  c7 06 fe 1e 00 00
-        MOV	WORD PTR [1EF6H], DX    ; 5BB5  89 16 f6 1e
-        JMP	L5BBE                   ; 5BB9  eb 03
+        MOV	WORD PTR DS:[1EFEH], 0  ; 5BAF  c7 06 fe 1e 00 00
+        MOV	WORD PTR DS:[1EF6H], DX ; 5BB5  89 16 f6 1e
+        JMP	SHORT L5BBE             ; 5BB9  eb 03
 L5BBB:  CALL	X5B3E                  ; 5BBB  e8 80 ff
-L5BBE:  MOV	AX, WORD PTR [1EFAH]    ; 5BBE  a1 fa 1e
+L5BBE:  MOV	AX, WORD PTR DS:[1EFAH] ; 5BBE  a1 fa 1e
         CMP	AX, 1                   ; 5BC1  3d 01 00
         JNE	L5BC9                   ; 5BC4  75 03
         JMP	L5C50                   ; 5BC6  e9 87 00
@@ -72,53 +72,53 @@ L5BC9:  CMP	AX, 2                   ; 5BC9  3d 02 00
         CMP	AX, 3                   ; 5BCE  3d 03 00
         JE	L5BDF                    ; 5BD1  74 0c
         CALL	X5B4E                  ; 5BD3  e8 78 ff
-        MOV	WORD PTR [1EFEH], 0     ; 5BD6  c7 06 fe 1e 00 00
+        MOV	WORD PTR DS:[1EFEH], 0  ; 5BD6  c7 06 fe 1e 00 00
         JMP	L5C7C                   ; 5BDC  e9 9d 00
-L5BDF:  MOV	WORD PTR [1EFCH], 1     ; 5BDF  c7 06 fc 1e 01 00
-        JMP	L5BEB                   ; 5BE5  eb 04
-L5BE7:  MOV	WORD PTR [1EFCH], DX    ; 5BE7  89 16 fc 1e
-L5BEB:  CMP	WORD PTR [1EFEH], DX    ; 5BEB  39 16 fe 1e
+L5BDF:  MOV	WORD PTR DS:[1EFCH], 1  ; 5BDF  c7 06 fc 1e 01 00
+        JMP	SHORT L5BEB             ; 5BE5  eb 04
+L5BE7:  MOV	WORD PTR DS:[1EFCH], DX ; 5BE7  89 16 fc 1e
+L5BEB:  CMP	WORD PTR DS:[1EFEH], DX ; 5BEB  39 16 fe 1e
         JNE	L5C3C                   ; 5BEF  75 4b
-        MOV	BX, WORD PTR [1EF6H]    ; 5BF1  8b 1e f6 1e
+        MOV	BX, WORD PTR DS:[1EF6H] ; 5BF1  8b 1e f6 1e
         MOV	CX, WORD PTR [BX]       ; 5BF5  8b 0f
         MOV	AL, BYTE PTR [BX+2]     ; 5BF7  8a 47 02
-        ADD	WORD PTR [1EF6H], 3     ; 5BFA  83 06 f6 1e 03
+        ADD	WORD PTR DS:[1EF6H], 3  ; 5BFA  83 06 f6 1e 03
         CMP	CX, 0FFFFH              ; 5BFF  81 f9 ff ff
         JNE	L5C1A                   ; 5C03  75 15
-        CMP	WORD PTR [1EFCH], 1     ; 5C05  83 3e fc 1e 01
+        CMP	WORD PTR DS:[1EFCH], 1  ; 5C05  83 3e fc 1e 01
         JNE	L5C28                   ; 5C0A  75 1c
-        MOV	BX, WORD PTR [1EF8H]    ; 5C0C  8b 1e f8 1e
-        MOV	WORD PTR [1EF6H], BX    ; 5C10  89 1e f6 1e
-        MOV	WORD PTR [1EFEH], DX    ; 5C14  89 16 fe 1e
-        JMP	L5BEB                   ; 5C18  eb d1
+        MOV	BX, WORD PTR DS:[1EF8H] ; 5C0C  8b 1e f8 1e
+        MOV	WORD PTR DS:[1EF6H], BX ; 5C10  89 1e f6 1e
+        MOV	WORD PTR DS:[1EFEH], DX ; 5C14  89 16 fe 1e
+        JMP	SHORT L5BEB             ; 5C18  eb d1
 L5C1A:  SUB	AH, AH                  ; 5C1A  2a e4
-        MOV	WORD PTR [1EFEH], AX    ; 5C1C  a3 fe 1e
+        MOV	WORD PTR DS:[1EFEH], AX ; 5C1C  a3 fe 1e
         CALL	L5B57                  ; 5C1F  e8 35 ff
         CALL	X5B33                  ; 5C22  e8 0e ff
-        JMP	L5C3C                   ; 5C25  eb 15
+        JMP	SHORT L5C3C             ; 5C25  eb 15
         NOP                         ; 5C27  90
 L5C28:  CALL	X5B4E                  ; 5C28  e8 23 ff
-        MOV	WORD PTR [1EFEH], 0     ; 5C2B  c7 06 fe 1e 00 00
-        MOV	WORD PTR [1EF6H], DX    ; 5C31  89 16 f6 1e
-        MOV	WORD PTR [1EFAH], DX    ; 5C35  89 16 fa 1e
-        JMP	L5C7C                   ; 5C39  eb 41
+        MOV	WORD PTR DS:[1EFEH], 0  ; 5C2B  c7 06 fe 1e 00 00
+        MOV	WORD PTR DS:[1EF6H], DX ; 5C31  89 16 f6 1e
+        MOV	WORD PTR DS:[1EFAH], DX ; 5C35  89 16 fa 1e
+        JMP	SHORT L5C7C             ; 5C39  eb 41
         NOP                         ; 5C3B  90
-L5C3C:  DEC	WORD PTR [1EFEH]        ; 5C3C  ff 0e fe 1e
-        CMP	WORD PTR [1EFEH], 0     ; 5C40  83 3e fe 1e 00
+L5C3C:  DEC	WORD PTR DS:[1EFEH]     ; 5C3C  ff 0e fe 1e
+        CMP	WORD PTR DS:[1EFEH], 0  ; 5C40  83 3e fe 1e 00
         JG	L5C7C                    ; 5C45  7f 35
-        MOV	WORD PTR [1EFEH], 0     ; 5C47  c7 06 fe 1e 00 00
-        JMP	L5C7C                   ; 5C4D  eb 2d
+        MOV	WORD PTR DS:[1EFEH], 0  ; 5C47  c7 06 fe 1e 00 00
+        JMP	SHORT L5C7C             ; 5C4D  eb 2d
         NOP                         ; 5C4F  90
-L5C50:  MOV	BX, WORD PTR [1EF6H]    ; 5C50  8b 1e f6 1e
+L5C50:  MOV	BX, WORD PTR DS:[1EF6H] ; 5C50  8b 1e f6 1e
         MOV	CX, WORD PTR [BX]       ; 5C54  8b 0f
         MOV	AX, WORD PTR [BX+2]     ; 5C56  8b 47 02
         CMP	AX, CX                  ; 5C59  3b c1
         JNE	L5C71                   ; 5C5B  75 14
         CALL	X5B4E                  ; 5C5D  e8 ee fe
-        MOV	WORD PTR [1EFEH], 0     ; 5C60  c7 06 fe 1e 00 00
-        MOV	WORD PTR [1EF6H], DX    ; 5C66  89 16 f6 1e
-        MOV	WORD PTR [1EFAH], DX    ; 5C6A  89 16 fa 1e
-        JMP	L5C7C                   ; 5C6E  eb 0c
+        MOV	WORD PTR DS:[1EFEH], 0  ; 5C60  c7 06 fe 1e 00 00
+        MOV	WORD PTR DS:[1EF6H], DX ; 5C66  89 16 f6 1e
+        MOV	WORD PTR DS:[1EFAH], DX ; 5C6A  89 16 fa 1e
+        JMP	SHORT L5C7C             ; 5C6E  eb 0c
         NOP                         ; 5C70  90
 L5C71:  CALL	L5B57                  ; 5C71  e8 e3 fe
         CALL	X5B33                  ; 5C74  e8 bc fe
@@ -131,13 +131,13 @@ L5C7C:  POP	AX                      ; 5C7C  58
         POP	BX                      ; 5C81  5b
         POP	AX                      ; 5C82  58
         RET                         ; 5C83  c3
-        CMP	WORD PTR [1F04H], 0     ; 5C84  83 3e 04 1f 00
+        CMP	WORD PTR DS:[1F04H], 0  ; 5C84  83 3e 04 1f 00
         JNE	L5C97                   ; 5C89  75 0c
-        MOV	WORD PTR [1F04H], 1     ; 5C8B  c7 06 04 1f 01 00
+        MOV	WORD PTR DS:[1F04H], 1  ; 5C8B  c7 06 04 1f 01 00
         MOV	CX, 258H                ; 5C91  b9 58 02
-        JMP	L5CA0                   ; 5C94  eb 0a
+        JMP	SHORT L5CA0             ; 5C94  eb 0a
         NOP                         ; 5C96  90
-L5C97:  MOV	WORD PTR [1F04H], 0     ; 5C97  c7 06 04 1f 00 00
+L5C97:  MOV	WORD PTR DS:[1F04H], 0  ; 5C97  c7 06 04 1f 00 00
         MOV	CX, 244H                ; 5C9D  b9 44 02
 L5CA0:  CALL	L5B57                  ; 5CA0  e8 b4 fe
         CALL	X5B33                  ; 5CA3  e8 8d fe

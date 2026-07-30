@@ -25,11 +25,34 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 EXE = os.path.join(ROOT, "work", "unpack", "CONTRAP_UNPACKED.EXE")
 ASM = os.path.join(ROOT, "src_c", "asm")
 
+# Nama publik per alamat. WAJIB sama dengan nama yang dipakai berkas .c,
+# kalau tidak LINK melaporkan "Unresolved Externals". Alamat yang tidak ada
+# di sini diberi nama otomatis F<addr>.
+NAMES = {
+    0x5a5b: "rnd",      0x5a7f: "sndsave", 0x5ac9: "sndrest",
+    0x5cbb: "line",     0x5d98: "vbwait",  0x5da1: "vbend",
+    0x5dce: "shftl",    0x6453: "text",    0x6524: "putmsk",
+    0x657c: "draw",     0x65e0: "put",     0x6600: "shftr",
+    0x672f: "blit",     0x6869: "fillrect", 0x6939: "prep",
+    0x2b11: "waitn",  0x5b73: "tone3",
+}
+
 
 def hexs(v):
     """Konstanta gaya MASM: akhiran H, digit awal wajib."""
     s = "%X" % v
     return (("0" + s) if s[0].isalpha() else s) + "H"
+
+
+# capstone memakai nama mnemonik 32-bit walau di-set CS_MODE_16. MASM 1.27
+# (1984) hanya kenal 8086, jadi harus diterjemahkan balik -- kalau tidak
+# instruksinya DILEWATI diam-diam dan seluruh modul bergeser.
+M16 = {
+    "cdq": "CWD", "cwde": "CBW", "cdqe": "CBW",
+    "movsd": "MOVSW", "stosd": "STOSW", "lodsd": "LODSW",
+    "scasd": "SCASW", "cmpsd": "CMPSW", "insd": "INSW", "outsd": "OUTSW",
+    "pushfd": "PUSHF", "popfd": "POPF", "iretd": "IRET", "jecxz": "JCXZ",
+}
 
 
 def conv(op, labels, lo, hi):
@@ -49,7 +72,12 @@ def conv(op, labels, lo, hi):
     # segmen eksplisit supaya keluar bentuk langsung (a3 28 21 / f7 36 ..).
     def abso(m):
         inner = m.group(1)
-        if re.search(r"[A-Z]{2}", inner):     # ada nama register -> biarkan
+        # Batas kata WAJIB: konstanta "212CH" mengandung "CH" dan tanpa
+        # batas akan dikira register. Ditulis pakai lookaround, bukan
+        # \b, supaya aman dari escaping saat berkas ini dibangkitkan.
+        REG = ("(?<![A-Z0-9])(AX|BX|CX|DX|SI|DI|BP|SP|AL|BL|CL|DL"
+               "|AH|BH|CH|DH)(?![A-Z0-9])")
+        if re.search(REG, inner):
             return m.group(0)
         return "DS:[" + inner + "]"
     op = re.sub(r"(?<![A-Z:])\[([^\]]+)\]", abso, op)
@@ -78,11 +106,17 @@ def gen(name, ranges):
             if m:
                 t = int(m.group(1), 16)
                 if lo <= t < hi:
-                    labels[t] = "L%04X" % t
+                    labels[t] = NAMES.get(t, "L%04X" % t)
                 else:
                     extern.add(t)
     for a, _ in ranges:
-        labels.setdefault(a, "F%04X" % a)
+        labels.setdefault(a, NAMES.get(a, "F%04X" % a))
+    # Satu modul bisa memuat BEBERAPA fungsi. Semua alamat bernama yang jatuh
+    # di dalam rentang harus jadi label DAN publik, kalau tidak fungsi selain
+    # yang pertama tidak terekspor dan LINK gagal.
+    for a, nm in NAMES.items():
+        if lo <= a < hi:
+            labels[a] = nm
 
     out = []
     out.append("; %s.asm -- DIBANGKITKAN oleh src_c/build/asmgen.py, lalu disunting tangan." % name)
@@ -102,20 +136,35 @@ def gen(name, ranges):
     out.append("PROG    SEGMENT BYTE PUBLIC 'PROG'")
     out.append("        ASSUME  CS:PGROUP, DS:DGROUP")
     out.append("")
-    pubs = [labels[a] for a, _ in ranges]
+    pubs = sorted({labels[a] for a, _ in ranges} |
+                  {nm for a, nm in NAMES.items() if lo <= a < hi})
     out.append("        PUBLIC  " + ", ".join(pubs))
     for t in sorted(extern):
-        out.append("        EXTRN   X%04X:NEAR      ;; ??? target di luar modul" % t)
+        out.append("        EXTRN   %s:NEAR" % NAMES.get(t, "X%04X" % t))
     out.append("")
 
     for i in insns:
         lab = labels.get(i.address, "")
-        txt = i.mnemonic.upper()
+        txt = M16.get(i.mnemonic, i.mnemonic.upper())
+        # Instruksi STRING: capstone mencetak operan implisitnya, MASM 1.x
+        # menolaknya ("Extra characters on line"). Harus telanjang.
+        if re.match(r"(lods|stos|movs|scas|cmps|ins|outs)[bwd]$", i.mnemonic):
+            out.append("%-8s%-28s; %04X  %s" % (
+                (labels.get(i.address, "") + ":") if i.address in labels else "",
+                txt, i.address, " ".join("%02x" % c for c in i.bytes)))
+            continue
         if i.op_str:
             txt += "\t" + conv(i.op_str, labels, lo, hi)
         m = re.fullmatch(r"0x([0-9a-f]+)", i.op_str)
         if m and int(m.group(1), 16) in extern:
-            txt = "%s\tX%04X" % (i.mnemonic.upper(), int(m.group(1), 16))
+            tv = int(m.group(1), 16)
+            txt = "%s\t%s" % (i.mnemonic.upper(), NAMES.get(tv, "X%04X" % tv))
+        # MASM 1.x memesan 3 byte untuk JMP MAJU (asumsi near di pass 1). Kalau
+        # ternyata muat pendek, ia mengisi sisanya dengan NOP -> "EB xx 90",
+        # dan seluruh modul bergeser 1 byte per lompatan. Paksa SHORT kalau
+        # aslinya 2 byte. Ini penyebab tersering modul asm meleset panjang.
+        if i.mnemonic == "jmp" and len(i.bytes) == 2 and m:
+            txt = "JMP\tSHORT " + conv(i.op_str, labels, lo, hi)
         raw = " ".join("%02x" % c for c in i.bytes)
         out.append("%-8s%-28s; %04X  %s" % ((lab + ":") if lab else "", txt,
                                             i.address, raw))

@@ -14,23 +14,23 @@ DATA    ENDS
 PROG    SEGMENT BYTE PUBLIC 'PROG'
         ASSUME  CS:PGROUP, DS:DGROUP
 
-        PUBLIC  F6524
+        PUBLIC  draw, put, putmsk, shftr
 
-F6524:  PUSH	BP                     ; 6524  55
+putmsk: PUSH	BP                     ; 6524  55
         PUSH	ES                     ; 6525  06
         MOV	BP, SP                  ; 6526  8b ec
         MOV	AX, 0B800H              ; 6528  b8 00 b8
         MOV	ES, AX                  ; 652B  8e c0
         MOV	DI, WORD PTR [BP+6]     ; 652D  8b 7e 06
-        MOV	AX, WORD PTR [266H]     ; 6530  a1 66 02
+        MOV	AX, WORD PTR DS:[266H]  ; 6530  a1 66 02
         CMP	AX, 140H                ; 6533  3d 40 01
         JNE	L653B                   ; 6536  75 03
-        JMP	L6579                   ; 6538  eb 3f
+        JMP	SHORT L6579             ; 6538  eb 3f
         NOP                         ; 653A  90
 L653B:  SHR	AX, 1                   ; 653B  d1 e8
-        MUL	WORD PTR [1FA0H]        ; 653D  f7 26 a0 1f
-        ADD	AX, WORD PTR [26AH]     ; 6541  03 06 6a 02
-        TEST	WORD PTR [266H], 1     ; 6545  f7 06 66 02 01 00
+        MUL	WORD PTR DS:[1FA0H]     ; 653D  f7 26 a0 1f
+        ADD	AX, WORD PTR DS:[26AH]  ; 6541  03 06 6a 02
+        TEST	WORD PTR DS:[266H], 1  ; 6545  f7 06 66 02 01 00
         JE	L6550                    ; 654B  74 03
         XOR	AX, 2000H               ; 654D  35 00 20
 L6550:  MOV	BX, WORD PTR [BP+8]     ; 6550  8b 5e 08
@@ -55,21 +55,21 @@ L6574:  XOR	AX, 2000H               ; 6574  35 00 20
 L6579:  POP	ES                      ; 6579  07
         POP	BP                      ; 657A  5d
         RET                         ; 657B  c3
-        PUSH	BP                     ; 657C  55
+draw:   PUSH	BP                     ; 657C  55
         PUSH	ES                     ; 657D  06
         MOV	BP, SP                  ; 657E  8b ec
         MOV	AX, 0B800H              ; 6580  b8 00 b8
         MOV	ES, AX                  ; 6583  8e c0
         MOV	DI, WORD PTR [BP+6]     ; 6585  8b 7e 06
-        MOV	AX, WORD PTR [260H]     ; 6588  a1 60 02
+        MOV	AX, WORD PTR DS:[260H]  ; 6588  a1 60 02
         CMP	AX, 140H                ; 658B  3d 40 01
         JNE	L6593                   ; 658E  75 03
-        JMP	L65DD                   ; 6590  eb 4b
+        JMP	SHORT L65DD             ; 6590  eb 4b
         NOP                         ; 6592  90
 L6593:  SHR	AX, 1                   ; 6593  d1 e8
-        MUL	WORD PTR [1FA0H]        ; 6595  f7 26 a0 1f
-        ADD	AX, WORD PTR [268H]     ; 6599  03 06 68 02
-        TEST	WORD PTR [260H], 1     ; 659D  f7 06 60 02 01 00
+        MUL	WORD PTR DS:[1FA0H]     ; 6595  f7 26 a0 1f
+        ADD	AX, WORD PTR DS:[268H]  ; 6599  03 06 68 02
+        TEST	WORD PTR DS:[260H], 1  ; 659D  f7 06 60 02 01 00
         JE	L65A8                    ; 65A3  74 03
         XOR	AX, 2000H               ; 65A5  35 00 20
 L65A8:  MOV	CX, 8                   ; 65A8  b9 08 00
@@ -100,7 +100,7 @@ L65D8:  XOR	AX, 2000H               ; 65D8  35 00 20
 L65DD:  POP	ES                      ; 65DD  07
         POP	BP                      ; 65DE  5d
         RET                         ; 65DF  c3
-        PUSH	BP                     ; 65E0  55
+put:    PUSH	BP                     ; 65E0  55
         PUSH	ES                     ; 65E1  06
         MOV	BP, SP                  ; 65E2  8b ec
         MOV	AX, 0B800H              ; 65E4  b8 00 b8
@@ -116,13 +116,13 @@ L65DD:  POP	ES                      ; 65DD  07
         POP	ES                      ; 65FD  07
         POP	BP                      ; 65FE  5d
         RET                         ; 65FF  c3
-        PUSH	BP                     ; 6600  55
+shftr:  PUSH	BP                     ; 6600  55
         MOV	BP, SP                  ; 6601  8b ec
         PUSH	ES                     ; 6603  06
         PUSH	DS                     ; 6604  1e
         MOV	AX, WORD PTR [BP+4]     ; 6605  8b 46 04
         SHR	AX, 1                   ; 6608  d1 e8
-        MUL	WORD PTR [1FB0H]        ; 660A  f7 26 b0 1f
+        MUL	WORD PTR DS:[1FB0H]     ; 660A  f7 26 b0 1f
         MOV	BX, WORD PTR [BP+6]     ; 660E  8b 5e 06
         CMP	BX, 0                   ; 6611  83 fb 00
         JE	L6617                    ; 6614  74 01
@@ -143,7 +143,7 @@ L6627:  MOV	DI, AX                  ; 6627  8b f8
         MOV	AX, 0B800H              ; 6638  b8 00 b8
         MOV	ES, AX                  ; 663B  8e c0
         MOV	DS, AX                  ; 663D  8e d8
-        JMP	L6645                   ; 663F  eb 04
+        JMP	SHORT L6645             ; 663F  eb 04
         NOP                         ; 6641  90
         MOV	AX, 0ABCDH              ; 6642  b8 cd ab
 L6645:  PUSH	CX                     ; 6645  51

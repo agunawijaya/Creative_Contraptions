@@ -7,6 +7,11 @@
  *
  * Dibangkitkan dari selisih EXTDEF vs PUBDEF (src_c/verify/symbols.py).
  *
+ * Sejak 2026-07-30 sebagian besar primitif assembly SUDAH NYATA (dirakit
+ * dengan MASM 1.27 dari berkas di src_c/asm) sehingga stub-nya dihapus: blit,
+ * draw, fillrect, line, prep, put, putmsk, rnd, text, shftl, shftr,
+ * sndsave, sndrest, vbwait, vbend.
+ *
  * BUKAN semua yang belum ada perlu stub: rutin di wilayah >=0x69d7 berasal
  * dari MC.LIB dan cukup dipanggil dengan NAMA PUSTAKANYA. Cek dulu dengan
  * `python src_c/verify/libmatch.py` sebelum menambah stub baru. Enam stub
@@ -19,33 +24,16 @@
  * Stub-nya wajib ada, kalau tidak MC.LIB(_MAIN) melaporkan "unresolved". */
 main() { return 0; }
 
-blit() { return 0; }
-draw() { return 0; }
 drawitem() { return 0; }
-fillrect() { return 0; }
 fmtnum() { return 0; }
-line() { return 0; }
 pickvar() { return 0; }    /* @0x42ca, 1.730 byte -- belum direkonstruksi */
-prep() { return 0; }
-put() { return 0; }        /* @0x65e0 -- dipakai shuffle/askopts */
-putmsk() { return 0; }     /* @0x6524 -- dipakai xform/bounce; rutin BERBEDA,
-                              dulu keliru ikut bernama put() sehingga LINK
-                              menyatukan dua alamat jadi satu. */
-rnd() { return 0; }
 waitn() { return 0; }      /* @0x2b11 -- BUKAN pause() @0x31b0 */
+tone3() { return 0; }      /* @0x5b73 -- di dalam rentang snd2 yang
+                              belum dirakit; sementara stub */
 rdkey() { return 0; }
 refresh() { return 0; }
 sndoff() { return 0; }
 sndon() { return 0; }
-sndrest() { return 0; }
-sndsave() { return 0; }
-text() { return 0; }
-
-/* Primitif geser layar, dipakai review() saat menggulir strip palet.
- * Keduanya assembly tulisan tangan: prolog "push bp; mov bp,sp; push es;
- * push ds" (menyimpan segmen karena menulis ke memori video). */
-shftl() { return 0; }       /* @0x5dce */
-shftr() { return 0; }       /* @0x6600 */
 
 /* Simbol DATA yang tidak bisa lewat gdata.c:
  *   sndbuf -- alamat aslinya 0x670e, DI LUAR DGROUP (itu segmen kode).

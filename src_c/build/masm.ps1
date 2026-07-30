@@ -52,6 +52,17 @@ if (Test-Path "$dos\masm.log") {
     Copy-Item "$dos\masm.log" "$out\$Name.log" -Force
     Get-Content "$dos\masm.log"
 }
+# MASM tetap menulis .OBJ walau ada error -- instruksi yang tak dikenal
+# DILEWATI diam-diam. Harus diperiksa eksplisit.
+$sev = (Get-Content "$dos\masm.log" -Raw) -match "(?m)^\s*(\d+)\s+(\d+)\s*$"
+# Hanya ERROR yang menggagalkan. Warning (mis. "Open procedure") tidak
+# mengubah byte yang dipancarkan.
+$w = $Matches[1]; $e = $Matches[2]
+if ($sev -and $e -ne "0") {
+    "GAGAL: MASM melaporkan $e error."
+    exit 1
+}
+if ($sev -and $w -ne "0") { "  (catatan: $w warning MASM, byte tidak terpengaruh)" }
 if (Test-Path "$dos\$Name.OBJ") {
     Copy-Item "$dos\$Name.OBJ" "$out\$Name.OBJ" -Force
     if (Test-Path "$dos\$Name.LST") { Copy-Item "$dos\$Name.LST" "$out\$Name.lst" -Force }

@@ -14,9 +14,9 @@ DATA    ENDS
 PROG    SEGMENT BYTE PUBLIC 'PROG'
         ASSUME  CS:PGROUP, DS:DGROUP
 
-        PUBLIC  F672F
+        PUBLIC  blit
 
-F672F:  PUSH	BP                     ; 672F  55
+blit:   PUSH	BP                     ; 672F  55
         PUSH	ES                     ; 6730  06
         MOV	BP, SP                  ; 6731  8b ec
         MOV	AX, 0B800H              ; 6733  b8 00 b8
@@ -25,11 +25,11 @@ F672F:  PUSH	BP                     ; 672F  55
         ADD	AX, WORD PTR [BP+0CH]   ; 673B  03 46 0c
         MOV	WORD PTR DS:[2128H], AX ; 673E  a3 28 21
         MOV	AX, WORD PTR [BP+0AH]   ; 6741  8b 46 0a
-        CDQ                         ; 6744  99
+        CWD                         ; 6744  99
         DIV	WORD PTR DS:[2120H]     ; 6745  f7 36 20 21
         MOV	BX, DX                  ; 6749  8b da
         MOV	AX, WORD PTR [BP+0EH]   ; 674B  8b 46 0e
-        CDQ                         ; 674E  99
+        CWD                         ; 674E  99
         DIV	WORD PTR DS:[2120H]     ; 674F  f7 36 20 21
         ADD	BX, DX                  ; 6753  03 da
         SHL	BX, 1                   ; 6755  d1 e3
@@ -39,20 +39,20 @@ F672F:  PUSH	BP                     ; 672F  55
         SHR	BX, 1                   ; 6760  d1 eb
         MOV	WORD PTR DS:[2124H], BX ; 6762  89 1e 24 21
         MOV	AX, WORD PTR [BP+0AH]   ; 6766  8b 46 0a
-        CDQ                         ; 6769  99
+        CWD                         ; 6769  99
         DIV	WORD PTR DS:[2120H]     ; 676A  f7 36 20 21
         SHL	DX, 1                   ; 676E  d1 e2
-        MOV	WORD PTR [212CH], DX    ; 6770  89 16 2c 21
+        MOV	WORD PTR DS:[212CH], DX ; 6770  89 16 2c 21
         NEG	DX                      ; 6774  f7 da
         ADD	DX, 8                   ; 6776  83 c2 08
-        MOV	WORD PTR [212EH], DX    ; 6779  89 16 2e 21
+        MOV	WORD PTR DS:[212EH], DX ; 6779  89 16 2e 21
         MOV	AX, WORD PTR [BP+0EH]   ; 677D  8b 46 0e
         DEC	AX                      ; 6780  48
         SHR	AX, 1                   ; 6781  d1 e8
         SHR	AX, 1                   ; 6783  d1 e8
         ADD	AX, BX                  ; 6785  03 c3
         MOV	DX, AX                  ; 6787  8b d0
-        CMP	WORD PTR [212CH], 0     ; 6789  83 3e 2c 21 00
+        CMP	WORD PTR DS:[212CH], 0  ; 6789  83 3e 2c 21 00
         JE	L6791                    ; 678E  74 01
         INC	DX                      ; 6790  42
 L6791:  MOV	SI, WORD PTR [BP+6]     ; 6791  8b 76 06
@@ -78,7 +78,7 @@ L67BF:  CMP	BX, DX                  ; 67BF  3b da
 L67C6:  JNE	L67CF                   ; 67C6  75 07
         CMP	WORD PTR DS:[2130H], 0  ; 67C8  83 3e 30 21 00
         JNE	L680C                   ; 67CD  75 3d
-L67CF:  CMP	WORD PTR [212CH], 0     ; 67CF  83 3e 2c 21 00
+L67CF:  CMP	WORD PTR DS:[212CH], 0  ; 67CF  83 3e 2c 21 00
         JE	L6834                    ; 67D4  74 5e
         CMP	BX, WORD PTR DS:[2124H] ; 67D6  3b 1e 24 21
         JE	L67F5                    ; 67DA  74 19
@@ -86,39 +86,39 @@ L67CF:  CMP	WORD PTR [212CH], 0     ; 67CF  83 3e 2c 21 00
         JE	L680C                    ; 67DE  74 2c
         MOV	AL, BYTE PTR [SI]       ; 67E0  8a 04
         INC	SI                      ; 67E2  46
-        MOV	CX, WORD PTR [212EH]    ; 67E3  8b 0e 2e 21
+        MOV	CX, WORD PTR DS:[212EH] ; 67E3  8b 0e 2e 21
         SHL	AL, CL                  ; 67E7  d2 e0
         MOV	AH, BYTE PTR [SI]       ; 67E9  8a 24
-        MOV	CX, WORD PTR [212CH]    ; 67EB  8b 0e 2c 21
+        MOV	CX, WORD PTR DS:[212CH] ; 67EB  8b 0e 2c 21
         SHR	AH, CL                  ; 67EF  d2 ec
         OR	AL, AH                   ; 67F1  0a c4
-        JMP	L6843                   ; 67F3  eb 4e
+        JMP	SHORT L6843             ; 67F3  eb 4e
 L67F5:  MOV	AL, BYTE PTR [SI]       ; 67F5  8a 04
-        MOV	CX, WORD PTR [212CH]    ; 67F7  8b 0e 2c 21
+        MOV	CX, WORD PTR DS:[212CH] ; 67F7  8b 0e 2c 21
         SHR	AL, CL                  ; 67FB  d2 e8
         MOV	AH, BYTE PTR ES:[DI]    ; 67FD  26 8a 25
-        MOV	CX, WORD PTR [212EH]    ; 6800  8b 0e 2e 21
+        MOV	CX, WORD PTR DS:[212EH] ; 6800  8b 0e 2e 21
         SHR	AH, CL                  ; 6804  d2 ec
         SHL	AH, CL                  ; 6806  d2 e4
         OR	AL, AH                   ; 6808  0a c4
-        JMP	L6843                   ; 680A  eb 37
+        JMP	SHORT L6843             ; 680A  eb 37
 L680C:  MOV	AL, BYTE PTR [SI]       ; 680C  8a 04
         INC	SI                      ; 680E  46
-        MOV	CX, WORD PTR [212EH]    ; 680F  8b 0e 2e 21
-        CMP	WORD PTR [212EH], 8     ; 6813  83 3e 2e 21 08
+        MOV	CX, WORD PTR DS:[212EH] ; 680F  8b 0e 2e 21
+        CMP	WORD PTR DS:[212EH], 8  ; 6813  83 3e 2e 21 08
         JGE	L681C                   ; 6818  7d 02
         SHL	AL, CL                  ; 681A  d2 e0
-L681C:  JMP	L6825                   ; 681C  eb 07
+L681C:  JMP	SHORT L6825             ; 681C  eb 07
         NOP                         ; 681E  90
         CMP	AL, 0                   ; 681F  3c 00
         JNE	L6825                   ; 6821  75 02
-        JMP	L6846                   ; 6823  eb 21
+        JMP	SHORT L6846             ; 6823  eb 21
 L6825:  MOV	AH, BYTE PTR ES:[DI]    ; 6825  26 8a 25
         MOV	CX, WORD PTR DS:[2130H] ; 6828  8b 0e 30 21
         SHL	AH, CL                  ; 682C  d2 e4
         SHR	AH, CL                  ; 682E  d2 ec
         OR	AL, AH                   ; 6830  0a c4
-        JMP	L6843                   ; 6832  eb 0f
+        JMP	SHORT L6843             ; 6832  eb 0f
 L6834:  MOV	AL, BYTE PTR [SI]       ; 6834  8a 04
         INC	SI                      ; 6836  46
         MOV	BYTE PTR ES:[DI], AL    ; 6837  26 88 05
@@ -126,7 +126,7 @@ L6834:  MOV	AL, BYTE PTR [SI]       ; 6834  8a 04
         INC	BX                      ; 683B  43
         CMP	BX, DX                  ; 683C  3b da
         JLE	L6834                   ; 683E  7e f4
-        JMP	L684B                   ; 6840  eb 09
+        JMP	SHORT L684B             ; 6840  eb 09
         NOP                         ; 6842  90
 L6843:  MOV	BYTE PTR ES:[DI], AL    ; 6843  26 88 05
 L6846:  INC	DI                      ; 6846  47

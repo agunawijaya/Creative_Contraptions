@@ -14,9 +14,9 @@ DATA    ENDS
 PROG    SEGMENT BYTE PUBLIC 'PROG'
         ASSUME  CS:PGROUP, DS:DGROUP
 
-        PUBLIC  F6869
+        PUBLIC  fillrect
 
-F6869:  PUSH	BP                     ; 6869  55
+fillrect:PUSH	BP                     ; 6869  55
         PUSH	ES                     ; 686A  06
         MOV	BP, SP                  ; 686B  8b ec
         MOV	AX, 0B800H              ; 686D  b8 00 b8
@@ -70,7 +70,7 @@ L68D7:  PUSH	CX                     ; 68D7  51
         NOT	AL                      ; 68DF  f6 d0
         AND	AL, BYTE PTR ES:[DI]    ; 68E1  26 22 05
         OR	AL, DH                   ; 68E4  0a c6
-        STOSB	BYTE PTR ES:[DI], AL  ; 68E6  aa
+        STOSB                       ; 68E6  aa
         DEC	CX                      ; 68E7  49
         JCXZ	L68EE                  ; 68E8  e3 04
         MOV	AL, AH                  ; 68EA  8a c4
@@ -81,7 +81,7 @@ L68F0:  AND	AL, BL                  ; 68F0  22 c3
         NOT	AL                      ; 68F4  f6 d0
         AND	AL, BYTE PTR ES:[DI]    ; 68F6  26 22 05
         OR	AL, DL                   ; 68F9  0a c2
-        STOSB	BYTE PTR ES:[DI], AL  ; 68FB  aa
+        STOSB                       ; 68FB  aa
         POP	DI                      ; 68FC  5f
         TEST	DI, 2000H              ; 68FD  f7 c7 00 20
         JE	L6906                    ; 6901  74 03

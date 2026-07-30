@@ -61,3 +61,11 @@ loadcon  5035    739
 runplay  5505    964
 vbio     5d98     54
 fillrec  6869    208
+snd1     5a5b     252
+line     5cbb     221
+shftl    5dce     109
+text     644a     218
+blitmsk  6524     326
+keyio    66fd      50
+blit     672f     314
+prep     6939     271

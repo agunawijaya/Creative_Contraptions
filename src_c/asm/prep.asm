@@ -14,9 +14,9 @@ DATA    ENDS
 PROG    SEGMENT BYTE PUBLIC 'PROG'
         ASSUME  CS:PGROUP, DS:DGROUP
 
-        PUBLIC  F6939
+        PUBLIC  prep
 
-F6939:  PUSH	ES                     ; 6939  06
+prep:   PUSH	ES                     ; 6939  06
         PUSH	BP                     ; 693A  55
         MOV	BP, SP                  ; 693B  8b ec
         MOV	AX, 0B800H              ; 693D  b8 00 b8
@@ -27,24 +27,24 @@ F6939:  PUSH	ES                     ; 6939  06
         MOV	DX, WORD PTR [BP+6]     ; 694B  8b 56 06
         MOV	AX, DX                  ; 694E  8b c2
         SHR	AX, 1                   ; 6950  d1 e8
-        MUL	BYTE PTR [2170H]        ; 6952  f6 26 70 21
+        MUL	BYTE PTR DS:[2170H]     ; 6952  f6 26 70 21
         ADD	AX, WORD PTR [BP+8]     ; 6956  03 46 08
-        MOV	WORD PTR [2176H], AX    ; 6959  a3 76 21
+        MOV	WORD PTR DS:[2176H], AX ; 6959  a3 76 21
         ADD	AX, 2000H               ; 695C  05 00 20
-        MOV	WORD PTR [2174H], AX    ; 695F  a3 74 21
+        MOV	WORD PTR DS:[2174H], AX ; 695F  a3 74 21
         TEST	DX, 1                  ; 6962  f7 c2 01 00
         JE	L696F                    ; 6966  74 07
         MOV	AX, 50H                 ; 6968  b8 50 00
-        ADD	WORD PTR [2176H], AX    ; 696B  01 06 76 21
+        ADD	WORD PTR DS:[2176H], AX ; 696B  01 06 76 21
 L696F:  MOV	CX, 8                   ; 696F  b9 08 00
-L6972:  MOV	BX, WORD PTR [2171H]    ; 6972  8b 1e 71 21
+L6972:  MOV	BX, WORD PTR DS:[2171H] ; 6972  8b 1e 71 21
         TEST	DX, 1                  ; 6976  f7 c2 01 00
         JE	L6986                    ; 697A  74 0a
-        MOV	SI, WORD PTR [2174H]    ; 697C  8b 36 74 21
-        ADD	WORD PTR [2174H], BX    ; 6980  01 1e 74 21
-        JMP	L698E                   ; 6984  eb 08
-L6986:  MOV	SI, WORD PTR [2176H]    ; 6986  8b 36 76 21
-        ADD	WORD PTR [2176H], BX    ; 698A  01 1e 76 21
+        MOV	SI, WORD PTR DS:[2174H] ; 697C  8b 36 74 21
+        ADD	WORD PTR DS:[2174H], BX ; 6980  01 1e 74 21
+        JMP	SHORT L698E             ; 6984  eb 08
+L6986:  MOV	SI, WORD PTR DS:[2176H] ; 6986  8b 36 76 21
+        ADD	WORD PTR DS:[2176H], BX ; 698A  01 1e 76 21
 L698E:  XOR	BX, BX                  ; 698E  33 db
         PUSH	CX                     ; 6990  51
         MOV	CX, 3                   ; 6991  b9 03 00
@@ -68,11 +68,11 @@ L6994:  MOV	AL, BYTE PTR ES:[BX+SI] ; 6994  26 8a 00
         TEST	AX, 1                  ; 69B2  a9 01 00
         JNE	L69C0                   ; 69B5  75 09
         SHR	AX, 1                   ; 69B7  d1 e8
-        MUL	WORD PTR [2171H]        ; 69B9  f7 26 71 21
-        JMP	L69C9                   ; 69BD  eb 0a
+        MUL	WORD PTR DS:[2171H]     ; 69B9  f7 26 71 21
+        JMP	SHORT L69C9             ; 69BD  eb 0a
         NOP                         ; 69BF  90
 L69C0:  SHR	AX, 1                   ; 69C0  d1 e8
-        MUL	WORD PTR [2171H]        ; 69C2  f7 26 71 21
+        MUL	WORD PTR DS:[2171H]     ; 69C2  f7 26 71 21
         ADD	AX, 2000H               ; 69C6  05 00 20
 L69C9:  ADD	AX, WORD PTR [BP+8]     ; 69C9  03 46 08
         MOV	BX, AX                  ; 69CC  8b d8
@@ -126,7 +126,7 @@ L6A26:  DEC	WORD PTR [BP+2]         ; 6A26  ff 4e 02
         NOT	AX                      ; 6A36  f7 d0
         NEG	BX                      ; 6A38  f7 db
         SBB	AX, 0FFFFH              ; 6A3A  1d ff ff
-        JMP	L6A43                   ; 6A3D  eb 04
+        JMP	SHORT L6A43             ; 6A3D  eb 04
 L6A3F:  XOR	AX, AX                  ; 6A3F  33 c0
         XOR	BX, BX                  ; 6A41  33 db
 L6A43:  ADD	SP, 4                   ; 6A43  83 c4 04
