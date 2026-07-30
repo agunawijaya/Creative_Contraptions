@@ -40,10 +40,14 @@ bp+0f6h..123h  46 BYTE TIDAK PERNAH DIREFERENSI  <-- TEKA-TEKI BELUM TERPECAHKAN
 bp+128h      argumen ke-1 (nomor varian; -1 = pilih acak)
 ```
 
-**Pertanyaan terbuka:** 46 byte di ujung bingkai itu apa? Kandidat: array
-kedua yang dideklarasikan tapi tak terpakai (23 int), atau buffer nama berkas.
-Jangan menulis sumbernya sebelum ini dijawab — ukuran bingkai adalah petunjuk
-tercepat kalau jumlah/urutan lokal salah (aturan 9 di README).
+**46 byte di ujung bingkai (bp+0f6h..123h) BUKAN penghalang — koreksi.**
+Saya sempat menulis "jangan tulis sumbernya sebelum ini dijawab". Itu SALAH dan
+bertentangan dengan aturan 8i di README: ukuran bingkai justru hal yang paling
+murah diukur SECARA EMPIRIS — kompilasi sekali, lihat selisih `sub sp` kita vs
+0x124, lalu tambah lokal sebanyak selisih/2. Kandidatnya array yang
+dideklarasikan tapi tak terpakai (23 int) atau buffer 46 byte; kalau `int`
+tak terpakai dibuang kompiler, pakai `char pad[46]` (array selalu dialokasikan,
+lihat §"Batas rumus" di README). **Tulis sumbernya, biarkan kompiler menjawab.**
 
 **Global yang perlu nama sebelum mulai** (belum ada di sumber mana pun):
 `0x3b2` (sub/goal terpilih), `0x3b4`, `0x3b6`, `0x41a`, `0x41c`, `0x41e`,
