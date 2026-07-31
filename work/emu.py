@@ -6,7 +6,14 @@ from unicorn import *
 from unicorn.x86_const import *
 
 D = r"C:\Projects\Creative_Contraptions\Creative-Contraptions"
-EXE = r"C:\Projects\Creative_Contraptions\work\unpack\CONTRAP_UNPACKED.EXE"
+# Bawaannya biner ASLI (sumber kebenaran). CC_EXE dipakai untuk menjalankan
+# EXE hasil rekonstruksi src_c lewat harness yang SAMA -- perbandingan
+# PERILAKU, bukan cuma byte.
+# WARNING: hook di bawah memakai offset biner ASLI. Selama `pickvar` masih
+#   +2 byte, hook untuk fungsi di alamat >= 0x4515 (mis. 5035/5a5b) meleset
+#   pada EXE rekonstruksi; layar yang belum menyentuhnya tetap sah.
+EXE = os.environ.get("CC_EXE") or \
+    r"C:\Projects\Creative_Contraptions\work\unpack\CONTRAP_UNPACKED.EXE"
 
 PSP_SEG = 0x0100
 LOAD_SEG = PSP_SEG + 0x10
@@ -246,6 +253,20 @@ uc.hook_add(UC_HOOK_INSN, hook_in, None, 1, 0, UC_X86_INS_IN)
 CODE = LOAD_SEG * 16
 SS_ = lambda: uc.reg_read(UC_X86_REG_SS)
 
+# Pemetaan alamat untuk EXE REKONSTRUKSI (src_c). Semua offset di berkas ini
+# adalah offset biner ASLI; pada EXE rekonstruksi `pickvar` masih 2 byte lebih
+# panjang, jadi apa pun di alamat >= CC_SHIFT_AT bergeser CC_SHIFT_BY. Tanpa
+# pemetaan ini hook mendarat di TENGAH instruksi dan hasilnya terbaca seperti
+# "EXE rekonstruksi rusak" padahal harness-nya yang meleset.
+# Tanpa CC_SHIFT_AT, A() adalah identitas -- perilaku bawaan tidak berubah.
+CC_SHIFT_AT = int(os.environ.get("CC_SHIFT_AT", "0"), 0)
+CC_SHIFT_BY = int(os.environ.get("CC_SHIFT_BY", "0"), 0)
+
+
+def A(off):
+    """offset di biner ASLI -> offset di biner yang sedang dijalankan."""
+    return off + CC_SHIFT_BY if (CC_SHIFT_AT and off >= CC_SHIFT_AT) else off
+
 
 def sgn8(v): return v - 256 if v >= 128 else v
 
@@ -263,6 +284,20 @@ def hook_code(uc, addr, size, user):
         draws.append((rec[0], rec[1], rec[3], rec[2], bx_ + sgn8(rec[4]), by_ + sgn8(rec[5])))
 
 
+# Penelusuran diagnostik: CC_TRACE=N mencetak N offset PERTAMA yang dieksekusi.
+# Dipakai untuk mencari titik DIVERGENSI antara biner asli dan EXE rekonstruksi.
+# Tanpa CC_TRACE, tidak ada hook tambahan -- perilaku bawaan tidak berubah.
+CC_TRACE = int(os.environ.get("CC_TRACE", "0"), 0)
+if CC_TRACE:
+    _tr = [0]
+
+    def hook_trace(uc, addr, size, user):
+        if _tr[0] < CC_TRACE:
+            _tr[0] += 1
+            print("  [tr%04d] %04x" % (_tr[0], addr - CODE))
+
+    uc.hook_add(UC_HOOK_CODE, hook_trace, None, CODE, CODE + 0x9064)
+
 uc.hook_add(UC_HOOK_CODE, hook_code, None, CODE + 0x2692, CODE + 0x2692)
 uc.hook_add(UC_HOOK_CODE, hook_code, None, CODE + 0x27b4, CODE + 0x27b4)
 
@@ -278,7 +313,7 @@ for nm, a in [("278e", 0x278e), ("2714", 0x2714), ("672f", 0x672f),
               ("6869", 0x6869), ("18db", 0x18db), ("3f0f", 0x3f0f), ("5035", 0x5035),
               ("131a", 0x131a), ("498c", 0x498c), ("2e90", 0x2e90), ("58c9", 0x58c9),
               ("5911", 0x5911), ("26ae", 0x26ae)]:
-    uc.hook_add(UC_HOOK_CODE, mk_counter(nm), None, CODE + a, CODE + a)
+    uc.hook_add(UC_HOOK_CODE, mk_counter(nm), None, CODE + A(a), CODE + A(a))
 
 from PIL import Image
 CGA = [(0, 0, 170), (0, 170, 170), (170, 0, 170), (170, 170, 170)]
@@ -796,7 +831,7 @@ if OBSERVE:
     hooks += [(0x3020, hook_obs_3020_entry), (0x3075, hook_obs_3020_draw),
               (0x3009, hook_obs_2fde)]
 for off, fn in hooks:
-    uc.hook_add(UC_HOOK_CODE, fn, None, CODE + off, CODE + off)
+    uc.hook_add(UC_HOOK_CODE, fn, None, CODE + A(off), CODE + A(off))
 
 start = uc.reg_read(UC_X86_REG_CS) * 16 + uc.reg_read(UC_X86_REG_IP)
 try:

@@ -164,8 +164,15 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
 
 - **LINK berhasil**: 61 `.OBJ` + `MC.LIB` → `src_c/out/CONTRAP.EXE`, tanpa error.
 - **Segmen DATA 9.556/9.556 byte, 0 beda** vs biner asli (diukur dari .EXE hasil link).
-- **COCOK byte-per-byte 81/83 fungsi, 24.731 byte. Kode C game 96,0%; TOTAL 97,1%.**
+- **COCOK byte-per-byte 82/83 fungsi, 25.234 byte. Kode C game 98,0%; TOTAL 98,5%.**
   Tidak ada stub tersisa.
+- ⚠⚠ **TAPI EXE-nya BELUM setara.** Verifikasi PERILAKU (menjalankan hasil link
+  di `work/emu.py`) menemukan DGROUP kita 1.004 byte TERLALU BESAR: `gdata.c`
+  merekonstruksi byte milik modul MC.LIB sebagai `padN`, LALU modul MC.LIB yang
+  asli ikut di-link dan menyumbang DATA-nya lagi. Akibatnya EXE menyimpang dari
+  biner asli di instruksi ke-1.871 (di `XCFINT`) dan keluar tanpa menggambar.
+  **Ini pekerjaan berikutnya yang paling penting** — lebih penting daripada
+  2 byte terakhir `pickvar`. Rinciannya di `src_c/README.md`.
 - Sisa yang belum eksak tinggal DUA, dan keduanya SATU SITUS 2 byte:
   `place` 501/503 dan `pickvar` 1.703/1.730 (98,4%, diukur `shiftcmp.py`).
   Dua-duanya kelas yang SAMA: kompiler asli meng-COMMIT simpanan tertunda

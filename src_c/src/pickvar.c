@@ -371,7 +371,10 @@ inner:
  * geseran +4 @0x495A itu AKUMULASI, bukan cacat tersendiri -- yang benar-benar
  * salah tinggal DUA titik, bukan tiga.
  *
- * ⏳ SISA SATU SITUS: 0x4515, -2 byte (geseran 0x4515:-2, 0x495a:+1).
+ * ⏸ DIPARKIR (2026-08-01) -- SATU situs, 2 byte, sebabnya SUDAH DIPAHAMI tapi
+ *   levernya belum ada. Syarat membuka lagi ada di ujung catatan ini.
+ *
+ * ⏳ SISA SATU SITUS: 0x44fd, +2 byte (geseran +2 di 0x4515).
  *   asli : mov [bp+0ch],bx / mov bx,[bp+0ah] / cmp bx,ax ... add ax,141h / cmp ax,bx
  *   kita : cmp ax,[bp+0ah]        ... mov [bp+0ch],bx ... cmp ax,[bp+0ah]
  *   Asli meng-COMMIT simpanan tertunda `dy3` (slot 0Ch, hasil ternary yang
@@ -387,6 +390,24 @@ inner:
  *     ternary dy3 : bentuk `if`, arah dibalik
  *     urutan x1/y1/x2/y2 (4 permutasi), urutan ww/hh
  *   Sasaran berikutnya harus PENJADWALAN SIMPANAN, bukan bentuk uji.
+ *
+ * ⭐ MEKANISMENYA SUDAH TERBUKTI (lihat src_c/README.md "LABEL TELANJANG"):
+ *   MC2 meng-commit simpanan tertunda di BATAS BLOK DASAR, dan sebuah label C
+ *   telanjang (tanpa `goto` ke sana) sudah cukup membuat batas itu -- nol byte.
+ *   Itu yang menutup `place` 501/503 -> 503/503.
+ *   Di SINI lever itu TERLALU TUMPUL: label mem-flush KETIGA simpanan tertunda
+ *   (dy3/bx, y2/cx, x2/dx), sedangkan asli hanya membuang SATU -- BX, yang
+ *   TERTUA -- lalu memakainya untuk `q`:
+ *       44fa mov ax,[bp+62]   44fd mov [bp+0ch],bx   4500 mov bx,[bp+0ah]
+ *       4503 cmp bx,ax        4505 mov [bp+40h],cx   4508 mov [bp+38h],dx
+ *   Delapan posisi label dicoba (sebelum rp2/ww/x1/y1/x2/y2 dan sebelum kedua
+ *   uji): tak satu pun memberi spill selektif. `q == idx` memberi byte IDENTIK
+ *   dengan `idx == q` di berkas nyata (di reproduksi mini justru BERBEDA).
+ *
+ * ⏸ SYARAT MEMBUKA LAGI: begitu diketahui aturan SPILL SELEKTIF -- kapan MC2
+ *   membuang SATU register tertua untuk mendapat operan-register bagi sebuah
+ *   perbandingan, alih-alih memakai operan MEMORI. Itu satu-satunya keputusan
+ *   yang memisahkan kita dari asli di situs ini.
  *
  * ⚠ SUDAH DICOBA & GAGAL untuk perbandingan `idx == q` (5 bentuk):
  *   idx==q | q==idx | idx-q==0 | q-idx==0 | !(idx!=q)

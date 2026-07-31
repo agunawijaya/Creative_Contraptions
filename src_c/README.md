@@ -2132,3 +2132,63 @@ spill selektif.
 ⚠ Jangan mengklaim dua varian "identik" tanpa hash. Bentuk label dan bentuk
 `&&` menghasilkan awalan instruksi yang SAMA di reproduksi mini, tapi `.OBJ`
 lengkapnya BERBEDA — dua-duanya 64 byte, hash tidak sama.
+
+## ⚠⚠ DGROUP KITA 1.004 BYTE TERLALU BESAR — data pustaka DIPANCARKAN DUA KALI
+
+Ditemukan lewat verifikasi PERILAKU (menjalankan EXE rekonstruksi di harness
+`work/emu.py` yang sama dengan biner asli), bukan lewat perbandingan byte.
+Perbandingan per-fungsi TIDAK BISA melihatnya: 82/83 fungsi cocok byte-per-byte
+dan `dgroup.py` melaporkan DATA 9.556/9.556 — karena ia hanya membandingkan
+9.556 byte PERTAMA.
+
+Faktanya, dari peta link dan header MZ:
+
+| | asli | kita |
+|---|---|---|
+| segmen DATA terinisialisasi | 9.556 B (0x2554) | **10.560 B (0x2940)** |
+| muatan (load module) | 46.532 B | 47.524 B (**+992**) |
+
+1.004 byte tambahan itu ada di DGROUP 0x2554..0x2940 (460 di antaranya bukan
+nol). Di biner asli wilayah itu **BSS**, bukan data terinisialisasi.
+
+**Sebabnya:** `gdata.c` merekonstruksi SELURUH 0..0x2554 — termasuk byte yang
+sebenarnya milik modul MC.LIB (tabel ctype, `_iob`, dst.), yang kita tulis
+sebagai array `padN`. Lalu modul MC.LIB yang ASLI ikut di-link dan menyumbang
+DATA-nya sendiri, yang linker tempelkan SESUDAH `gdata`. Jadi data pustaka ada
+DUA salinan: satu di alamat yang benar (sebagai padding), satu lagi di alamat
+tempelan — dan kode pustaka memakai yang tempelan.
+
+**Gejalanya:** dijalankan di emulator, EXE rekonstruksi menyimpang dari biner
+asli di instruksi ke-1.871, di dalam `XCFINT` (inisialisasi runtime C), tepat
+pada `mov bl,[si+2363h]` — pencarian tabel kelas-karakter saat meng-uppercase
+nama berkas. Sesudah itu program keluar bersih tanpa menggambar apa pun.
+Kode GAME sendiri sudah berjalan 387 instruksi dengan benar sebelum titik itu
+(`main_` masuk di instruksi ke-1.233, lalu `text` @0x644a, dst.).
+
+**Perbaikannya (belum dikerjakan):** `gendata.py` harus BERHENTI memancarkan
+rentang byte yang dimiliki modul MC.LIB — biarkan modul aslinya yang mengisi —
+sehingga DATA total pas 9.556. `libmatch.py` sudah tahu modul mana ada di mana
+di segmen KODE; yang dibutuhkan adalah peta setara untuk segmen DATA.
+
+⭐ **Pelajaran:** "82/83 fungsi cocok byte-per-byte" TIDAK berarti EXE-nya
+setara. Selalu jalankan hasil link, jangan cuma membandingkan potongannya.
+
+## ⭐ ALAT: menjalankan EXE rekonstruksi di harness emulator yang sama
+
+`work/emu.py` sekarang menerima tiga variabel lingkungan; tanpa itu perilakunya
+persis seperti dulu (tetap memakai biner asli sebagai sumber kebenaran):
+
+```
+CC_EXE=<path>      EXE yang dijalankan (bawaan: CONTRAP_UNPACKED.EXE asli)
+CC_SHIFT_AT=0x4515 alamat mulai bergeser  (selama `pickvar` masih +2 byte)
+CC_SHIFT_BY=2      besar geserannya
+CC_TRACE=N         cetak N offset instruksi PERTAMA yang dieksekusi
+```
+
+⚠ `CC_SHIFT_AT/BY` WAJIB diisi selama masih ada fungsi yang panjangnya beda.
+Hook `emu.py` memakai offset biner ASLI; tanpa pemetaan itu hook mendarat di
+TENGAH instruksi dan hasilnya terbaca seperti "EXE rekonstruksi rusak" padahal
+harness-nya yang meleset.
+
+Membandingkan jejak dua biner (sesudah dinormalkan) langsung menunjuk instruksi
+DIVERGEN pertama — itu cara temuan DGROUP di atas ditemukan.
