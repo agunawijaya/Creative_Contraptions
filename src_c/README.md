@@ -839,6 +839,92 @@ varian mana yang benar, dan percobaan berikutnya langsung cocok.
    (deklarasi pertama di `bp+2`). Kalau ukuran `sub sp,N` tidak cocok, jumlah atau
    urutan lokal masih salah — itu petunjuk paling cepat.
 
+## ⚠⚠ CARA MENGUKUR: jangan pakai "byte cocok per POSISI"
+
+Menghitung byte yang sama **di posisi yang sama** hanya sahih kalau panjang
+draf SUDAH persis sama dengan aslinya. Begitu ada satu sisipan atau kekurangan,
+seluruh sisa berkas bergeser dan byte yang sebenarnya benar terhitung salah.
+
+Buktinya telak (2026-07-31, `pickvar`): satu perubahan menurunkan angka posisi
+392 → 386 **tapi** menaikkan angka penjajaran 684 → 704. Kalau angka posisi
+dipercaya, perubahan yang BENAR akan dibuang. Di akhir sesi `pickvar`
+menunjukkan POSISI 368 padahal **1.616 byte benar-benar sejajar**.
+
+```
+python src_c/verify/aligncmp.py <nama>                          # ringkasan
+python src_c/verify/aligncmp.py <nama> --sbs <addr> <n> <geser>  # berdampingan
+```
+
+Keluarannya juga menyebut **di alamat mana** panjang mulai menyimpang dan
+sebanyak apa. Itu yang menunjuk blok berikutnya yang harus digarap — jauh lebih
+berguna daripada satu angka total. Alur kerjanya: lihat geseran terbesar →
+`--sbs` di situ → perbaiki → ukur lagi.
+
+## ⭐ ATURAN dari `pickvar` (0x42ca) — semuanya terukur, bukan diteorikan
+
+10. **Akses record SELALU bentuk PENUNJUK** `(idx * 0xc + basis)[n]`.
+    - offset `((char*)basis)[idx*0xc+n]` → basis dimuat **DUA KALI** (+15 byte)
+    - struct `((struct rec*)basis)[idx].f` → basis dimuat dini ke DX lalu
+      di-spill (+6 byte, dan bisa membengkakkan bingkai sampai gagal)
+
+11. **KOREKSI aturan lama.** Pernah tercatat "sisi kanan perbandingan harus
+    bentuk struct supaya CSE atas `recbase` putus" — **itu KELIRU**. Kedua sisi
+    bentuk penunjuk; yang membedakan hanya URUTAN OPERAN perkalian:
+    | sumber | keluaran |
+    |---|---|
+    | `0xc * list[i]` | `mov ax,0Ch` / `imul word ptr [bx]` |
+    | `k * 0xc` | `mov ax,cx` / `mov dx,0Ch` / `imul dx` |
+
+12. **`if (--x < 0)` ≠ `x--; if (x < 0)`.** Yang kedua memakai ulang flag dari
+    `DEC` (`jge`, 2 byte lebih pendek). Aslinya memancarkan `test ax,ax` lalu
+    `jns` — dan itu HANYA keluar dari bentuk pre-decrement di dalam syarat.
+
+13. **SWITCH JARANG: tabel nilai/label disusun KEBALIKAN urutan sumber.**
+    Pemindainya mulai dari entri TERAKHIR dan menghitung mundur
+    (`mov si,18h` / `cmp ax,cs:[si+tab]` / `sub si,4` / `jns`).
+    Jadi **urutan `case` di sumber = urutan ALAMAT badan case-nya**, sedangkan
+    tabelnya dibaca mundur. Tanpa aturan ini urutan case pasti tertukar.
+
+14. **`idx == q` ≠ `q == idx`.** Operan KIRI dimuat lebih dulu ke AX dan sering
+    dipakai ulang di perbandingan berikutnya; membaliknya memaksa muat ulang.
+
+15. **Jangan menganggap slot yang belum dikenali itu "pengganjal".** Di
+    `pickvar` LIMA kali berturut tebakan pengganjal ternyata variabel nyata
+    (36/3A/3E/42, 2C..33, 18/1C/50, 20, 4A). Anggap calon variabel dulu.
+
+16. **Kalau dua blok terlihat kembar, ukur DUA-DUANYA.** 0x4455 dan 0x46A0
+    tampak identik tapi yang kedua menyimpan empat sudut ke slot sebelum
+    memanggil `blit`. Sebaliknya 0x4713 memang duplikat byte-per-byte dari
+    0x46CD — satu blok ditulis, 68 byte langsung terisi.
+
+17. **Fungsi bisa TIDAK punya epilog di ujung.** Kalau semua jalur keluar lewat
+    `return` di dalam `switch`, tidak ada `add sp,N / pop bp / ret` penutup.
+    Jalur galat pun bisa melompat ke tengah fungsi, bukan ke `return`.
+
+## ⚠ `symcheck`: nama BERKAS ≠ nama SIMBOL
+
+Satu modul assembly bisa memuat beberapa fungsi, dan yang bernama sama dengan
+berkasnya belum tentu ada di offset 0. Modul `text` mulai di **0x644a** (itu
+pembungkus INT 10h, sekarang bernama `bios10`) sedangkan simbol `text` ada di
+**0x6453**. Sebelum dibetulkan, `symcheck` melaporkan **18 BEDA PALSU**.
+Alamat simbol sekarang diambil dari rekaman **PUBDEF** `.OBJ`, dan pemadanan
+nama tidak peduli besar-kecil huruf (MASM memancarkan HURUF BESAR, `.c` huruf
+kecil; LINK memadankan tanpa peduli kasus).
+
+## ⚠ `gendata.py` membuang alamat DGROUP 0..3
+
+Penyaringnya `START <= a` dengan `START = 4`, padahal `a` itu alamat **DGROUP**
+sedangkan `START` offset **DATA**. Simbol di DGROUP:0000..0003 karena itu tidak
+pernah terbit dan LINK melaporkan unresolved. Ini memblokir satu instruksi di
+`main` (0x00B9 `mov bx,[0]`, biaya 7 byte). **Belum diperbaiki** — menyentuh
+penataan DGROUP yang sekarang 100% cocok (9.556/9.556), jadi butuh keputusan.
+
+## ⚠ `link.ps1` menautkan SEMUA `.OBJ` di `out/`, bukan hanya yang di manifest
+
+Begitu sebuah `.c` baru ditaruh di `src/`, `buildall.ps1` mengompilnya dan
+`link.ps1` otomatis ikut menautkannya. Kalau fungsi itu masih punya stub di
+`stubs.c`, keduanya bentrok. Cabut stubnya di saat yang sama.
+
 ## Fungsi assembly (jangan direkonstruksi sebagai C)
 
 Prolog MS C 1.04 selalu `push bp; sub sp,N; mov bp,sp`. Sensus 144 fungsi:
