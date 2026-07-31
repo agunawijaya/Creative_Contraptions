@@ -1042,6 +1042,23 @@ Begitu sebuah `.c` baru ditaruh di `src/`, `buildall.ps1` mengompilnya dan
 `link.ps1` otomatis ikut menautkannya. Kalau fungsi itu masih punya stub di
 `stubs.c`, keduanya bentrok. Cabut stubnya di saat yang sama.
 
+## ⭐ SISIR SASARAN `call` untuk menemukan fungsi yang belum tergarap
+
+Cara termurah mencari pekerjaan berikutnya: kumpulkan semua sasaran `call`
+(`e8` + rel16) di wilayah kode game, lalu buang yang sudah tercakup rentang
+manifest. Sisanya adalah fungsi yang belum pernah disentuh.
+
+Hasil 2026-07-31 (14 sasaran belum tercakup) membuka wilayah **0x2714..0x29B0
+(668 byte, sedikitnya tiga fungsi)** yang sebelumnya tidak ada di peta mana
+pun — termasuk 0x2823, interpolator parabola yang sudah dikenal dari jalur
+port. Sisanya berada di dalam `main` (belum masuk manifest) dan `animvm`.
+
+```python
+for i in range(len(code)-2):
+    if code[i] == 0xe8:
+        t = (i + 3 + struct.unpack_from('<h', code, i+1)[0]) & 0xffff
+```
+
 ## ⚠ 1.200 BYTE NOL di 0x5F93..0x6442 — BUKAN kode
 
 Wilayah antara `setup` (0x5F90, tiga byte) dan rutin BIOS di 0x6443 berisi
