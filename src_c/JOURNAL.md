@@ -1533,3 +1533,41 @@ Panjang dan geseran tetap; semuanya beda ISI.
 
 `0x22ea` (26), `0x2313` (13), `0x23b7` (13), `0x1b1c` (12), `0x1ac6` (11),
 `0x2332` (9), `0x1ce0` (8), `0x1a9f` (7).
+
+---
+
+## `animvm` tahap 15: tanpa kemajuan angka — dua bentuk lagi ditutup
+
+TERJAJAR tetap **2.929/3.040 (96,3%)**. Iterasi ini tidak menaikkan angka.
+Yang didapat: pemahaman tentang APA yang sebenarnya tersisa, dan dua bentuk
+lagi yang terbukti salah.
+
+### ⚠ Sebagian besar "celah" ternyata ARTEFAK, bukan beda isi
+
+Memeriksa celah 0x2313 (13 B) dan 0x23b7 (13 B) berdampingan: keduanya
+**sudah identik instruksi-per-instruksi**. Yang membedakan cuma slot relokasi
+dan pergeseran alamat 1 byte. `align_runs` memutus lari sejajar di batas slot
+relokasi begitu ada geseran, jadi celah-celah itu TERHITUNG padahal isinya
+benar.
+
+Artinya: dari 111 byte celah, **hanya sekitar 60 yang beda isi sungguhan**;
+sisanya akan lunas sendiri begitu geseran 1 byte di 0x2304 diperbaiki.
+Nilai memperbaiki 1 byte itu jauh lebih besar dari kelihatannya.
+
+### Empat bentuk untuk gelung aliran bunyi, tak satu pun lengkap
+
+Yang dibutuhkan SEKALIGUS: (a) keluar gelung lewat FALL-THROUGH, dan
+(b) operan kedua MEMUAT ULANG `mov ax,[3AEh]` alih-alih memakai ulang SI.
+
+| bentuk | TERJAJAR | catatan |
+|---|---|---|
+| `do/while` + `*++scrptr` | 2.908 | fall-through OK, SI dipakai ulang |
+| `do/while` + `(scrptr++, *scrptr)` | 2.909 | — |
+| `do/while` + `*(scrptr += 1)` | 2.909 | — |
+| `for(;;)` + `&&` satu-ekspresi | 2.731 | jauh lebih buruk |
+| **`for(;;)` + `continue`** | **2.929** | muat-ulang benar, `jmp` mubazir tersisa |
+
+Semua bentuk `do/while` memberi fall-through tapi memakai ulang SI; satu-satunya
+yang memaksa muat-ulang justru yang memancarkan `jmp` mubazir. Aslinya punya
+keduanya — jadi masih ada sesuatu di blok itu yang belum dipahami.
+Daftar lengkapnya sudah ditulis di `animvm.c` supaya tidak diulang.

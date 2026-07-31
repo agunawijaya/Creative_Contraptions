@@ -502,7 +502,24 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 case 2:
                 case 3:         /* aliran mentah sampai penanda GANDA 0xFF 0xFF */
                     sndptr = scrptr;
-                    /* ⚠ SUDAH DICOBA & GAGAL: bentuk `&&` satu-ekspresi
+                    /* ⚠ SISA 1 BYTE DI SINI, dan itu memblokir ~40 byte lain:
+                       geseran +1 memecah lari sejajar di SELURUH sisa fungsi,
+                       jadi celah di 0x2313/0x23b7/0x1ce0 dst. sebagian besar
+                       ARTEFAK geseran ini, bukan beda isi sungguhan.
+
+                       Yang dibutuhkan SEKALIGUS: (a) keluar gelung lewat
+                       FALL-THROUGH (bukan `break` yang memancarkan `jmp`
+                       mubazir ke instruksi berikutnya), dan (b) operan kedua
+                       MEMUAT ULANG `mov ax,[3AEh]` alih-alih memakai ulang SI.
+                       EMPAT bentuk sudah dicoba, tak satu pun memberi keduanya:
+                         - `do/while` + `*++scrptr`            -> 2.908 (fall-through OK, SI dipakai ulang)
+                         - `do/while` + `(scrptr++, *scrptr)`  -> 2.909
+                         - `do/while` + `*(scrptr += 1)`       -> 2.909
+                         - `for(;;)` + `&&` satu-ekspresi      -> 2.731
+                       Yang di bawah (`for`/`continue`) = 2.929, TERBAIK sejauh
+                       ini: muat-ulangnya benar, `jmp` mubazirnya yang tersisa.
+
+                       ⚠ SUDAH DICOBA & GAGAL: bentuk `&&` satu-ekspresi
                        (`if (*scrptr == 0xff && *++scrptr == 0xff) break;`)
                        menurunkan penjajaran 2.753 -> 2.731.
                        Bentuk `continue` di bawah MEMANG memaksa muat-ulang
