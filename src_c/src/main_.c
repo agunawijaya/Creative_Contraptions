@@ -118,7 +118,12 @@ extern int  tinit;              /* @0x832 */
 extern int  ta;                 /* @0x7ec */
 extern int  tx;                 /* @0x7ee */
 extern int  schi;               /* @0x732 */
-extern int  sclo;               /* @0x730 */
+/* ⚠ `sclo` dipakai di sini sebagai satu `long` 32-bit, bukan `int`. Aslinya
+   menolkan skor dengan DUA simpanan-immediate (`mov [732h],0` lalu
+   `mov [730h],0`) -- itu pola penugasan nol pada `long`, bukan dua `int`
+   yang akan memakai ulang AX=0 dan cuma 3 byte masing-masing. Tanpa komentar
+   @ supaya gendata tidak memanennya ulang; gdata.c tetap memancarkan int. */
+extern long sclo;
 extern int  count;              /* @0x82c */
 extern int  both;               /* @0x844 */
 extern int  hintshown;          /* @0x848 */
@@ -427,10 +432,13 @@ main()
                dimaterialisasi, dan rantai dikompilasi sama persis dengan
                pernyataan terpisah. Selisihnya 6 byte; pemicunya kemungkinan
                di luar bentuk penugasan itu sendiri. */
-            schi = 0;
             sclo = 0;
-            ta = 5;
+            /* Urutan DIBACA dari muatan: `mov bx,140h` DULU (jadi `tx`
+               pernyataan pertama), lalu simpanan-immediate `ta`, lalu
+               `sub bx,14h` yang menempel pada `range`, baru `count`. */
             tx = 0x140;
+            ta = 5;
+            range = tx - 0x14;
             count = 4;
             hintshown = 0;
             g7e8 = 0;
@@ -438,10 +446,6 @@ main()
             failed = 0;
             sub = 0;
             both = 0;
-            /* Aslinya BERBAGI register: `mov bx,140h` dipakai untuk tx lalu
-               `sub bx,14h` untuk range. Menulis 0x140-0x14 sebagai konstanta
-               memberi simpan-langsung, bukan pengurangan. */
-            range = tx - 0x14;
             pickmax();
             goal = 6;
             /* 0x06AB -- gelung permainan. Keluar ke 0x0A2E. */

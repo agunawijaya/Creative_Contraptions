@@ -1776,3 +1776,53 @@ Geseran `0x013d:+2` masih ada: aslinya memuat `bx=26Ch`/`cx=284h` ke REGISTER
 lalu menunda simpanannya, kita memancarkan simpanan-immediate langsung.
 Penataan ulang sudah membuat `mov ax,140h` cocok, tapi bentuk yang memaksa
 pemuatan-ke-register belum ketemu.
+
+---
+
+## `main`: `sclo` ternyata `long` — GLOBAL 3.218 → 3.378 (80,1%)
+
+| | sebelum | sesudah |
+|---|---|---|
+| GLOBAL | 3.218 / 4.219 (76,3%) | **3.378 / 4.219 (80,1%)** |
+| panjang | −11 | **−1** |
+| `fixorder` BEDA simbol | 7 | **4** |
+
+### ⭐ Penolan `long` = DUA simpanan-immediate, bukan dua simpanan-AX
+
+Blok reset skor di biner:
+
+```
+0668 xor ax,ax
+066a mov word ptr [732h], 0     <- immediate, 6 byte
+0670 mov word ptr [730h], 0     <- immediate, 6 byte
+```
+
+Kita menulis `schi = 0; sclo = 0;` sebagai dua `int`, dan kompiler MEMAKAI
+ULANG `AX=0` yang sudah ada — 3 byte masing-masing, 6 byte lebih pendek.
+Aslinya TIDAK memakai ulang AX walau AX=0 tersedia tepat di atasnya. Itu
+tanda pengenal **penugasan nol pada satu `long`**: `sclo = 0;` dengan
+`extern long sclo;` memancarkan dua simpanan-immediate, hi dulu lalu lo.
+
+Catatan lama sudah mencoba lima urutan pernyataan berbeda dan `schi = sclo = 0`
+untuk memaksa bentuk immediate, semuanya gagal — karena masalahnya bukan
+urutan atau bentuk penugasan, melainkan **TIPE**. Ini kemunculan KETIGA pola
+"deklarasikan ulang simbol gdata sebagai tipe lain di satu berkas" setelah
+`char *scrptr` dan `long sclo` di `animvm`.
+
+### Dua penataan ulang pendukung
+
+- Blok pembuka: urutan dibaca dari muatan (`ytop_`, `g83a`, `base`, `recbase`,
+  `objtab`, `level_`).
+- Blok `tx`/`ta`/`range`/`count`: `mov bx,140h` DULU, jadi `tx` pernyataan
+  pertama; `sub bx,14h` menempel pada `range`; `count` sesudahnya.
+
+### ⚠ `main` punya TIGA tabel lompat PADAT
+
+Bentuk switch KETIGA (`jmp cs:[si*2+basis]`), berbeda dari tabel PINDAI di
+`animvm`/`pickvar`. Dispatchernya di 0x0496, 0x0509, 0x10e0 (asli) — struktur
+kita SAMA (0x0494, 0x0507, 0x10d5). Displacement tabelnya slot relokasi, jadi
+tidak bisa dibandingkan langsung dari .OBJ.
+
+⚠ Capstone berhenti di tiap tabel TANPA peringatan. Disassembly harus dimulai
+ulang di 0x0488, 0x0511, dan sesudah 0x10ca. Sebelum ini, seluruh wilayah
+0x0511..0x10fc — dua pertiga fungsi — TIDAK PERNAH TERLIHAT.
