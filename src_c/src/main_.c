@@ -441,7 +441,9 @@ main()
                 p1++;
                 f171f(2, 0x922, sub, nmax, postab);
             after:
-                ;
+                f498c(ytop, nzany, recC, e08, e58);
+                drawslot(ytop, nmechc, recB, ed0, ef8);
+                redraw();
             }
             break;
         case 2:
