@@ -425,7 +425,13 @@ main()
                     n = 0;
                 else
                     n = 1;
-                loadarc(seed, base, n, recB, nmechc, markf);
+                /* Hasilnya ditampung j juga -- ada `mov [bp+6f8c],ax` yang
+                   ditunda sampai sebelum panggilan berikutnya. */
+                j = loadarc(seed, base, n, recB, nmechc, markf);
+                j = loadarc(objfh, objtab, 0, recC, nzany, mark);
+                loadarc(objfh, objtab + j * 0xc, 0, recB, nmechc, markf);
+                pickpart(4, recbase, fh, big, buf0d54, nzany, e30, e58, recC,
+                         buf6f22, e08, e80);
             redo:
                 ;
             }
