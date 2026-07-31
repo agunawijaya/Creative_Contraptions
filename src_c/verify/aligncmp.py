@@ -25,6 +25,48 @@ TARGET = os.path.join(ROOT, "work", "unpack", "CONTRAP_UNPACKED.EXE")
 IMAGE_BASE = 0x200
 
 
+def align_runs(m, slots, orig):
+    """[(offset_kita, offset_asli, panjang)] untuk tiap lari yang sejajar.
+
+    Dipakai fixorder.py untuk memetakan offset FIXUPP kita ke offset biner asli
+    walau fungsinya BELUM cocok byte-per-byte.
+    """
+    runs = []
+    i = j = 0
+    while i < len(m) and j < len(orig):
+        if m[i] == orig[j] or i in slots:
+            k = 0
+            while (i + k < len(m) and j + k < len(orig)
+                   and (m[i + k] == orig[j + k] or (i + k) in slots)):
+                k += 1
+            if k >= 6:
+                runs.append((i, j, k))
+                i += k
+                j += k
+                continue
+        best = None
+        for d in sorted(range(-24, 25), key=lambda v: (abs(v), v)):
+            for a in range(1, 64):
+                if i + a < len(m) and 0 <= j + a + d < len(orig):
+                    k = 0
+                    while (i + a + k < len(m) and j + a + d + k < len(orig)
+                           and (m[i + a + k] == orig[j + a + d + k]
+                                or (i + a + k) in slots)):
+                        k += 1
+                    if k >= 12 and (best is None or a < best[0]):
+                        best = (a, d, k)
+            if best:
+                break
+        if best:
+            a, d, _ = best
+            i += a
+            j += a + d
+        else:
+            i += 1
+            j += 1
+    return runs
+
+
 def aligned(m, slots, orig):
     """(total_byte_sejajar, [(offset, geseran)]) — penjajaran serakah.
 
