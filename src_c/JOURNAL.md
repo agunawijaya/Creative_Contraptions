@@ -746,3 +746,77 @@ Kekhawatiran lama bahwa mengubah tipe extern akan menggeser DGROUP tidak
 terbukti: `gendata.py` memancarkan tiap simbol BUKAN-larik sebagai `int` apa
 pun tipe yang tertulis (cabang `if not arr:`). Diuji dengan menjalankan ulang
 gendata sesudah perubahan — `gdata.c` tidak berubah satu byte pun.
+
+---
+
+## Pengintaian `animvm` @0x18db (3.040 B) — stub TERAKHIR
+
+Belum ditulis sebaris pun; ini peta untuk memulainya. Semua terukur.
+
+### ⚠ Ada TABEL DATA 72 byte DI TENGAH fungsi (0x23d4..0x241b)
+
+Disassembler berhenti di 0x23d4 dan diam saja soal itu — kalau dipercaya
+mentah-mentah, 160 byte terakhir fungsi ini tak akan pernah terlihat. Kode
+berlanjut lagi di **0x241c** sampai `ret` di 0x24ba.
+
+Tabelnya 18 pasang `(nilai_case, alamat_badan)` — bentuk switch PEMINDAIAN
+(README aturan 13). Pemindainya mulai `si = 0x44` lalu `sub si,4` menurun,
+jadi tabel dibaca MUNDUR. Urutan pindai itu **persis sama dengan urutan ALAMAT
+badan case**, konfirmasi lagi aturan 13:
+
+| urutan tulis | case | badan |
+|---|---|---|
+| 1 | 0x10 | 0x1d09 |
+| 2 | 0x11 | 0x1e85 |
+| 3 | 0x00 | 0x1f11 |
+| 4 | 0x0a | 0x1f32 |
+| 5 | 0x08 | 0x1f3b |
+| 6 | 0x01 | 0x1f49 |
+| 7 | 0x07 | 0x1f70 |
+| 8 | 0x09 | 0x1f79 |
+| 9 | 0x02 | 0x1f8d |
+| 10 | 0x03 | 0x1fac |
+| 11 | 0x0c | 0x21e1 |
+| 12 | 0x04 | 0x2280 |
+| 13 | 0x05 | 0x2305 |
+| 14 | 0x06 | 0x2315 |
+| 15 | 0x0d | 0x2321 |
+| 16 | 0x0e | 0x2334 |
+| 17 | 0x0f | 0x233c |
+| 18 | 0xff | 0x23d1 |
+
+`default` = 0x1cd2 (jatuh ke sana kalau pemindaian habis).
+
+### Bingkai 0x6a
+
+`push bp; sub sp,6Ah; mov bp,sp` → **sembilan argumen** di bp+6E,70,72,74,76,
+78,7A,7C,7E. Temp di 0x00..0x0d; lokal 0x0e..0x69 (92 byte).
+
+Slot yang paling sering dirujuk: **+0e (17x)** indeks langkah skrip — dipakai
+sebagai `arg0[i]` lewat `shl ax,1` + `add si,[bp+6e]`, jadi arg0 larik `int`.
+**+54 (17x)**. **+10 dan +12 (10x)** dua pencacah yang di-`inc` bergantian
+menurut `arg0[i] == -1`. **+2c** penyangga BUNYI: `lea ax,[bp+2ch]` lalu
+disimpan ke `sndptr` (0x720) — jadi lokal larik, bukan skalar. **+60/+61**
+diakses per-BYTE (larik `char`), sisanya kata.
+
+### Yang sudah dipanggil (semua sudah COCOK, jadi namanya tinggal dipakai)
+
+`f2714` (0x2714), `f278e` (0x278e), `f2823` (0x2823) — ketiganya baru selesai
+hari ini dan memang dipanggil dari sini, masing-masing 2x. Juga `bounce`
+(0x2504), `waitn` (0x2b11), `blit` (0x672f), `fillrect` (0x6869), `text`
+(0x6453), `blitmsk` (0x6524), `shftr` (0x6600), `keyio` (0x66fd).
+
+⚠ 0x2475 memanggil **0x24bb** — fungsi PERSIS SESUDAH `animvm`. Itu bukan
+rekursi; batas fungsinya memang di situ.
+
+### Modal dari jalur port
+
+`port/cc/animvm.py` sudah memparsi 17 opcode-nya dan interpolatornya sudah
+tervalidasi vs emulator. Sama seperti `f2823` hari ini, semantiknya TIDAK
+perlu diturunkan ulang dari disassembly — cek ke sana dulu tiap menulis case.
+
+### Ukuran pekerjaan
+
+1.039 instruksi di badan utama + 160 byte ekor. Ini pekerjaan BERTAHAP:
+kerangka (prolog, gelung baca skrip, dispatcher, ekor) dulu, baru case satu
+per satu menurut urutan alamat di tabel atas.
