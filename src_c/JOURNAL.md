@@ -1138,3 +1138,48 @@ kecuali kebetulan.
 `0x1b28:+10`, `0x1b50:-1`, `0x1bd8:+3`, `0x1c07:-2`, `0x1ce8:-5`, `0x1fab:-7`,
 `0x2012:-1`, `0x2103:+5`, `0x21b9:+8`, `0x2236:+10`, `0x22da:+11`, `0x23a0:+13`.
 Semuanya BARU TERLOKALISASI, belum terdiagnosis.
+
+---
+
+## `animvm` tahap 6: satu aturan baru, tiga hipotesis DITUTUP
+
+Iterasi ini **tidak menaikkan angka agregat** (2.561 → 2.560, selisih derau).
+Yang didapat: satu aturan baru yang terbukti, satu blok jadi byte-identik, dan
+tiga hipotesis yang ditutup lewat probe. Dicatat apa adanya.
+
+### ⭐ Penugasan DI DALAM syarat menahan nilai di register
+
+`case 0x02` sekarang **byte-identik**. Sebabnya satu perubahan bentuk:
+
+| sumber | pancaran argumen |
+|---|---|
+| `if ((u2a = *scrptr++) >= 0) delay(u2a);` | `push ax` (1 byte) |
+| `u2a = *scrptr++; if (u2a < 0) break; delay(u2a);` | `push [bp+2Ah]` (3 byte) |
+
+Bentuk dua-pernyataan memaksa kompiler MEMUAT ULANG dari bingkai. Sudah masuk
+`README.md`.
+
+⚠ Angka agregat tidak naik karena penjajaran serakah menggeser keuntungan itu
+ke tempat lain. **Angka total bisa menyembunyikan perbaikan nyata** — daftar
+GESERAN lebih informatif: entri `0x1fab:-7` hilang sama sekali.
+
+### ⚠ Hasil NEGATIF: `imul word ptr [mem]` bukan dari perkalian biasa
+
+Geseran pertama (0x1b28) berpangkal di 0x1afd: aslinya
+`mov ax,3 / imul word ptr [bp+10h]` (5 byte), punya kita
+`mov ax,[bp+10h] / mov bx,3 / imul bx` (8 byte). Tiga probe, tiga GAGAL:
+
+| hipotesis | probe | hasil |
+|---|---|---|
+| urutan operan `3 * c1` vs `c1 * 3` | probe21a/b | pancarannya IDENTIK |
+| konteks indeks larik / dua penunjuk hidup | probe20a-d | selalu `imul bx` |
+| skala indeks larik STRUCT `t[a].id` | probe22a-c | `mov bx,6 / imul bx`, tanpa `shl` |
+
+Kesimpulan: bentuk `imul` beroperan-MEMORI **tidak bisa dihasilkan dari
+perkalian yang ditulis programmernya** di kompiler ini. Sumbernya masih belum
+diketahui — dan itu dicatat sebagai belum diketahui, bukan ditebak. Ketiga
+percobaan itu JANGAN diulang.
+
+Ini penerapan aturan "TERLOKALISASI belum berarti TERDIAGNOSIS" secara sadar:
+divergensinya sudah tepat di satu instruksi sejak awal iterasi, tapi tiga
+tebakan yang masuk akal semuanya salah.

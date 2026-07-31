@@ -205,7 +205,7 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
         f66fd(0x16, 0);
         if (steps[i] == -1) {
             /* CABANG MEKANISME: jawaban slot c1 harus cocok dengan urutannya. */
-            if (ord1[c1] != rec1[c1 * 3 + 2]) {
+            if (ord1[c1] != rec1[3 * c1 + 2]) {
                 failed = -1;
                 both = i;
                 fail[c1]++;
@@ -227,7 +227,7 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
         }
         else {
             /* CABANG ZANY OBJECT: sama, tapi atas pencacah dan tabel kedua. */
-            if (ord2[c2] != rec2[c2 * 3 + 2]) {
+            if (ord2[c2] != rec2[3 * c2 + 2]) {
                 failed = 1;
                 both = i;
                 zflag[c2]++;
@@ -368,10 +368,11 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 break;
 
             case 0x02:          /* 0x1f8d — jeda */
-                u2a = *scrptr++;
-                if (u2a < 0)
-                    break;
-                delay(u2a);
+                /* Penugasan DI DALAM syarat: aslinya `push ax` (1 byte),
+                   nilainya masih di register sesudah uji tanda. Bentuk dua
+                   pernyataan membuat kompiler MEMUAT ULANG dari bingkai. */
+                if ((u2a = *scrptr++) >= 0)
+                    delay(u2a);
                 break;
 
             case 0x03:          /* 0x1fac — lempar bola ke part BERIKUTNYA */

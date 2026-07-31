@@ -1066,6 +1066,35 @@ keduanya bersih tanpa satu pun positif palsu.
 pastikan namanya belum dipakai untuk alamat LAIN, bukan cuma bahwa alamatnya
 belum punya nama. Yang kedua saja tidak cukup.
 
+## ⭐ PENUGASAN DI DALAM SYARAT menahan nilai di register
+
+`if ((v = <ekspresi>) >= 0) f(v);` memancarkan `push ax` — nilainya masih di
+register sesudah uji tanda. Bentuk DUA PERNYATAAN memaksa muat ulang:
+
+| sumber | pancaran argumen |
+|---|---|
+| `if ((v = *p++) >= 0) f(v);` | `push ax` (1 byte) |
+| `v = *p++; if (v < 0) break; f(v);` | `push word ptr [bp+2Ah]` (3 byte) |
+
+Terbukti di `animvm` `case 0x02` (2026-07-31): bentuk kedua membuat bloknya
+meleset 2 byte; bentuk pertama membuatnya COCOK byte-per-byte.
+
+## ⚠ Hasil NEGATIF: `imul word ptr [mem]` BUKAN dari perkalian biasa
+
+`animvm` @0x1afd memancarkan `mov ax,3 / imul word ptr [bp+10h]` (5 byte),
+sedangkan semua bentuk C yang wajar memberi `mov ax,<var> / mov bx,3 / imul bx`
+(8 byte). TIGA probe menutup tiga hipotesis sekaligus — semuanya GAGAL:
+
+| hipotesis | probe | hasil |
+|---|---|---|
+| urutan operan (`3 * a` vs `a * 3`) | probe21a/b | IDENTIK, tidak berpengaruh |
+| konteks indeks larik / dua penunjuk hidup | probe20a-d | selalu `imul bx` |
+| skala indeks larik STRUCT (`t[a].id`) | probe22a-c | `mov bx,6 / imul bx`, tanpa `shl` |
+
+Jadi `imul` beroperan-MEMORI tidak bisa dihasilkan dari perkalian yang ditulis
+programmernya di kompiler ini. Sumbernya masih BELUM DIKETAHUI. Jangan ulangi
+ketiga percobaan itu.
+
 ## ⭐ CAST PENUNJUK ≠ TIPE PENUNJUK — `*(char *)p` bukan `*p`
 
 Kalau sebuah global dipakai sebagai penunjuk, **deklarasikan tipenya penunjuk**.
