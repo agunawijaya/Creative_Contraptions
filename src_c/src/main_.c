@@ -1,72 +1,39 @@
 /* FUN_1000_0082 @ 1000:0082, 4.219 byte — main().
  *
- * ⏳ DRAF — 2.568 dari 4.219 byte ditulis (61%), TERJAJAR 1.779.
+ * ⏳ DRAF — SELURUH fungsi sudah tertulis (tidak ada blok yang belum digarap).
+ * Panjang 4.182 vs 4.219 asli. TERJAJAR 2.635/4.219 (62,5%).
  * SUDAH ikut di-link (stub main sudah dicabut). Ukur dengan:
  *     pwsh src_c/build/compile.ps1 -Name main_
- *     python src_c/verify/aligncmp.py main_ 82 <ukuran_awalan>
- *     python src_c/verify/aligncmp.py main_ 82 <n> --sbs <addr> <n> <geser>
+ *     python src_c/verify/aligncmp.py main_ 82 4219
+ *     python src_c/verify/aligncmp.py main_ 82 4219 --sbs <addr> <n> <geser>
  *
- * ⚠ PAKAI METRIK TERJAJAR, BUKAN POSISI. Angka posisi hanya sahih kalau
- * panjang draf sudah persis; lihat src_c/README.md.
+ * ⚠ PAKAI METRIK TERJAJAR, BUKAN POSISI (lihat src_c/README.md).
  *
- * BELUM DITULIS: badan case 2 (dari 0x0A4E), case 3 (0x0C03), case 1 (0x0E06),
- * dan blok `quit` (0x10E8..0x10C9 wilayah ekor).
+ * ⚠ 13 byte DIBLOKIR bug alat, bukan soal sumber: dua instruksi (0x00B9 dan
+ * 0x10F1) mengakses kata pertama DGROUP, tapi gendata.py membuang alamat
+ * DGROUP 0..3 (penyaring `START <= a` dengan START = 4). Memperbaikinya
+ * menyentuh penataan DGROUP yang sekarang 100% cocok -- KEPUTUSAN USER.
  *
- * PETA LABEL (semua sudah terverifikasi dari disassembly):
- *   quit  = 0x10E8   reset = 0x0668 (DUA jalur masuk)
- *   redo  = 0x08A6 (pintas KE DEPAN)   after = 0x08C3   done1 = 0x0A1C
+ * PETA LABEL (semua terverifikasi dari disassembly):
+ *   quit=0x10E8  restart=0x050E  reset=0x0668 (DUA jalur masuk)
+ *   redo=0x08A6 (pintas KE DEPAN)  after=0x08C3  done1=0x0A1C
+ *   again2=0x0AB2  again3=0x0D15  again1=0x0E0C  redraw1=0x1013
  *   gelung permainan 0x06AB keluar ke 0x0A2E
  *   nilai balik 0FEh = "waktu habis, ulangi" (konvensi sama dgn pickvar)
  *
- * GESERAN TERSISA (delapan, SEMUANYA sudah terjelaskan -- jangan dikejar):
- *   +7 @0xD6 penghalang gendata DGROUP:0000; sisanya disp8-vs-disp16 karena
- *   temp belum tumbuh ke 8 byte, atau lompatan ke label yang belum jauh.
+ * ⭐ TANDA TANGAN YANG SUDAH DITURUNKAN (dipakai ulang belasan kali):
+ *   runplay(21) = pickloop(12) diikuti runfill(9), urutan sama.
+ *   pickloop: (ytop, nmechc, recB, ids, nmechb, ea8, lvl, ed0, e120, ef8,
+ *              buf62ae, buf6df2)
+ *   runfill : (nzany, e08, e30, e80, recC, e58, ytop, big, buf0d54)
+ *   pickpart: (4, recbase, fh, big, buf0d54, nzany, e30, e58, recC,
+ *              buf6f22, e08, e80)
+ *   fillans dan autofill: tanda tangan IDENTIK, 14 argumen.
+ *   animvm  : (state, nmechc, recB, ef8, e120, nzany, recC, e58, e80)
  *
- * ⭐ TEMUAN ARSITEKTUR TERPENTING: hampir SEMUA tabel besar game ini hidup di
- * BINGKAI TUMPUKAN main, bukan di DGROUP. Global-global penunjuk yang selama
- * ini kita pakai (recbase, base, objtab, level_, ytop_) diisi di 0x00B5..0x00E4
- * dengan alamat lokal main. Itu sebabnya DGROUP cuma 9.556 byte padahal data
- * kerjanya jauh lebih besar: bingkai main sendiri 0x6F96 = 28.566 byte.
- *
- * PETA BINGKAI (DIUKUR dari seluruh 4.219 byte disassembly, bukan ditebak).
- * Selisih antar-offset memberi ukuran tiap penyangga:
- *
- *   bp+0000..0007  temp (4 slot)
- *   bp+0008        DELAPAN penyangga 40 byte terpisah (08 30 58 80 a8 d0 f8 120),
- *                  dipakai dua kelompok empat -- BUKAN satu larik
- *   bp+0148        264 byte   <- level_  (global 0x740)
- *   bp+0250       1500 byte   <- recbase (global 0x73c) = 125 record x 12
- *                              ⭐ cocok dgn batas `k2 > 0x78` (120) di pickvar
- *   bp+082c        900 byte   <- objtab  (global 0x73e)
- *   bp+0bb0        420 byte   <- base    (global 0x73a) = 35 record x 12
- *   bp+0d54        850 byte
- *   bp+10a6       3000 byte   <- ytop_   (global 0x84a)
- *   bp+1c5e      18000 byte   penyangga terbesar (sprite/layar)
- *   bp+62ae       2884 byte
- *   bp+6df2        304 byte
- *   bp+6f22        100 byte
- *   bp+6f86        int i    (pencacah loop, dipakai 9 kali)
- *   bp+6f88        4 byte TAK TERREFERENSI
- *   bp+6f8c        int
- *   bp+6f8e        2 byte TAK TERREFERENSI
- *   bp+6f90        int n  (dikira pengganjal, ternyata variabel)
- *   bp+6f92        int
- *   bp+6f94        int
- *   ------------------------------------------------ total 0x6f96 = 28.566
- *
- * PANGGILAN yang dilakukan main (22 sasaran berbeda) dan namanya:
- *   131a pickpart  149d fillans   171f ?        1814 getkey   18db ? (VM anim)
- *   312a credits   31da askopts   32bb lvlmenu  341a mainmenu 3f0f drawslot
- *   498c ?         5035 loadcon   531d loadarc  53ff load     5a5b snd1
- *   5a78 sndini    5db8 setfont   5f90 ?        644a bios10   65e0 put
- *   6a48 printf    6b57 ? (MC.LIB)
- * Yang masih '?' belum direkonstruksi; 0x498c adalah fungsi TEPAT SESUDAH
- * pickvar (bingkai 0x74).
- *
- * ⚠ level_ dan ytop_ dideklarasikan `extern int` di berkas lain padahal main
- * mengisinya dengan ALAMAT. Jangan mengubah tipenya di sini dan jangan memberi
- * nama kedua -- gendata.py memanen deklarasi extern dari SEMUA berkas .c dan
- * tipe yang berbeda akan mengubah emisi DGROUP. Pakai cast saja.
+ * BERIKUTNYA: kejar geseran satu per satu dengan --sbs, mulai dari
+ * +9 @0x13D (yang +7 @0xD6 diblokir bug gendata di atas).
+
  */
 
 extern int  level_;             /* @0x740 */
@@ -652,14 +619,38 @@ main()
                      buf6f22, e08, e80);
             fillans(0x1a8, base, seed, buf62ae, buf6df2, nmechc, ed0, ef8,
                     recB, idtab, ea8, e120, ytop, lvl);
+        redraw1:
             f498c(ytop, nzany, recC, e08, e58);
             drawslot(ytop, nmechc, recB, ed0, ef8);
             animvm(state, nmechc, recB, ef8, e120, nzany, recC, e58, e80);
+            /* 0x1075 -- tunggu tombol; ESC keluar ke menu, Enter ulangi case,
+               SPASI maju ke mekanisme berikutnya lalu gambar ulang. */
+            for (;;) {
+                while (keyhit() == 0)
+                    ;
+                m = getkey();
+                if (m == 0x1b)
+                    break;
+                if (m == 0xd)
+                    goto again1;
+                if (m == 0x20) {
+                    goal = 1;
+                    f171f(mode, 0x8ca, cur + 1, nmax, postab);
+                    goto redraw1;
+                }
+            }
             break;
         }
     }
 quit:
-    ;
+    /* 0x10E8 -- blok keluar. */
+    bios10(scrmode);
+    /* ⚠ TERTUNDA (penghalang yang SAMA dengan 0x00B9): baris berikutnya
+       adalah `dg0 = g83a;` yaitu mengembalikan kata pertama DGROUP yang
+       disimpan di awal main. Butuh simbol bernama di DGROUP:0000, yang
+       dibuang gendata.py (penyaring START <= a, START = 4). Biayanya 6 byte
+       di sini, jadi TOTAL 13 byte di seluruh main. Perbaikannya menyentuh
+       penataan DGROUP yang sekarang 100% cocok -- keputusan user. */
 }
 
 /* ⏳ BELUM DITULIS: 0x0101 ke atas (4.100 byte).
