@@ -1026,3 +1026,59 @@ pertama berakhir tepat di awal badan berikutnya TANPA lompatan. Keduanya
 "reset posisi bola lalu lakukan sekali", jadi memang disengaja penulisnya.
 Ini juga menegaskan lagi aturan urutan case: 0x0a ditulis SEBELUM 0x08 karena
 alamat badannya lebih kecil, bukan karena nilainya.
+
+---
+
+## `animvm` tahap 4: `case 0x03` + misteri 0x1a8 terpecahkan (1.418 → 2.002)
+
+| | sebelum | sesudah |
+|---|---|---|
+| `animvm` TERJAJAR | 1.418 / 3.040 (46,6%) | **2.002 / 3.040 (65,9%)** |
+| byte tertulis | 1.950 | 2.508 |
+| DATA / symcheck CURIGA | 100% / 0 | 100% / 0 |
+
+### ⭐ Konstanta 0x1a8 dan 0x4 = PANDANGAN KEDUA atas tabel yang sama
+
+Utang yang tercatat dua iterasi lalu ("`u4a = 0x1a8` / `= 4`, keduanya tepat
+6 byte sebelum basis tabel, bentuk C-nya belum terpecahkan") **selesai**, dan
+jawabannya justru datang dari badan `case 0x03` — bukan dari menebak.
+
+Di sana `0x1a8 + 12*k` dipakai lalu field pada **offset +8**-nya ditulis.
+`0x1a8 + 12k + 8 = 0x1b0 + 12k`, dan `0x1b0` = `parttab + 2` = field `scr`.
+Jadi keduanya menunjuk memori yang SAMA lewat dua basis berbeda:
+
+| pandangan | basis | field skrip |
+|---|---|---|
+| `parttab` | 0x1ae | offset +2 |
+| `anmech`  | 0x1a8 | offset +8 |
+| `sprtab`  | 0x0a  | offset +2 |
+| `anzany`  | 0x004 | offset +8 |
+
+`f278e` menerima basis versi "an" dan membaca `spr` di offset +6 — yang sama
+dengan `parttab[k].w`. Semuanya konsisten. Dua nama baru ditambahkan ke
+gendata; DGROUP tetap 9.556/9.556, 0 beda.
+
+⚠ Ini juga menghapus satu risiko diam-diam: literal `0x1a8` **tidak
+memancarkan slot relokasi**, jadi ia akan cocok byte-per-byte dengan biner
+asli tapi menunjuk alamat yang salah di build kita (yang DGROUP-nya bergeser
++12). Kelas bug yang persis sama dengan `sprtab` — dan kali ini tertangkap
+sebelum sempat masuk.
+
+### ⚠ Pola alamat gendata menuntut 2-4 digit hex
+
+`/* @0x4 */` **TIDAK** terpanen — polanya `@0x([0-9a-fA-F]{2,4})`. Harus
+ditulis `@0x004`. Gagalnya SENYAP: gdata.c cuma kehilangan satu simbol dan
+baru ketahuan waktu jumlah simbol tidak bertambah seperti yang diharapkan.
+
+### Switch BERSARANG dengan tabelnya sendiri
+
+`case 0x03` memuat switch kedua, lengkap dengan tabel pindai 16 byte di
+0x21ba. Keempat nilainya (0x00, 0x0a, 0x08, 0x0b) memakai badan yang SAMA di
+0x2150, jadi labelnya bertumpuk; urutan label = urutan pindai tabel.
+
+### Bingkai lagi
+
+Ekspresi baru menuntut 8 byte temp, jadi `tpad` dikecilkan 8 → 6. Sebelum
+dikecilkan penjajaran cuma 1.322; sesudahnya 2.002. Ini kali KETIGA pola yang
+sama: **periksa bingkai lebih dulu, sebelum menyimpulkan apa pun dari angka
+penjajaran.**

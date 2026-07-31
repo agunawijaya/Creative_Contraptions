@@ -50,6 +50,8 @@ extern int  zcnt;               /* @0x7e6 */
 extern int  g7e8;               /* @0x7e8 */
 extern char msgmech[];          /* @0x9dd */
 extern char msgzany[];          /* @0xa01 */
+extern int  ballx;              /* @0x260 */
+extern int  bally;              /* @0x25e */
 extern int  mflag;              /* @0x834 */
 extern int  cur2;               /* @0x7f8 */
 extern int  tx;                 /* @0x7ee */
@@ -74,6 +76,23 @@ struct part {
 extern struct part sprtab[];    /* @0x0a  -- dipakai cabang ZANY */
 extern struct part parttab[];   /* @0x1ae -- dipakai cabang MEKANISME */
 
+/* ⭐ PANDANGAN KEDUA atas DUA tabel yang SAMA, digeser 6 byte ke bawah.
+   `anmech` = parttab - 6 dan `anzany` = sprtab - 6. Jadi field `scr` di
+   offset +8 di sini menunjuk memori yang sama dengan `parttab[k].scr`
+   (offset +2 dari basis yang 6 byte lebih tinggi). Itu yang menjelaskan
+   konstanta 0x1a8 dan 0x4 yang sempat tidak terpecahkan: keduanya PERSIS
+   6 byte sebelum basis tabelnya. `f278e` menerima basis versi ini dan
+   membaca `spr` di offset +6, yang sama dengan `parttab[k].w`. */
+struct anrec {
+    char  pad[8];
+    char *scr;
+    char  pad2[2];
+};
+extern struct anrec anzany[];   /* @0x004 = sprtab  - 6 -- ⚠ WAJIB tiga digit:
+                                   pola gendata menuntut 2-4 digit hex, jadi
+                                   `@0x4` TIDAK akan terpanen. */
+extern struct anrec anmech[];   /* @0x1a8 = parttab - 6 */
+
 animvm(steps, n2, rec1, sel1, ord1, n1, rec2, sel2, ord2)
 int *steps;                     /* 0x6e — -1 = langkah MEKANISME, else ZANY */
 int  n2;                        /* 0x70 */
@@ -86,10 +105,10 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
        dirujuk tapi perannya belum diturunkan. Urutan deklarasi menentukan
        offset (README aturan 9), jadi JANGAN diurutkan ulang. */
     /* ⏳ PENGGANJAL SEMENTARA. Aslinya 14 byte temp (bingkai 0x6a - 92 lokal);
-       draf ini baru menuntut 6 karena badan case belum ditulis. Tanpa ganjal
+       draf ini baru menuntut 8 karena badan case belum ditulis. Tanpa ganjal
        ini SEMUA offset lokal bergeser 10 byte dan prolog yang sudah benar pun
        terhitung salah. BUANG begitu ekspresi asli menuntut temp-nya sendiri. */
-    char tpad[8];               /* 0x06..0x0d */
+    char tpad[6];               /* 0x08..0x0d */
     int  i;                     /* 0x0e — indeks langkah skrip */
     int  c1;                    /* 0x10 — pencacah cabang-1 */
     int  c2;                    /* 0x12 — pencacah cabang-2 */
@@ -98,9 +117,15 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
     int  u1c, u1e, u20, u22, u24, u26, u28, u2a;
     int  snd[3];                /* 0x2c — penyangga BUNYI (lea -> sndptr) */
     int  u32, u34, u36, u38, u3a, u3c, u3e, u40;
-    int  u42, u44, u46, u48, u4a, u4c, u4e;
-    int  u50, u52, u54, u56, u58, u5a, u5c, u5e;
-    char ch60[10];              /* 0x60/0x61 diakses per-BYTE */
+    int  u42, u44, u46;
+    struct anrec *u48;          /* 0x48 — record part yang sedang dimainkan */
+    struct anrec *u4a;          /* 0x4a — basis tabel record (anmech/anzany) */
+    int  u4c, u4e;
+    int  u50, u52;
+    char *u54;                  /* 0x54 — kursor tulis skrip sintetis */
+    int  u56, u58, u5a, u5c, u5e;
+    char ch60[2];               /* 0x60/0x61 — pasangan (dx,dy) hasil pilihan */
+    char ch62[8];               /* 0x62 — skrip SINTETIS {00, dx, dy, FF} */
 
     u42 = 0;
     u56 = 0;
@@ -186,7 +211,7 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
             }
             u5e = fail[c1];
             fail[c1] = 0x8ad0;
-            u4a = 0x1a8;
+            u4a = anmech;
             u20 = sel1[c1];
             scrptr = parttab[u20].scr;
             u22 = rec1[c1 * 3];
@@ -209,7 +234,7 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 u5e = zflag[c2];
                 zflag[c2] = 0x8ad0;
             }
-            u4a = 4;
+            u4a = anzany;
             u20 = sel2[c2];
             scrptr = sprtab[u20].scr;
             u22 = rec2[c2 * 3];
@@ -341,7 +366,71 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 delay(u2a);
                 break;
 
-            /* ⏳ 9 badan case menyusul; `case 0xff` (0x23d1, kosong) WAJIB
+            case 0x03:          /* 0x1fac — lempar bola ke part BERIKUTNYA */
+                ticks = 0;
+                u44 = *scrptr++;
+                u44 = (u44 >= 0xc8) ? u44 - 0x100 : u44;
+                u46 = *scrptr++;
+                if (steps[i + 1] == -1) {
+                    u14 = (steps[i] == -1) ? c1 + 1 : c1;
+                    u48 = anmech + sel1[u14];
+                    u26 = rec1[u14 * 3];
+                    u28 = rec1[u14 * 3 + 1];
+                    if (ord1[u14] != rec1[u14 * 3 + 2]) {
+                        /* Part tujuan SALAH: karang skrip {00, dx, dy, FF}
+                           supaya bolanya tetap bergerak ke arah yang masuk
+                           akal, lalu tunjuk record itu ke skrip karangan. */
+                        u48->scr = ch62;
+                        u54 = ch62;
+                        *u54++ = 0;
+                        if (ballx > u26 + 0x18) {
+                            ch60[0] = 0x18;
+                            ch60[1] = 0x0a;
+                        }
+                        else if (bally < u28) {
+                            ch60[0] = 0xf8;
+                            ch60[1] = 0xfc;
+                        }
+                        else if (ballx < u26) {
+                            ch60[0] = 0xf8;
+                            ch60[1] = 0x12;
+                        }
+                        else {
+                            ch60[0] = 0xf8;
+                            ch60[1] = 0x12;
+                        }
+                        *u54++ = ch60[0];
+                        *u54++ = ch60[1];
+                        *u54++ = 0xff;
+                    }
+                }
+                else {
+                    u16 = (steps[i] == -1) ? c2 : c2 + 1;
+                    u48 = anzany + sel2[u16];
+                    u26 = rec2[u16 * 3];
+                    u28 = rec2[u16 * 3 + 1];
+                }
+                u54 = u48->scr;
+                /* Switch BERSARANG dengan tabelnya sendiri di 0x21ba (16 byte).
+                   Keempat nilai memakai badan yang SAMA; urutan label = urutan
+                   pindai tabel. */
+                switch (*u54++) {
+                case 0x00:
+                case 0x0a:
+                case 0x08:
+                case 0x0b:
+                    u4c = *u54++;
+                    u4c = ((u4c >= 0xc8) ? u4c - 0x100 : u4c) + u26;
+                    u50 = *u54++;
+                    u50 = ((u50 >= 0xc8) ? u50 - 0x100 : u50) + u28;
+                    u4e = ballx;
+                    u52 = bally;
+                    f2823(u44, u4e, u52, u4c, u50, u46, 1);
+                    break;
+                }
+                break;
+
+            /* ⏳ 8 badan case menyusul; `case 0xff` (0x23d1, kosong) WAJIB
                tetap paling akhir karena badannya paling belakang di biner. */
             case 0xff:
                 break;
