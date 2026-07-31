@@ -1903,3 +1903,41 @@ Ketika bukti LOKAL (pasangan cabang cocok persis) bertabrakan dengan angka
 AGREGAT, ukur WILAYAHNYA — bukan pilih salah satu berdasarkan firasat.
 Pengukuran wilayah 0x0C00..0x0D40 yang menyelesaikan perdebatan ini dalam satu
 langkah, dan hasilnya kebetulan berlawanan dengan dugaan awal.
+
+---
+
+## Papan skor GLOBAL untuk semua fungsi yang belum exact (2026-07-31)
+
+Metrik GLOBAL yang baru dipakai untuk mengukur ULANG semuanya. Angka ini jauh
+lebih berguna daripada angka serakah yang tercatat di dokumen lama:
+
+| fungsi | GLOBAL | panjang | geseran |
+|---|---|---|---|
+| `place` | **501 / 503 (99,6%)** | tepat | — |
+| `f498c` | **162 / 165 (98,2%)** | tepat | — |
+| `loadcon` | 683 / 739 (92,4%) | tepat | 2 |
+| `main_` | 3.378 / 4.219 (80,1%) | −1 | 4 |
+| `pickvar` | 1.654 / 1.730 (95,6%) | −3 | 2 |
+| `animvm` | 2.900 / 3.040 (95,4%) | −1 | 2 |
+| `nvar` | 411 / 566 (72,6%) | −15 | 2 |
+
+`place` dan `f498c` ternyata TINGGAL 2-3 BYTE — jauh lebih dekat daripada
+kesan yang diberikan angka lama. `nvar` yang paling jauh.
+
+## `nvar`: dugaan lama dibantah oleh metrik baru
+
+Catatan `nvar` menyimpan satu percobaan dengan hasil "BERCAMPUR": bentuk
+penunjuk-char `((char *)recbase)[list[r] * 0xc + 1]` memperbaiki PANJANG 8 byte
+(551 → 559, target 566) tapi memperburuk BINGKAI (0x3c → 0x3e). Kesimpulan
+yang ditarik waktu itu: "bentuk ekspresinya kemungkinan BENAR tapi memakan satu
+temp lagi; cari 3 slot yang harus dilepas di tempat lain."
+
+Diuji ulang dengan metrik GLOBAL: **411 → 335 / 566**. Jauh lebih buruk.
+Panjang yang membaik ternyata mengorbankan ISI jauh lebih banyak — persis
+jenis kesimpulan salah yang bisa ditarik kalau cuma melihat panjang.
+Dugaan itu sekarang DIBANTAH dan dicatat di berkasnya; bentuk lama tetap
+yang terbaik.
+
+⚠ Ini kebalikan dari kasus `pickvar` (di mana metrik lama menyembunyikan
+perbaikan). Metrik baru bekerja dua arah: ia membatalkan dugaan yang salah
+DAN memulihkan percobaan yang salah dibuang.

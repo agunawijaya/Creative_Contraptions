@@ -170,10 +170,12 @@ int *list;
  *     `((char *)recbase)[list[r] * 0xc + 1]` (dan `0xc * list[r+1]` untuk yang
  *     di 0x424f) -> 559 byte, bingkai 0x3e.
  *     HASIL BERCAMPUR dan itu informatif: PANJANG MEMBAIK 8 byte (551 -> 559,
- *     target 566) tapi BINGKAI MEMBURUK (0x3c -> 0x3e, target 0x38). Artinya
- *     bentuk ekspresinya kemungkinan BENAR tapi memakan satu temp lagi; yang
- *     harus dicari berikutnya adalah 3 slot yang mesti dilepas di tempat LAIN,
- *     bukan membatalkan bentuk ini.
+ *     target 566) tapi BINGKAI MEMBURUK (0x3c -> 0x3e, target 0x38).
+ *     ⚠ DIUJI ULANG 2026-07-31 dengan metrik GLOBAL yang baru: **LEBIH BURUK**,
+ *     GLOBAL 411 -> 335 / 566. Jadi dugaan "bentuknya kemungkinan BENAR tapi
+ *     memakan satu temp" TIDAK terdukung — panjang yang membaik ternyata
+ *     mengorbankan isi jauh lebih banyak. Bentuk `recbase[list[r]].row` yang
+ *     sekarang tetap yang terbaik.
  *
  * LANGKAH BERIKUT: pecah cabang fase 2. Petunjuk konkret dari biner:
  *   - 0x424f memakai imul TERBALIK ("mov ax,0ch / imul word ptr [si]") — di
