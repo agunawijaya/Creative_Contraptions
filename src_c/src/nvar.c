@@ -141,7 +141,17 @@ int *list;
  *   - `if ((rp->id & 0x80) == 0) grp[0]++ else grp[1]++` (arah ini)
  *   - guard fase 2 `lvl == 1 && mode == 3 && grp[1] > 0` satu rantai
  *
- * SISA MASALAH: 2 temp kelebihan + 15 byte kurang, semuanya di FASE 2.
+ * ⚠ DIUKUR 2026-07-31 — "semuanya di FASE 2" TERLALU OPTIMIS. Uji: normalkan
+ * displacement lokal kita (kurangi 4 dari tiap [bp+N>=8]) lalu banding tingkat
+ * INSTRUKSI dengan aslinya. Hasilnya cuma 141/214 (65,9%) yang cocok. Jadi
+ * bingkai yang 4 byte kelebihan itu BUKAN satu-satunya masalah; masih ada
+ * ~73 instruksi yang memang beda isi. Bandingkan `main`, di mana ganjal 2 byte
+ * melunasi 12 dari 16 geseran sekaligus — di `nvar` tidak akan sedramatis itu.
+ *
+ * Blok penolan fase 2 SUDAH cocok persis (urutan `acc, cnt, i` benar, sesuai
+ * aturan "penugasan nol dipancarkan TERBALIK").
+ *
+ * SISA MASALAH: 2 temp kelebihan + 15 byte kurang, terbesar di FASE 2.
  * Divergensi pertama sekarang di +286: fase 2 masih memakai bentuk temp untuk
  * `out[cnt++]`, padahal aslinya `inc word ptr [cnt]`. Nilai baru `cnt` memang
  * dipakai lagi di cabang (`out[cnt-1]`), jadi struktur cabang itulah yang perlu

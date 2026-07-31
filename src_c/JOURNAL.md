@@ -2011,3 +2011,38 @@ dipersempit sampai SATU instruksi dan diuji lewat probe11/12/13 (10 varian
 total, semuanya memancarkan perilaku yang BENAR). Jadi pemicunya bukan bentuk
 sumber di tempat itu — konsisten dengan pelajaran tahap 8 bahwa sebabnya bisa
 jauh dari tempat akibatnya terlihat.
+
+---
+
+## `nvar`: dugaan "semuanya soal bingkai" DIUKUR dan ternyata terlalu optimis
+
+Tidak ada kemajuan angka (GLOBAL tetap 411/566).
+
+### Sapuan pola "penugasan nol terbalik" — sudah benar di mana-mana
+
+Aturan yang membayar di `loadcon` dan `main` disapukan ke fungsi lain. Blok
+penolan fase 2 `nvar` diperiksa: biner menyimpan `i`, `cnt`, `acc`; sumber kita
+`acc = 0; cnt = 0; i = 0;` — sudah KEBALIKANNYA, jadi sudah benar. Cocok persis
+modulo geseran bingkai. Tidak ada sasaran tersisa untuk pola ini.
+
+### ⚠ Uji yang membantah hipotesis saya sendiri
+
+`nvar` bingkainya 0x3c vs 0x38 — 2 kata temp KELEBIHAN, jadi SEMUA lokal
+bergeser +4. Hipotesisnya: seperti `main`, memperbaiki bingkai akan melunasi
+hampir semuanya.
+
+Diuji langsung: normalkan displacement lokal kita (kurangi 4 dari tiap
+`[bp+N]` dengan N ≥ 8) lalu banding di tingkat INSTRUKSI.
+
+| | hasil |
+|---|---|
+| instruksi kita / asli | 207 / 214 |
+| cocok sesudah normalisasi | **141 / 214 (65,9%)** |
+
+Jadi bingkai BUKAN satu-satunya masalah — masih ada ~73 instruksi yang memang
+beda isi. `nvar` tidak akan seperti `main` (di mana ganjal 2 byte melunasi 12
+dari 16 geseran). Dugaan itu sekarang dicabut dari `nvar.c`.
+
+⭐ Tekniknya sendiri layak dipakai lagi: **normalisasi displacement lalu banding
+tingkat instruksi** memisahkan "salah bingkai" dari "salah isi" dalam satu
+pengukuran, sebelum menghabiskan iterasi mengejar yang salah.
