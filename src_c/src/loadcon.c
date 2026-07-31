@@ -155,10 +155,18 @@ int want;
        "inc cx; inc cx" -- jadi urutannya terbaca langsung dari biner. */
     expect = 2 + nmax * 4 + 2 + nmech * 3 * 2 + 2 + nzany * 3 * 2 +
              (nzany + nmech) * 2;
+    /* ⚠ SUDAH DICOBA & GAGAL: menukar jadi `(nmech + nzany) * 2` karena
+       fixorder melaporkan beda simbol di +587 (kita nmech, asli nzany).
+       Hasilnya GLOBAL 687 -> 682 dan BEDA simbol malah 1 -> 2. Jadi laporan
+       beda itu ARTEFAK wilayah yang belum sejajar di sekitar 0x527E, bukan
+       kesalahan operan. */
     if (total == expect) {
         nmechb = nmech;
-        i = 0;
+        /* Urutan TERBALIK dari urutan simpanan di biner (i lalu zcnt): untuk
+           penugasan nol berturut yang berbagi satu register, simpanannya
+           dipancarkan kebalikan urutan sumber. */
         zcnt = 0;
+        i = 0;
         for (; i < nzany; i++)
             zflag[i] = 0;
         for (i = 0; i < nmech; i++) {

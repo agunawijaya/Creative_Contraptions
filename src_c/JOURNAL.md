@@ -1975,3 +1975,39 @@ tekanan register SE-BLOK lewat urutan/struktur pernyataan LAIN di dalam gelung
 ⚠ `place` (501/503) tersisa dengan gejala yang SAMA PERSIS (SI vs DI di
 +407/+410). Kedua fungsi ini kemungkinan besar butuh pengungkit yang sama, dan
 menemukannya sekali akan menuntaskan keduanya.
+
+---
+
+## `loadcon`: 683 → 687 lewat aturan "penugasan nol dipancarkan TERBALIK"
+
+| | sebelum | sesudah |
+|---|---|---|
+| GLOBAL | 683 / 739 (92,4%) | **687 / 739 (93,0%)** |
+| celah terbesar | 36 B @0x5281 | idem |
+
+Biner menyimpan `i` lalu `zcnt`; sumber kita `i = 0; zcnt = 0;` justru
+memancarkan urutan terbalik. Ditukar jadi `zcnt = 0; i = 0;` → cocok.
+Penerapan lagi dari aturan: **untuk penugasan nol berturut yang berbagi satu
+register, urutan SIMPANAN adalah KEBALIKAN urutan sumber.**
+
+### ⚠ `fixorder` bisa melaporkan BEDA SIMBOL PALSU di wilayah yang belum sejajar
+
+`fixorder loadcon` melaporkan 1 BEDA di +587: kita `nmech` (0x3ac), asli
+`nzany` (0x4b4). Terlihat seperti kesalahan operan yang jelas. Ditukar jadi
+`(nmech + nzany) * 2` — hasilnya **GLOBAL 687 → 682 dan BEDA malah 1 → 2.**
+
+Jadi laporan itu ARTEFAK: +587 jatuh di sekitar 0x527E yang memang belum
+sejajar, sehingga pemetaan offset-nya meleset dan membaca simbol tetangga.
+`fixorder` sudah menyaring slot "di luar lari sejajar", tapi slot di TEPI
+wilayah sejajar masih bisa lolos.
+
+⭐ Aturan kerja: **verifikasi laporan `fixorder` dengan mengukur GLOBAL sesudah
+perbaikan.** Kalau GLOBAL turun DAN jumlah BEDA naik, laporan itu palsu.
+
+### Kerja `loadcon` sebelumnya sudah sangat menyeluruh
+
+Sisa 36 byte di 0x5281 berpangkal pada satu keputusan register yang sudah
+dipersempit sampai SATU instruksi dan diuji lewat probe11/12/13 (10 varian
+total, semuanya memancarkan perilaku yang BENAR). Jadi pemicunya bukan bentuk
+sumber di tempat itu — konsisten dengan pelajaran tahap 8 bahwa sebabnya bisa
+jauh dari tempat akibatnya terlihat.
