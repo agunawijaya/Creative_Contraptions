@@ -21,35 +21,30 @@ Arsip percakapan mentah ada di folder memory Claude Code (`*.jsonl`, 9,3 MB).
 Pakai HANYA kalau perlu menelusuri satu detail spesifik; jangan dibaca utuh dan
 jangan dipakai sebagai sumber status. Path lengkapnya ada di `src_c/JOURNAL.md`.
 
-**Pekerjaan berikutnya, urutan disarankan (per 2026-07-31, sesudah sesi semalaman):**
+**Pekerjaan berikutnya (per 2026-07-31 pagi, sesudah sesi semalaman):**
 
-⚠ **BACA DULU: cara mengukur sudah BERUBAH.** Metrik "byte cocok per POSISI"
-hanya sahih kalau panjang draf sudah persis sama dengan aslinya. Untuk fungsi
-yang belum pas panjangnya, pakai:
-```
-python src_c/verify/aligncmp.py <nama>                    # ringkasan + daftar geseran
-python src_c/verify/aligncmp.py <nama> --sbs <addr> <n> <geser>   # berdampingan
-```
-`pickvar` sempat menunjukkan POSISI 368 padahal 1.616 byte benar-benar
-sejajar. Satu perubahan menurunkan POSISI 392->386 tapi menaikkan penjajaran
-684->704 — kalau percaya angka posisi, perubahan yang BENAR akan dibuang.
+⚠ **Cara mengukur:** pakai `python src_c/verify/aligncmp.py <nama> <addr> <ukuran>`
+(metrik TERJAJAR), bukan "byte cocok per posisi" — yang kedua menyesatkan
+begitu panjang draf bergeser. Untuk identitas simbol pada fungsi yang BELUM
+eksak, pakai `python src_c/verify/fixorder.py <nama> <addr> <ukuran>`.
 
-1. **`main` (0x0082, 4.219 B) — SUDAH DIMULAI, `src_c/src/main_.c`.**
-   Peta bingkai sudah TERVALIDASI (lokal persis; `sub sp` kita 0x6F90 vs
-   0x6F96, selisih 6 = temp yang belum tumbuh). 229 byte pembuka ditulis.
-   Teruskan blok demi blok dari 0x0179.
-2. **`pickvar` (0x42ca) — 93,4% sejajar, tiga titik geseran tersisa**
-   (`+3 @0x43B8`, `+1 @0x4515`, `+4 @0x495A`). Daftar "sudah dicoba & gagal"
-   ada di ujung berkasnya.
-3. Dua near-miss lama: `place` (sisa 2 byte, SI vs DI) dan `nvar` (551/566).
-4. VM animasi (0x18db, 3.040 B) dan `0x498c` (fungsi tepat sesudah pickvar).
+1. **Wilayah 0x2714..0x29B0** (668 B) — baru ditemukan, paling produktif.
+   `f2714` 62%, `f278e` 94,6%, dan **0x2823 (397 B, interpolator parabola)
+   belum disentuh sama sekali**.
+2. **`animvm` @0x18db (3.040 B)** — satu-satunya stub tersisa.
+3. Near-miss: `f498c` (3 byte), `place` (2 byte), `pickvar` (2 cacat),
+   `nvar`, `loadcon`. Semua tersendat di ALOKASI REGISTER yang belum bisa
+   dikendalikan — jangan buang waktu ke sana sebelum ada pemahaman baru.
+4. **`main`** 4.182/4.219 byte tertulis, TERJAJAR 2.682. Semua lokalnya 2 byte
+   lebih rendah dari asli (soal ruang temp); pemicunya belum ketemu.
 
-**DUA KEPUTUSAN MENUNGGU USER:**
-- `gendata.py` membuang alamat DGROUP 0..3 (penyaring `START <= a`, START=4).
-  Akibatnya `mov bx,[0]` di `main` belum bisa ditulis (biaya 7 byte).
-  Memperbaikinya menyentuh DGROUP yang sekarang 100% cocok — perlu izin.
-- 0x846 bernama `mode_` padahal isinya pegangan berkas dari `open()`.
-  Ganti nama atau biarkan?
+**TIGA KEPUTUSAN MENUNGGU USER:**
+- `gendata.py` membuang alamat DGROUP 0..3 (penyaring `START <= a`, START=4),
+  memblokir 13 byte di `main`. Perbaikannya menyentuh DGROUP yang kini 100%.
+- `mode_` (0x846) dan `seed` (0x72a) namanya menyesatkan — keduanya PEGANGAN
+  BERKAS. Ganti nama atau biarkan?
+- **Angka target perlu dikoreksi**: 1.200 byte di 0x5F93..0x6442 ternyata NOL,
+  bukan kode. Semua persentase "kode game" selama ini terlalu kecil.
 
 ## Proyek ini apa
 
@@ -141,15 +136,14 @@ python src_c/verify/verifyall.py   # tabel status per fungsi + segmen DATA
 python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
 ```
 
-## Status decompile→source (per 2026-07-31)
+## Status decompile→source (per 2026-07-31 pagi)
 
 - **LINK berhasil**: 61 `.OBJ` + `MC.LIB` → `src_c/out/CONTRAP.EXE`, tanpa error.
 - **Segmen DATA 9.556/9.556 byte, 0 beda** vs biner asli (diukur dari .EXE hasil link).
-- **Kode C+ASM: 68/72 fungsi COCOK byte-per-byte, 14.149 byte**; TOTAL 64,5%.
-  `pickvar` dan `main` kini punya SUMBER NYATA (bukan stub) dan ikut di-link,
-  tapi belum byte-exact jadi belum dihitung COCOK:
-  `pickvar` 1.616/1.730 sejajar (93,4%), `main` 229/4.219 ditulis.
-  Stub tersisa **1**: `setup` (0x5f90), dipanggil `main`.
+- **Kode C+ASM: 72/79 fungsi COCOK byte-per-byte, 14.412 byte**; TOTAL 65,2%.
+  Stub tersisa **1**: `animvm` (0x18db, 3.040 B).
+  Belum byte-exact tapi sudah punya sumber nyata: `main` (4.182/4.219 B tertulis),
+  `pickvar` (1.616/1.730 sejajar), `f498c` (162/165), `f278e` (141/149), `f2714`.
 - ✅ Tabrakan nama `put()` sudah dibereskan: `put`=0x65e0, `putmsk`=0x6524.
 - Dua near-miss: `place` (503 byte tepat, 2 byte beda = register SI/DI) dan
   `nvar` (551/566, 2 temp kelebihan). Peta slot & daftar gagal ada di berkasnya.
