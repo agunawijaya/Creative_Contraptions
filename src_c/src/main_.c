@@ -515,6 +515,16 @@ main()
                          buf6f22, e08, e80);
             }
             f498c(ytop, nzany, recC, e08, e58);
+            drawslot(ytop, nmechc, recB, ed0, ef8);
+            while (failed != 0) {
+                failed = 0;
+                redraw();
+                cursel = pickloop(ytop, nmechc, recB, ids, nmechb, ea8, lvl,
+                                  ed0, e120, ef8, buf62ae, buf6df2);
+            }
+            if (cursel == -1)
+                goto endcase2;
+        endcase2:
             break;
         case 3:
             break;
