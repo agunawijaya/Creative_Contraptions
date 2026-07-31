@@ -2877,3 +2877,39 @@ cocok.
 
 Peta sisa DIPERBARUI: dari 71 byte tinggal **61 byte**, dan 60 di antaranya
 kelas yang terbukti buntu. Yang berpeluang tinggal 1 byte (`main_` 0x0e01).
+
+
+## `main_` 4.215 -> 4.216: label `again3` terlalu belakang — dan SISA PROYEK
+## kini SELURUHNYA di kelas yang diparkir
+
+Celah terakhir `main_` yang bukan kelas-buntu: 0x0e01, ekor `endcase3`.
+```
+0x0dfe je 0x0e03        (cursel == -1 -> restart)
+0x0e00 KITA jmp 0x0d31   ASLI jmp 0x0d15   <- 28 byte lebih AWAL
+```
+Selisih 28 byte itu persis panjang panggilan `drawslot(ytop, nmechc, recB, ed0,
+ef8)`. Jadi label `again3:` kita ditaruh SESUDAH `drawslot`, padahal asli
+menaruhnya SEBELUM — artinya `drawslot` ikut diulang tiap iterasi gelung.
+Dipindah -> +1.
+
+⭐ Cara menemukannya layak dicatat: SELISIH SASARAN LOMPATAN ITU UKURAN. 0x0d31
+- 0x0d15 = 28, dan tinggal mencari pernyataan yang panjangnya 28 byte tepat
+sebelum label. Tidak perlu menebak bentuk sama sekali.
+
+**KEADAAN AKHIR — semua sisa ada di satu kelas:**
+```
+main_    3 B  0x0c84/88/8a  BX vs SI   [DIPARKIR — probeC seragam]
+loadcon 52 B  kaskade 0x5115 BX vs AX  [DIPARKIR]
+pickvar  3 B  0x43b5 tumpahan          [DIPARKIR — gagal 4x]
+place    2 B  0x4fd4 SI vs DI          [DIPARKIR]
+       = 60 B, SEMUANYA kelas alokasi register se-fungsi
+```
+Tidak ada lagi sasaran di luar kelas itu. Jalur ini mencapai batas alat yang
+tersedia: `probeC` sudah membuktikan bentuk sumber lokal TIDAK menentukan
+pilihan register di situs-situs itu, dan probe kecil tidak bisa mereproduksi
+keadaan alokator se-fungsi.
+
+Untuk melanjutkan dibutuhkan hal yang BUKAN iterasi tambahan: pemahaman
+bagaimana MS C 1.04 mewariskan keadaan alokator antar-blok dalam satu fungsi
+(mis. dengan membaca kode generator MS C 1.04 sendiri, atau menyusun model
+alokatornya dari eksperimen sistematis berskala jauh lebih besar).

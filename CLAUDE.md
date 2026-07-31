@@ -155,7 +155,7 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
   kode C game 72,5%. **TIDAK ADA stub tersisa** — `animvm` (3.040 B) SELESAI
   2026-07-31, dan `nvar` (566 B) juga.
   Empat fungsi belum byte-exact tapi sudah sangat dekat (metrik GLOBAL):
-  `main` 4.215/4.219 (99,9%), `place` 501/503, `loadcon` 687/739 (93,0%),
+  `main` 4.216/4.219 (99,9%), `place` 501/503, `loadcon` 687/739 (93,0%),
   `pickvar` 1.654/1.730 (95,6%). `f498c` SELESAI 2026-07-31.
   ⚠ Sisanya SELURUHNYA kelas alokasi register — bingkai semua fungsi sudah cocok
   dan tidak ada lagi struktur yang belum ditulis.
@@ -163,7 +163,10 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
   pilihan register yang diwarisi SE-FUNGSI, bukan dari bentuk sumber lokal
   (dibuktikan `src_c/probes/probeC.c` — lima varian semuanya memberi hasil
   sama). `loadcon` 52 byte seluruhnya kaskade dari SATU keputusan di 0x5115.
-  Yang masih punya peluang nyata cuma ~11 byte di `main`.
+  ⚠⚠ SEJAK 2026-07-31 SORE: **TIDAK ADA LAGI sasaran di luar kelas itu.**
+  Keempat sisa (main 3 B, loadcon 52 B, pickvar 3 B, place 2 B = 60 B)
+  semuanya pilihan register se-fungsi. Melanjutkan butuh pemahaman BARU
+  soal alokator MS C 1.04, bukan iterasi tambahan dengan alat yang ada.
 - TIGA fungsi selesai 2026-07-31 lewat DUA aturan baru (keduanya di `src_c/README.md`):
   - `f2823` (397 B, interpolator parabola) — `probes/probe19.c`: slot bingkai berisi
     konstanta `long` menandakan VARIABEL, dan cor `(long)` yang mubazir secara

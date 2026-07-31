@@ -697,8 +697,8 @@ main()
                masih bergeser, sehingga bentuk yang BENAR justru terukur buruk.
                Pada dasar yang panjangnya sudah lurus: 3.910 -> 4.169. */
             }
-            drawslot(ytop, nmechc, recB, ed0, ef8);
         again3:
+            drawslot(ytop, nmechc, recB, ed0, ef8);
             f498c(ytop, nzany, recC, e08, e58);
             while (failed != 0) {
                 failed = 0;
