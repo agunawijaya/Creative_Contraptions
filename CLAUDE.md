@@ -153,8 +153,10 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
 - **Segmen DATA 9.556/9.556 byte, 0 beda** vs biner asli (diukur dari .EXE hasil link).
 - **Kode C+ASM: 78/82 fungsi COCOK byte-per-byte, 19.881 byte**; TOTAL 83,4%,
   kode C game 77,2% (dari 25.758 byte KODE NYATA).
-- **`.EXE` hasil link kini cocok 95,9%** dengan biner asli (GLOBAL atas seluruh
-  muatan): kode game 94,2%, MC.LIB 96,5%, DGROUP 100%. Sebelum sesi ini: 6,7%.
+- ⭐⭐ **`.EXE` hasil link BERJALAN** di emulator Unicorn — menelusuri kode game
+  sungguhan (drawball/pickpart/drawslot/animvm) sampai mode atraksi. Cocok
+  **98,3%** atas seluruh muatan; geseran di wilayah kode tinggal ±3 byte.
+  Sebelum sesi ini: 6,7% dan keluar seketika.
   ⚠ Angka lama "78/81 & 18.851" MENGGELEMBUNG: `drawtab` dan `setsel` ternyata
   FUNGSI YANG SAMA di 0x3769 (177 byte dihitung dua kali, dan di-LINK dua kali).
   Pembagi lama juga salah dua kali — memuat 1.207 byte NOL dan menghitung
@@ -173,11 +175,15 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
   urutan LINK diperbaiki (dulu ABJAD -> sekarang ALAMAT), dan DUA relokasi yang
   hilang dipulihkan (`snd2`/`keyio` memakai literal `907H`, seharusnya
   `MOV AX,DGROUP`).
-  ⚠⚠ `.EXE` MASIH BELUM JALAN, dan sebabnya kini DIKETAHUI PASTI: `crt0`
-  menulis ke DGROUP +0x0C, bukan 0x00 — DGROUP kita 12 byte lebih panjang di
-  DEPAN akibat `gendata.py` membuang alamat 0..3 (`START = 4`). Itu BUKAN cuma
-  "13 byte di main" seperti dicatat dulu; itu yang memblokir eksekusi.
-  ⭐ KEPUTUSAN USER DIPERLUKAN sebelum menyentuhnya.
+  ✅ SEBAB `.EXE` tak jalan SUDAH DIPERBAIKI — dan ternyata BUKAN `gendata`.
+  Penyebabnya PANJANG SEGMEN PROG: kurang satu fungsi kosong 5 byte di 0x5318,
+  sehingga DATA tidak jatuh di batas paragraf dan `crt0` menulis ke [0x0C].
+  Ditulis sebagai `f5318.c` -> DATA offset 0, dan .EXE langsung berjalan.
+  ⚠ Batas wilayah kode DIKOREKSI: 0x0082..**0x6A48** (bukan 0x69D7) — `prep`
+  berakhir tepat di situ, dan `printf` MC.LIB mulai di 0x6A48.
+  SISA di tingkat .EXE: +110 byte di wilayah MC.LIB (geseran melompat tepat di
+  0x6A49) dan 1.364 byte ekor DGROUP dari `stubs.c` (sndbuf/menu, mungkin
+  duplikat gdata.c).
   (catatan lama, masih berlaku:)
   wilayah 0x5F93..0x6442 berisi **1.207 byte NOL di biner asli yang TIDAK ADA
   di build kita** — manifest lompat dari `setup` (0x5f90) ke `text` (0x644a).

@@ -3025,3 +3025,65 @@ alamat DGROUP 0..3 (`START = 4`).
 ⚠ Selama ini isu itu cuma dicatat sebagai "memblokir 13 byte di `main`". Sekarang
 terbukti dampaknya jauh lebih besar: **ia yang membuat .EXE tidak bisa
 dijalankan.** Keputusan user diperlukan sebelum menyentuhnya.
+
+
+## ⭐⭐⭐ `.EXE` REKONSTRUKSI AKHIRNYA BERJALAN (2026-07-31 malam)
+
+Emulator Unicorn proyek menjalankan `src_c/out/CONTRAP.EXE` dan ia MENELUSURI
+KODE GAME SUNGGUHAN sampai masuk mode atraksi:
+```
+[trace] first 26ae (drawball)   [trace] first 131a (pickpart)
+[trace] first 3f0f (drawslot)   [trace] first 18db (animvm)
+[attract] 18db start capture (solved contraption)
+FINAL CS:IP=0110:6837  started=True   EXIT state: False
+```
+Sebelumnya ia keluar seketika di offset 2.
+
+### Hipotesis saya SALAH — bukan `gendata`
+Iterasi lalu saya simpulkan penyebabnya `gendata.py START = 4` yang membuang
+DGROUP 0..3, dan saya minta keputusan user untuk itu. **Itu keliru.** Sebab
+sebenarnya:
+
+`DATA SEGMENT` kita mulai di 0x090CC sedangkan paragrafnya 0x090C0 — jadi DATA
+duduk di **offset 12 dalam grupnya**, dan `crt0` menulis ke `[0x0C]`. Di asli
+DATA pas di batas paragraf sehingga offsetnya 0. Yang menentukan itu **PANJANG
+SEGMEN PROG**, bukan isi DGROUP sama sekali. Isi DGROUP kita memang sudah benar
+(9.556/9.556) sejak lama.
+
+⭐ Pelajaran: "akibat yang terlihat di DGROUP" tidak berarti "sebabnya di
+DGROUP". Saya melompat ke tersangka yang sudah lama ada di daftar tunggu
+alih-alih mengukur dulu. Untung diperiksa sebelum menyentuh DGROUP yang 100%.
+
+### Yang sebenarnya kurang: satu fungsi KOSONG 5 byte
+Pemeriksaan cakupan manifest menemukan tepat satu lubang: **0x5318, 5 byte**
+= `push bp / mov bp,sp / pop bp / ret` — badan C kosong. Tidak ada `call` yang
+menunjuk ke sana (dipindai byte-per-byte), jadi ia mati di rilis; sama seperti
+`setup` yang tinggal `SUB AX,AX/RET`. Ditulis sebagai `f5318.c` -> COCOK.
+
+Menambahkan 5 byte itu membuat PROG berakhir pas di batas paragraf, DATA jatuh
+di offset 0, dan `crt0` langsung menulis ke `[0x0000]` seperti asli. **Satu
+fungsi kosong 5 byte yang tak pernah dipanggil adalah yang memisahkan .EXE yang
+mati dari .EXE yang berjalan.**
+
+### Koreksi batas wilayah kode
+Aritmetika cakupan hanya tertutup kalau wilayah kode = **0x0082..0x6A48**, bukan
+0x0082..0x69D7 seperti dicatat selama ini: `prep` (0x6939, 271 B) berakhir tepat
+di 0x6A48, dan `printf` MC.LIB mulai di 0x6A48. Dengan batas itu:
+jumlah manifest 27.073 + lubang 5 = 27.078 = persis besar wilayahnya.
+
+### Keadaan .EXE sekarang
+```
+GLOBAL seluruh muatan : 45.725 / 46.532 = 98,3%   (awal sesi: 6,7%)
+geseran di kode game  : ±3 byte saja
+sisa geseran          : +110 byte, MULAI TEPAT di batas pustaka 0x6A49
+ukuran                : 48.000 vs 46.532 (+1.468; DGROUP kita punya 1.364 byte
+                        ekor berlebih dari `stubs.c`: sndbuf[16] + menu[360])
+```
+
+### Yang BELUM selesai
+1. **+110 byte di wilayah MC.LIB** — geserannya melompat TEPAT di 0x6A49, jadi
+   sumbernya modul pustaka (jumlah/urutan), bukan kode game.
+2. **1.364 byte ekor DGROUP** dari `stubs.c` — `sndbuf`/`menu` kemungkinan sudah
+   ada di `gdata.c` dan duplikat; perlu dicek sebelum dihapus.
+3. Perilaku belum sama: punya kita tidak pernah memanggil `loadcon` (0x5035),
+   dan `loadcon` memang satu dari empat fungsi yang belum byte-exact.
