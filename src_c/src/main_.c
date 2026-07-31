@@ -452,11 +452,14 @@ main()
                dimaterialisasi, dan rantai dikompilasi sama persis dengan
                pernyataan terpisah. Selisihnya 6 byte; pemicunya kemungkinan
                di luar bentuk penugasan itu sendiri. */
-            /* ⚠ SUDAH DICOBA & GAGAL: memindah kelompok nol ke DEPAN
-               `sclo = 0` (mengikuti `xor ax,ax` yang muncul lebih dulu di
-               biner) menurunkan GLOBAL 3.378 -> 3.270 walau geseran 4 -> 2 dan
-               TERJAJAR naik. Contoh lagi bahwa daftar geseran yang lebih
-               pendek TIDAK berarti lebih baik. */
+            /* ⚠ TERTUTUP TOTAL: memindah nol ke DEPAN `sclo = 0` menurunkan
+               GLOBAL 3.378 -> 3.270 (walau geseran 4 -> 2, TERJAJAR naik).
+               Diuji ulang 2026-07-31 dengan MEMINDAH SATU penugasan saja,
+               keenam-enamnya bergantian: semua menghasilkan .OBJ BYTE-IDENTIK
+               (SHA1 af9b4ad4637d0cf8). Jadi urutan sumber di deretan simpanan
+               bernilai sama TIDAK memberi sinyal; biayanya murni karena nol
+               menjadi HIDUP lebih awal sehingga 0x140 terusir dari BX ke AX.
+               Pengungkitnya harus di luar penataan ulang sumber. */
             sclo = 0;
             /* Urutan DIBACA dari muatan: `mov bx,140h` DULU (jadi `tx`
                pernyataan pertama), lalu simpanan-immediate `ta`, lalu

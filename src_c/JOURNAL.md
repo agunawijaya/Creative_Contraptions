@@ -2046,3 +2046,47 @@ dari 16 geseran). Dugaan itu sekarang dicabut dari `nvar.c`.
 ⭐ Tekniknya sendiri layak dipakai lagi: **normalisasi displacement lalu banding
 tingkat instruksi** memisahkan "salah bingkai" dari "salah isi" dalam satu
 pengukuran, sebelum menghabiskan iterasi mengejar yang salah.
+
+
+## `main` TIDAK punya lubang struktural lagi — 841 byte itu 514 luka kecil
+
+Diukur 2026-07-31 dengan difflib atas seluruh fungsi (slot relokasi
+di-wildcard), lalu celah yang tak tercocokkan didaftar per-ukuran:
+
+```
+total celah: 841   jumlah celah: 514
+celah TERBESAR: 0x0690=14B, 0x0681=13B, 0x0132=6B, 0x04e5=5B,
+                0x0a36=4B, 0x0bfe=4B, 0x0e01=4B, sisanya <= 3B
+```
+
+Ini mengubah strategi untuk `main`. Selama ini 80,1% dibaca sebagai "masih ada
+bagian yang belum ditulis". Salah: **strukturnya sudah lengkap**. Rata-rata
+celah 1,6 byte — itu profil selisih register/displacement, bukan blok hilang.
+Artinya `main` kini masuk kelas kesulitan yang SAMA dengan `place` dan `f498c`,
+bukan kelas "tinggal ditulis". Jangan lagi memperlakukannya sebagai sasaran
+volume.
+
+Satu-satunya gugusan nyata: 0x0681 + 0x0690 = 27 byte dalam jendela 30 byte —
+tepat di antara pasangan geseran 0x066a:+4 / 0x069c:−2. Di situlah blok enam
+simpanan nol berada, dan aturan barunya dicatat di README.
+
+## `main`: kurung tutup di 0x0C14 DITOLAK LAGI, kali ini dengan GLOBAL
+
+Percobaan sebelumnya ditolak lewat metrik WILAYAH (291 → 275). Diulang dan
+diukur penuh: GLOBAL **3.378 → 3.276 (−102)**, walau geseran 0x0c19:+1 HILANG
+sepenuhnya dan TERJAJAR naik 3.999 → 4.004.
+
+Tiga metrik independen kini sepakat menolaknya. Lebih berguna lagi, panggilan
+`fillans(...)` di dalam kurung itu dibandingkan instruksi-per-instruksi dan
+COCOK PENUH — keempat belas `push`-nya sama, semua beda cuma slot relokasi.
+Jadi geseran +1 di 0x0c19 BUKAN berasal dari letak kurung maupun dari bentuk
+panggilan di dalamnya; keduanya sudah tertutup sebagai hipotesis.
+
+## Alat ad-hoc ketiga yang salah — jangan bikin peta beda sendiri
+
+Peta kepadatan beda per-128-byte yang ditulis buru-buru melaporkan 3.898 byte
+beda untuk `main`, padahal TERJAJAR mengatakan 3.999 byte COCOK. Sebabnya model
+"geseran kumulatif" itu terlalu naif. Dibuang; penggantinya memakai difflib yang
+sama dengan metrik GLOBAL sehingga hasilnya pasti konsisten. Ini kejadian
+KETIGA (metrik serakah, `fixorder`, sekarang ini) — pelajaran (h) berlaku juga
+untuk alat yang baru saja kita tulis sendiri, bukan cuma yang lama.

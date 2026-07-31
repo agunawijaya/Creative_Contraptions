@@ -1149,6 +1149,31 @@ penjajaran **2.799 → 2.860** tanpa mengubah satu byte pun panjangnya.
 **Cara memakainya:** jangan membaca urutan pernyataan dari urutan SIMPANAN —
 baca dari urutan MUATAN REGISTER.
 
+## ⚠⚠ DERETAN SIMPANAN BERNILAI SAMA: urutan sumber TIDAK memberi sinyal apa pun
+
+Dibuktikan di `main` 0x0686..0x069e (2026-07-31), lewat HASH, bukan lewat angka
+agregat. Di sana biner menyimpan nol ke ENAM global berturut-turut dari satu
+register (`mov [0x844],ax` … `mov [0x848],ax`).
+
+Enam varian sumber dibuat — tiap kali SATU penugasan nol yang berbeda dipindah
+ke depan blok. Keenam `.OBJ` keluar **byte-identik** (SHA1 `af9b4ad4637d0cf8`,
+4.214 B) dan GLOBAL-nya sama persis (3.270). Jadi:
+
+* Untuk deretan simpanan bernilai SAMA dari SATU register, urutan pernyataan
+  sumber tidak memengaruhi kode sama sekali. Mencocokkan urutan simpanannya
+  MUSTAHIL lewat penataan ulang sumber — pengungkitnya harus yang lain
+  (kemungkinan urutan alokasi/deklarasi simbol).
+* Ini menajamkan aturan "MUATAN mengikuti sumber, SIMPANAN ditata ulang": kalau
+  tidak ada muatan pembeda, sumbernya bukan cuma sinyal lemah — ia BUKAN sinyal.
+
+Sekaligus mengoreksi catatan lama di `main_.c` yang menyalahkan "memindah enam
+pernyataan". Biayanya (−108 GLOBAL) datang dari SATU akibat: membuat nol itu
+HIDUP lebih awal, sehingga `0x140` terusir dari BX ke AX dan seluruh blok
+memilih register berbeda. Satu penugasan pun sudah cukup memicunya.
+
+⚠ Jangan pakai daftar geseran untuk memutuskan di sini: varian yang ditolak ini
+memendekkan geseran 4 → 2 dan menaikkan TERJAJAR, sambil menurunkan GLOBAL 108.
+
 ## ⚠ PERCOBAAN YANG GAGAL BISA BENAR — cek ulang sesudah perbaikan LAIN
 
 Memecah `u4c = *++u54;` jadi `u54++; u4c = *u54++;` di `animvm` `case 0x0c`
