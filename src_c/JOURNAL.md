@@ -701,3 +701,48 @@ penuh** sekarang berlaku umum, bukan cuma untuk register.
 Catatan arah: kedua produk saling membayar. Port Python menyumbang semantik
 tervalidasi ke rekonstruksi C. Untuk `animvm` (0x18db, 3.040 B, stub terakhir)
 jalur yang sama tersedia — `port/cc/animvm.py` sudah memparsi 17 opcode-nya.
+
+---
+
+## Sesi 2026-07-31 (lanjutan) — `f278e` + `f2714` tuntas: soal TIPE, bukan urutan
+
+| | sebelum | sesudah |
+|---|---|---|
+| fungsi COCOK byte-per-byte | 73/80 | **75/80** |
+| byte terverifikasi | 14.809 | **15.080** |
+| TOTAL | 66,3% | **67,0%** |
+| DATA (DGROUP) | 100% | 100% (tak tersentuh, diuji ulang) |
+
+Dua fungsi, satu perubahan, keduanya langsung cocok penuh:
+`f278e` 141/149 → **149/149**, `f2714` 76/122 → **122/122**.
+
+### Aturan: `extern char *p` ≠ `extern int p` + cor `*(char *)p`
+
+| sumber | pancaran |
+|---|---|
+| `extern char *p;` … `*p` | `mov si,[p]` (4 byte) |
+| `extern int p;` … `*(char *)p` | `mov ax,[p]` + `mov si,ax` (5 byte) |
+
+Bedanya bukan cuma satu byte per pemakaian. Bentuk cor membuat kompiler
+**menahan nilainya di register**; tipe penunjuk asli **memuat ulang dari
+memori tiap rujukan**. Di `f2714` yang membaca kursor enam kali, itu mengubah
+seluruh bentuk kode.
+
+### ⚠ Koreksi diagnosis lama
+
+Catatan `f2714` sebelumnya menyimpulkan divergensinya soal URUTAN PERNYATAAN,
+dan mencatat tiga bentuk yang "sudah dicoba & gagal" (termasuk penugasan
+bersarang `balltop = 0xc7 - (ballx = ...)`). Pengamatannya benar — aslinya
+memang memuat ulang `mov si,[3AEh]` tiap pembacaan — tapi **sebabnya salah
+ditebak**. Begitu tipenya dibetulkan, semua bentuk urutan yang lama jadi tidak
+relevan. Catatan yang keliru itu sudah dicabut dari berkasnya, bukan dibiarkan.
+
+Pelajarannya: divergensi yang sudah TERLOKALISASI belum berarti sudah
+TERDIAGNOSIS. "Di alamat mana" murah didapat; "kenapa" tetap harus diuji.
+
+### DGROUP: risikonya ternyata tidak ada
+
+Kekhawatiran lama bahwa mengubah tipe extern akan menggeser DGROUP tidak
+terbukti: `gendata.py` memancarkan tiap simbol BUKAN-larik sebagai `int` apa
+pun tipe yang tertulis (cabang `if not arr:`). Diuji dengan menjalankan ulang
+gendata sesudah perubahan — `gdata.c` tidak berubah satu byte pun.

@@ -12,21 +12,22 @@
  *
  *   blit()=672f
  *
- * ⏳ DRAF: 150 byte vs 149, TERJAJAR 141/149 (94,6%). Bingkai 0x10 TEPAT.
+ * ✅ COCOK byte-per-byte (149/149).
  *
- * ⭐ DUA PERUBAHAN yang membawanya dari 14% ke 94,6%:
+ * ⭐ TIGA PERUBAHAN yang membawanya dari 14% ke cocok penuh:
  * 1. Pakai PENUNJUK `struct rec *` (rp = recs + idx) alih-alih int + cast.
  *    Versi int+cast menuntut temp berlebih -> bingkai 0x14, bukan 0x10.
  *    Ini melengkapi aturan akses record: untuk penunjuk yang DISIMPAN ke
  *    lokal dan dipakai berkali-kali, bentuk struct-lah yang benar; bentuk
  *    penunjuk-char hanya untuk akses sekali pakai.
- * 2. POST-INCREMENT dalam satu ekspresi: `*(char *)scrptr++`, bukan
- *    `*(char *)scrptr;` lalu `scrptr++;`. Aslinya `inc [scrptr]` datang
- *    SEBELUM `mov al,[si]`.
- *
- * SISA: 1 byte kelebihan di sekitar 0x279C. Belum dicoba: mendeklarasikan
- * scrptr sebagai `char *` (RISIKO: mengubah tipe yang dipanen gendata bisa
- * menggeser DGROUP yang sekarang 100% -- ukur DATA sesudahnya).
+ * 2. POST-INCREMENT dalam satu ekspresi: `*scrptr++`, bukan `*scrptr;` lalu
+ *    `scrptr++;`. Aslinya `inc [scrptr]` datang SEBELUM `mov al,[si]`.
+ * 3. `scrptr` dideklarasikan `char *`, BUKAN `int` yang dicor `*(char *)`.
+ *    Itulah 1 byte terakhir: tipe penunjuk asli dimuat LANGSUNG ke SI
+ *    (`mov si,[3AEh]`, 4 byte), sedangkan bentuk cor lewat AX dulu
+ *    (`mov ax,[3AEh]` + `mov si,ax`, 5 byte). Lihat README §CAST PENUNJUK.
+ *    Aman untuk DGROUP: gendata.py memancarkan tiap simbol BUKAN-larik
+ *    sebagai `int` apa pun tipe yang tertulis di deklarasi extern.
  */
 
 /* Field di offset 6 dibaca sebagai KATA (`push word ptr [si+6]`), sisanya
@@ -37,7 +38,7 @@ struct rec {
     int  rest[2];
 };
 
-extern int  scrptr;             /* @0x3ae */
+extern char *scrptr;            /* @0x3ae  kursor baca skrip */
 /* ⚠ 0x2E4 SUDAH bernama `ticks` di berkas lain -- JANGAN beri nama kedua. */
 extern int  ticks;              /* @0x2e4 */
 
@@ -51,7 +52,7 @@ struct rec *recs;
 
     /* Aslinya `inc [scrptr]` datang SEBELUM `mov al,[si]` -- itu pola
        POST-INCREMENT dalam satu ekspresi, bukan dua pernyataan. */
-    idx = base + *(char *)scrptr++;
+    idx = base + *scrptr++;
     rp = recs + idx;
     dx = rp->dx;
     dx = (dx >= 0xc8) ? dx - 0x100 : dx;

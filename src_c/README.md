@@ -1032,6 +1032,31 @@ penjajaran **sama sekali**; setelah diubah ke `int[20]` langsung naik.
 `mov word ptr [bp+si+off]` → larik `int`. `mov byte ptr [bp+si+off]` → larik
 `char`. Jangan menebak dari ukuran penyangga saja.
 
+## ⭐ CAST PENUNJUK ≠ TIPE PENUNJUK — `*(char *)p` bukan `*p`
+
+Kalau sebuah global dipakai sebagai penunjuk, **deklarasikan tipenya penunjuk**.
+Mendeklarasikannya `int` lalu mengecor di tiap pemakaian menghasilkan kode lain:
+
+| sumber | pancaran |
+|---|---|
+| `extern char *p;` … `*p` | `mov si,[p]` (4 byte) — langsung ke SI |
+| `extern int p;` … `*(char *)p` | `mov ax,[p]` + `mov si,ax` (5 byte) — lewat AX |
+
+Efeknya bukan cuma satu byte per pemakaian. Bentuk cor membuat kompiler
+**menahan nilainya di register** dan memakainya ulang, sedangkan tipe penunjuk
+asli **MEMUAT ULANG dari memori tiap kali dirujuk**. Di fungsi yang membaca
+kursor beberapa kali, itu mengubah seluruh bentuk kode, bukan panjangnya saja.
+
+Terbukti 2026-07-31 pada dua fungsi sekaligus, keduanya langsung COCOK penuh:
+`f278e` 141/149 → **149/149**, `f2714` 76/122 → **122/122**. `f2714` sempat
+salah didiagnosis sebagai soal URUTAN PERNYATAAN dan tiga bentuk sudah dicoba
+dan gagal; yang benar soal TIPE.
+
+**Aman untuk DGROUP:** `gendata.py` memancarkan tiap simbol BUKAN-larik sebagai
+`int` apa pun tipe yang tertulis di deklarasi `extern`-nya (lihat cabang
+`if not arr:`), jadi mengganti `extern int p;` → `extern char *p;` TIDAK
+menggeser DGROUP. Sudah diuji: `gdata.c` tidak berubah satu byte pun.
+
 ## ⭐ SLOT BINGKAI berisi KONSTANTA `long` = VARIABEL, bukan literal (probe19)
 
 Kalau di disassembly ada slot bingkai yang diisi sebuah konstanta `long`

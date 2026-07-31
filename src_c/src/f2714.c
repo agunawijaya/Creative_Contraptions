@@ -10,22 +10,23 @@
  *
  *   drawball()=26ae
  *
- * ⏳ DRAF KASAR: 125 byte vs 122, TERJAJAR 76/122 (62%). Bingkai 4 TEPAT.
- * SUDAH DICOBA & GAGAL: menukar urutan balltop/scrptr++ (3 bentuk, termasuk
- * penugasan bersarang `balltop = 0xc7 - (ballx = ...)`) -- tidak satu pun
- * menaikkan penjajaran.
- * ⭐ DIVERGENSI SUDAH TERLOKALISASI (0x273A): aslinya `inc word ptr [3AEh]`
- * -- menaikkan kursor DI MEMORI lalu MEMUAT ULANG (`mov si,[3AEh]`) untuk
- * pembacaan berikutnya. Punya kita menyimpan kursor di register
- * (`mov bx,[3AEh]; inc bx`) dan memakainya ulang, jadi 3 byte lebih pendek
- * di satu tempat dan lebih panjang di tempat lain.
- * ⚠ BEDA dari f278e: di sana post-increment satu-ekspresi (`*(char*)p++`)
- * yang benar; di SINI justru bentuk dua-pernyataan dengan muat-ulang.
- * Yang belum dicoba: menyisipkan pemakaian scrptr lain di antaranya, atau
- * memaksa muat ulang dengan menulis `scrptr = scrptr + 1;`.
+ * ✅ COCOK byte-per-byte (122/122). Bingkai 4 (murni temp, tanpa lokal).
+ *
+ * ⭐ SATU perubahan membawanya dari 62% ke cocok penuh: `scrptr` dideklarasikan
+ * `char *`, bukan `int` yang dicor `*(char *)`. Divergensi lama sudah benar
+ * terlokalisasi (aslinya MEMUAT ULANG `mov si,[3AEh]` tiap pembacaan sedangkan
+ * kita menyimpan kursor di register) -- yang salah cuma DIAGNOSISNYA: itu
+ * bukan soal urutan pernyataan melainkan soal TIPE. Penunjuk asli dimuat
+ * langsung ke SI tiap kali dirujuk; bentuk cor memaksa lewat AX dan membuat
+ * kompiler menahan nilainya di register.
+ *
+ * ⚠ Catatan lama "beda dari f278e: di sini bentuk dua-pernyataan yang benar"
+ * KELIRU dan sudah dicabut. Kedua fungsi memakai tipe yang sama; yang berbeda
+ * memang cuma post-increment (f278e) vs `scrptr++` terpisah (di sini), dan
+ * itu memang mengikuti aslinya.
  */
 
-extern int  scrptr;             /* @0x3ae  kursor baca skrip (char *) */
+extern char *scrptr;            /* @0x3ae  kursor baca skrip */
 extern int  ballx;              /* @0x260 */
 extern int  bally;              /* @0x25e */
 extern int  balltop;            /* @0x25c */
@@ -35,12 +36,10 @@ f2714(dx, dy)
 int dx, dy;
 {
     /* Tanpa lokal: bingkai 4 byte itu murni temp. */
-    ballx = ((*(char *)scrptr >= 0xc8) ? *(char *)scrptr - 0x100
-                                       : *(char *)scrptr) + dx;
+    ballx = ((*scrptr >= 0xc8) ? *scrptr - 0x100 : *scrptr) + dx;
     scrptr++;
     balltop = 0xc7 - ballx;
-    bally = ((*(char *)scrptr >= 0xc8) ? *(char *)scrptr - 0x100
-                                       : *(char *)scrptr) + dy;
+    bally = ((*scrptr >= 0xc8) ? *scrptr - 0x100 : *scrptr) + dy;
     scrptr++;
     ballrow = bally / 4;
     drawball(1);
