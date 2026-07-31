@@ -587,6 +587,23 @@ main()
                 cursel = runfill(nzany, e08, e30, e80, recC, e58, ytop, big,
                                  buf0d54);
             }
+            if (cursel == -1)
+                goto endcase3;
+            failed = animvm(state, nmechc, recB, ef8, e120, nzany, recC, e58,
+                            e80);
+            cursel = waitkey();
+            /* Struktur ekor SAMA PERSIS dengan case 2, hanya argumen pertama
+               f171f yang beda (3, bukan 2). */
+            switch (cursel) {
+            case 0:
+                f171f(3, 0x922, sub, nmax, postab);
+                break;
+            case -1:
+                continue;
+            default:
+                goto restart;
+            }
+        endcase3:
             break;
         case 1:
             break;
