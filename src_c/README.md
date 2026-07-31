@@ -962,6 +962,14 @@ Melewatkan langkah 2 memberi `Unresolved Externals` untuk nama yang jelas-jelas
 sudah ada di `gdata.c` — gejala yang menyesatkan karena berkasnya benar,
 hanya `.OBJ`-nya yang basi.
 
+**Hal yang sama berlaku untuk `stubs.c`.** `buildall.ps1` hanya mengompilasi
+modul yang terdaftar di `manifest.txt`; `gdata.c` dan `stubs.c` TIDAK terdaftar,
+jadi keduanya harus dikompilasi manual:
+
+```
+pwsh src_c/build/compile.ps1 -Name stubs   # sesudah menambah/menghapus stub
+```
+
 ## ⚠ `link.ps1` menautkan SEMUA `.OBJ` di `out/`, bukan hanya yang di manifest
 
 Begitu sebuah `.c` baru ditaruh di `src/`, `buildall.ps1` mengompilnya dan
