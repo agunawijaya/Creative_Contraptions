@@ -33,6 +33,9 @@ SRC = os.path.join(ROOT, "src_c", "src")
 OUT = os.path.join(ROOT, "src_c", "out")
 TARGET = os.path.join(ROOT, "work", "unpack", "CONTRAP_UNPACKED.EXE")
 IMAGE_BASE = 0x200
+# Selisih terbesar yang masih masuk akal sebagai basis+indeks. Di atas ini
+# hampir pasti SIMBOL yang salah, bukan indeks -- lihat catatan di main().
+INDEX_MAX = 0x100
 
 
 def manifest():
@@ -195,7 +198,7 @@ def main():
     man = manifest()
     sym = symbol_map(man)
     tgt = io.open(TARGET, "rb").read()
-    bad = unknown = checked = indexed = 0
+    bad = unknown = checked = indexed = suspect = 0
     skipped = []
     byaddr = {}
     for n2, (k2, a2) in sym.items():
@@ -226,7 +229,22 @@ def main():
             # fixup atas simbol `tab` tapi nilainya basis+offset. Kalau nilai
             # sebenarnya TIDAK sama dengan alamat simbol lain mana pun, itu
             # hampir pasti indeks -- bukan simbol yang salah.
+            #
+            # ⚠ AMBANGNYA DIPERKETAT 2026-07-31. Yang lama (< 0x400) MENUTUPI
+            # bug nyata: `sprtab` dipakai sebagai nama untuk DUA alamat (0x0a
+            # di drawpair.c, 0x1ae di drawslot.c). LINK memadankan NAMA, jadi
+            # drawslot tertaut ke 0x0a dan meleset 420 byte -- dan 420 < 0x400
+            # sehingga lolos sebagai "akses ber-indeks". Selisih indeks SAH
+            # terbesar yang benar-benar ada cuma +94 (mainmenu/mtabmn), jadi
+            # ambang 0x100 memisahkan keduanya bersih.
             if mbit == 1 and actual not in addr_set and actual > claim                     and actual - claim < 0x400:
+                if actual - claim >= INDEX_MAX:
+                    suspect += 1
+                    print("CURIGA %-9s +%-4d %-10s kita=0x%04x asli=0x%04x  "
+                          "selisih %d -- terlalu besar untuk indeks; periksa "
+                          "apakah NAMA itu dipakai untuk dua alamat"
+                          % (name, off, sname, claim, actual, actual - claim))
+                    continue
                 indexed += 1
                 continue
             bad += 1
@@ -238,6 +256,8 @@ def main():
     print("slot dicek : %d" % checked)
     print("TIDAK cocok: %d" % bad)
     print("akses ber-INDEKS (basis+offset, bukan kesalahan): %d" % indexed)
+    print("CURIGA (selisih >= 0x%x, perlu diperiksa tangan): %d"
+          % (INDEX_MAX, suspect))
     print("nama tanpa alamat terdokumentasi (dilewati): %d" % unknown)
     if skipped:
         print("fungsi DILEWATI (byte-nya belum cocok, offset tak sejajar): %s"

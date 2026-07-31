@@ -1032,6 +1032,40 @@ penjajaran **sama sekali**; setelah diubah ke `int[20]` langsung naik.
 `mov word ptr [bp+si+off]` → larik `int`. `mov byte ptr [bp+si+off]` → larik
 `char`. Jangan menebak dari ukuran penyangga saja.
 
+## ⚠⚠ SATU NAMA untuk DUA ALAMAT — bug `sprtab` (ditemukan 2026-07-31)
+
+Aturan "SATU alamat SATU nama" ternyata punya ARAH KEBALIKAN yang sama
+berbahayanya: **satu NAMA tidak boleh dipakai untuk dua alamat.**
+
+`sprtab` dideklarasikan di DUA berkas dengan alamat berbeda:
+
+```
+drawpair.c:  extern struct slot  sprtab[];   /* @0x0a  */
+drawslot.c:  extern struct sprent sprtab[];  /* @0x1ae */   <-- SALAH
+```
+
+LINK memadankan **nama**, bukan alamat. `gdata.c` cuma mendefinisikan satu
+`sprtab` (gendata memakai `setdefault`, jadi berkas pertama secara abjad
+menang → 0x0a), sehingga rujukan drawslot ikut tertaut ke 0x0a dan **meleset
+420 byte**. Terbukti dari EXE hasil link: slotnya berisi `0x0016` padahal
+seharusnya `0x01ba` (= 0x01ae biner asli + geseran DGROUP build kita, +12).
+
+**Kenapa lolos begitu lama — TIGA lapis verifikasi gagal sekaligus:**
+
+1. `objcode.py` memperlakukan slot relokasi sebagai wildcard → tetap `COCOK`.
+2. `verifyall.py` memakai objcode → tetap `COCOK`.
+3. `symcheck.py` — yang justru dibuat untuk menutup lubang ini — menganggapnya
+   **"akses ber-INDEKS"**: selisih 420 masih di bawah ambang lama 0x400.
+
+Ambangnya sekarang `INDEX_MAX = 0x100`, dan apa pun di antaranya dilaporkan
+sebagai baris `CURIGA`. Aman: selisih indeks SAH terbesar yang benar-benar ada
+di seluruh proyek cuma **+94** (`mainmenu`/`mtabmn`), jadi 0x100 memisahkan
+keduanya bersih tanpa satu pun positif palsu.
+
+**Pemeriksaan yang layak diulang:** tiap kali menambah `extern ... /* @0xNNN */`,
+pastikan namanya belum dipakai untuk alamat LAIN, bukan cuma bahwa alamatnya
+belum punya nama. Yang kedua saja tidak cukup.
+
 ## ⭐ CAST PENUNJUK ≠ TIPE PENUNJUK — `*(char *)p` bukan `*p`
 
 Kalau sebuah global dipakai sebagai penunjuk, **deklarasikan tipenya penunjuk**.

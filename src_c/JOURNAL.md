@@ -876,3 +876,59 @@ di 0x730 ditambah dengan `add [0x730],imm / adc [0x732],0` — aritmetika `long`
 atas pasangan word yang di gdata.c bernama `sclo`/`schi`. Trik yang sama
 seperti `char *scrptr` berlaku: deklarasikan `extern long sclo;` (nama SAMA,
 tipe beda) — tautannya tetap sah karena LINK memadankan nama, bukan tipe.
+
+---
+
+## Bug `sprtab`: satu NAMA untuk dua ALAMAT (2026-07-31)
+
+Ditemukan tidak sengaja sewaktu mencari nama simbol untuk tabel yang dibaca
+`animvm` di 0x1b0. Bukan kemajuan byte — tapi lebih berharga daripada byte.
+
+`sprtab` dideklarasikan di DUA berkas dengan alamat BERBEDA: `@0x0a`
+(drawpair.c) dan `@0x1ae` (drawslot.c). LINK memadankan NAMA, bukan alamat, dan
+`gdata.c` cuma mendefinisikan satu `sprtab` — gendata memakai `setdefault`
+sehingga berkas pertama secara abjad menang (0x0a). Akibatnya rujukan drawslot
+tertaut ke 0x0a dan **meleset 420 byte**.
+
+### Buktinya, bukan dugaan
+
+Slot relokasi di `out/CONTRAP.EXE` hasil link dibaca langsung:
+
+| | sebelum | sesudah | biner asli |
+|---|---|---|---|
+| drawslot → tabel 0x1ae | `0x0016` | **`0x01ba`** | `0x01ae` |
+| drawpair → tabel 0x0a | `0x0016` | `0x0016` | `0x000a` |
+
+Build kita menempatkan DGROUP 12 byte lebih belakang daripada biner asli
+(pustaka menyumbang data sebelum `gdata.c`), jadi `+12` yang seragam di kedua
+baris itulah yang BENAR. Sebelum perbaikan, drawslot meleset dari pola itu.
+
+### Kenapa lolos begitu lama — TIGA lapis gagal sekaligus
+
+1. `objcode.py` memperlakukan slot relokasi sebagai wildcard → `COCOK`.
+2. `verifyall.py` memakai objcode → `COCOK`.
+3. `symcheck.py`, yang JUSTRU dibuat untuk menutup lubang ini, menganggapnya
+   "akses ber-INDEKS": selisih 420 masih di bawah ambang lamanya 0x400.
+
+Lapis ketiga itu yang paling perlu dicatat. Alat verifikasi yang punya
+pengecualian akan menyembunyikan persis kelas bug yang pengecualian itu
+menyerupai. `put()` (0x6524 vs 0x65e0) dulu lolos lewat lapis 1-2; yang ini
+lolos lewat lapis 3.
+
+### Perbaikan
+
+- Tabel di 0x1ae diberi nama sendiri: **`parttab`**. `gdata.c` otomatis
+  memecah blok 594 byte jadi `sprtab[420]` + `parttab[174]` — DGROUP tetap
+  9.556/9.556 byte, 0 beda. `drawslot` tetap COCOK.
+- `symcheck.py`: ambang indeks diperketat `0x400` → `INDEX_MAX = 0x100`, dan
+  selisih di antaranya dilaporkan sebagai baris **CURIGA** alih-alih dihitung
+  diam-diam. Aman: selisih indeks SAH terbesar di seluruh proyek cuma +94
+  (`mainmenu`/`mtabmn`), jadi tidak ada satu pun positif palsu. Sekarang
+  CURIGA = 0.
+
+### Aturan yang bertambah
+
+"SATU alamat SATU nama" punya ARAH KEBALIKAN yang sama berbahayanya: **satu
+NAMA tidak boleh dipakai untuk dua alamat.** Tiap kali menambah
+`extern ... /* @0xNNN */`, periksa namanya belum dipakai untuk alamat LAIN —
+bukan cuma bahwa alamatnya belum punya nama.
