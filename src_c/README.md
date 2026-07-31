@@ -774,6 +774,32 @@ ia hanya memindahkan satu temp menjadi satu lokal, totalnya sama.
 Jadi kalau sebuah fungsi kelebihan satu slot, JANGAN cari jawabannya di pola
 akses tabel ini — sumbernya di tempat lain.
 
+## ⭐ URUTAN ALOKASI REGISTER PENUNJUK: BX dulu, SI/DI kalau perlu bersamaan
+
+Ditemukan lewat probe 16–18 (2026-07-31), sesudah belasan iterasi tebak-tebakan
+di `f498c` dan `place` gagal.
+
+**Aturannya:** MS C 1.04 memakai **BX** untuk penunjuk sementara. **SI** (lalu
+DI) baru muncul kalau **lebih dari satu penunjuk harus hidup bersamaan**.
+
+```
+nvar(tab[i*3+2], buf)                  -> BX saja
+p = tab + i*3; nvar(p[2],buf); p[0]    -> BX, lalu SI sesudah panggilan
+nvar(tab[i*3+2] + tab[i*3], buf)       -> BX dan SI bersamaan
+```
+
+**Yang TERBANTAH:** bentuk struct vs larik-int TIDAK menentukan pilihan
+register — ketiga varian probe 16 sama-sama memakai BX.
+
+**Konsekuensi untuk near-miss `f498c` (3 byte) dan `place` (2 byte):** aslinya
+memakai SI di titik yang punya kita memakai BX, artinya di titik itu compiler
+menganggap ada penunjuk LAIN yang masih hidup. Karena byte sebelum dan
+sesudahnya sudah cocok persis, penyebabnya bukan bentuk ekspresi setempat —
+jangan mengejarnya lewat menulis ulang ekspresi (sudah ~15 percobaan, nol).
+
+⚠ Probe dikompilasi dari `src_c/src/` (itu yang dibaca `compile.ps1`), lalu
+DIPINDAH ke `src_c/probes/` supaya tidak ikut terbangun tiap kali.
+
 ## Teknik: pakai PROBE, jangan iterasi fungsi penuh
 
 Saat sebuah fungsi tidak cocok, JANGAN menebak lalu mengompilasi ulang fungsi utuh.
