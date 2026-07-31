@@ -1571,3 +1571,41 @@ Semua bentuk `do/while` memberi fall-through tapi memakai ulang SI; satu-satunya
 yang memaksa muat-ulang justru yang memancarkan `jmp` mubazir. Aslinya punya
 keduanya — jadi masih ada sesuatu di blok itu yang belum dipahami.
 Daftar lengkapnya sudah ditulis di `animvm.c` supaya tidak diulang.
+
+---
+
+## `animvm` tahap 16: 2.929 → 2.941 (96,7%)
+
+| | sebelum | sesudah |
+|---|---|---|
+| TERJAJAR | 2.929 / 3.040 (96,3%) | **2.941 / 3.040 (96,7%)** |
+| POSISI | 2.437 | **2.447** |
+
+Satu penataan ulang di cabang MEKANISME: `curz = c1; slot = c2;` DIPINDAH ke
+antara `both = i;` dan `ch18[0] = i + 0x41;`. Aslinya memuat `bx=c1`, `cx=c2`
+SEBELUM menyimpan `both` — jadi kedua pernyataan itu ada di antara keduanya.
+
+⚠ Ini kombinasi KETIGA yang diuji di blok yang sama:
+| urutan | TERJAJAR |
+|---|---|
+| `both; ch18; curz; slot; pencacah` | 2.929 (tahap 14) |
+| `both; curz; slot; ch18; pencacah` | **2.941** |
+| `both; curz; slot; pencacah; ch18` | 2.913 (sebelum tahap 14) |
+
+Bedanya cuma letak SATU pernyataan, dan rentangnya 28 byte.
+
+### Cabang ZANY: percobaan yang sama GAGAL untuk KEDUA kalinya
+
+Memindah `both`/`ch18` ke belakang pencacah di cabang ZANY dicoba di tahap 14
+(2.913 → 2.905) dan diulang di sini sesuai pelajaran (c) karena bloknya sudah
+berubah — hasilnya tetap lebih buruk (2.941 → 2.924). Dua kali gagal dengan
+keadaan blok berbeda; sekarang dicatat di berkasnya sebagai jangan-diulang lagi.
+
+Ini juga menutup dugaan lama bahwa kedua cabang "seharusnya" simetris.
+Aslinya memang TIDAK simetris: MEKANISME menaruh `both`/`ch18` di tengah,
+ZANY di depan pencacah.
+
+### Celah 0x1a9c ternyata artefak juga
+
+Diperiksa berdampingan: sudah identik, cuma slot relokasi. Sama seperti temuan
+tahap 15 — periksa isi celah sebelum menggarapnya.

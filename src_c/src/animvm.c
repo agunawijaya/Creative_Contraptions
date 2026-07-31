@@ -216,9 +216,9 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
             if (ord1[c1] != rec1[3 * c1 + 2]) {
                 failed = -1;
                 both = i;
-                ch18[0] = i + 0x41;
                 curz = c1;
                 slot = c2;
+                ch18[0] = i + 0x41;
                 fail[c1]++;
                 zcnt++;
                 g7e8++;
@@ -243,6 +243,11 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 failed = 1;
                 slot = c2;
                 curz = c1;
+                /* ⚠ `both`/`ch18` di SINI, sebelum pencacah — kebalikan dari
+                   cabang MEKANISME yang menaruhnya sesudah `curz`/`slot` lalu
+                   pencacah. Memindahkannya ke belakang pencacah sudah dicoba
+                   DUA kali (tahap 14: 2.913 -> 2.905; tahap 16: 2.941 -> 2.924)
+                   dan selalu lebih buruk. */
                 both = i;
                 zflag[c2]++;
                 zcnt++;
