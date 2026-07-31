@@ -2168,3 +2168,30 @@ Petunjuk kedua yang terlewat: 48 celah SATU BYTE merata dari 0x4097 sampai
 0x41ae. Keseragaman itu tanda bingkai bergeser, bukan isi yang salah — dan
 seharusnya langsung mengarahkan ke "kenapa bingkai kita 2 kata lebih besar",
 bukan ke bentuk pernyataan.
+
+
+## Sapuan aturan `&&` ke semua fungsi sisa — `nvar` satu-satunya yang kena
+
+Begitu aturan `if (A) { if (B) }` -> `if (A && B)` ditemukan, ia langsung
+disapukan. Hasilnya JANGAN dipakai sebagai "aturan ini jarang berguna" —
+dipakainya sekali sudah menyelesaikan satu fungsi utuh.
+
+Penyaring pertama, GEJALA BINGKAI: tak satu pun fungsi sisa punya bingkai lebih
+besar dari asli.
+```
+pickvar 0x52 = 0x52   place 0x26 = 0x26   f498c 0x74 = 0x74   animvm 0x6a = 0x6a
+```
+Jadi tidak ada lagi yang menunjukkan gejala utama `nvar`.
+
+Penyaring kedua, KANDIDAT SINTAKSIS (`if` bersarang yang `if` dalamnya adalah
+pernyataan pertama):
+* `pickvar` baris 207 — bentuknya PERSIS seperti `nvar`, termasuk pembanding
+  `- 100 ==`. Digabung: GLOBAL **1.654 -> 1.567 (-87)**. DITOLAK. Bersarangnya
+  memang asli di sana. Kemiripan bentuk sumber BUKAN bukti; tetap harus diukur.
+* `animvm` baris 214 dan 269 — keduanya TIDAK MEMENUHI SYARAT: ada kode lain di
+  dalam `if` luar sesudah blok `if` dalam, jadi `&&` akan mengubah semantik.
+  Alat penggabung menolaknya sendiri lewat assert, bukan diam-diam menghasilkan
+  kode yang salah.
+
+Kesimpulan: sasaran untuk aturan ini habis. Sisa pekerjaan seluruhnya kelas
+alokasi register.
