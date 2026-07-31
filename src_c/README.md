@@ -879,11 +879,20 @@ berguna daripada satu angka total. Alur kerjanya: lihat geseran terbesar →
     `DEC` (`jge`, 2 byte lebih pendek). Aslinya memancarkan `test ax,ax` lalu
     `jns` — dan itu HANYA keluar dari bentuk pre-decrement di dalam syarat.
 
-13. **SWITCH JARANG: tabel nilai/label disusun KEBALIKAN urutan sumber.**
-    Pemindainya mulai dari entri TERAKHIR dan menghitung mundur
-    (`mov si,18h` / `cmp ax,cs:[si+tab]` / `sub si,4` / `jns`).
-    Jadi **urutan `case` di sumber = urutan ALAMAT badan case-nya**, sedangkan
-    tabelnya dibaca mundur. Tanpa aturan ini urutan case pasti tertukar.
+13. **TIGA bentuk `switch`, dipilih menurut kerapatan nilai case.**
+
+    | bentuk | pancaran | contoh |
+    |---|---|---|
+    | **jarang** | tabel pasangan NILAI+LABEL, dipindai **MUNDUR** dari entri terakhir (`mov si,18h` / `cmp ax,cs:[si+tab]` / `sub si,4` / `jns`) | `pickvar` 0x4975 |
+    | **padat** | `si = v - k` / `cmp si,n` / `jae default` / `shl si,1` / `jmp cs:[si+tab]`, tabel berisi LABEL saja | `main` 0x0488, 0x04FB |
+    | **rantai** | tanpa tabel sama sekali: `cmp ax,2` / `jne` / `jmp badan`, berurutan | `main` 0x05F1 |
+
+    Yang **sama di ketiganya**: blok ujinya diletakkan **SESUDAH** badan case
+    dan dicapai lewat `jmp` ke depan — itulah yang membedakan `switch` dari
+    rantai `if` biasa. Dan pada ketiganya, **urutan `case` di sumber = urutan
+    ALAMAT badan case-nya**, bukan urutan nilainya. Di `main` 0x04FB misalnya
+    `case 1` ditulis TERAKHIR walau nilainya terkecil. Tanpa aturan ini urutan
+    case pasti tertukar.
 
 14. **`idx == q` ≠ `q == idx`.** Operan KIRI dimuat lebih dulu ke AX dan sering
     dipakai ulang di perbandingan berikutnya; membaliknya memaksa muat ulang.
