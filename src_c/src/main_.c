@@ -249,7 +249,11 @@ main()
     prevx = 0x140;
     prevtop = 0x140;
     page = 0x26c;
-    page2 = 0x284;
+    /* ⭐ `page + 0x18`, BUKAN literal 0x284. Bentuk literal memancarkan
+       simpanan-immediate `mov [page2],284h`; aslinya memuat keempat
+       konstanta ke ax/bx/cx/dx dulu (termasuk argumen open()) baru
+       menyimpan. GLOBAL 3.378 -> 3.707. */
+    page2 = page + 0x18;
     miscfh = open(0x952, 0x8004);
     if (miscfh == -1) {
         printf(0x957);

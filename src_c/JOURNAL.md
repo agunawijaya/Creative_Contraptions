@@ -2328,3 +2328,53 @@ tepat ke 0x23d4, dan byte mentahnya memperlihatkan DUA `jmp` (`e9 fe f8` +
 ⭐ Diff instruksi KASAR mencapai 1.037/1.037 sesudah butir 3 — semua beda
 struktural habis — padahal byte masih 79 beda. Jadi diff kasar dan profil celah
 saling melengkapi: yang satu menutup BENTUK, yang lain menutup PANJANG.
+
+
+## `main_` 3.378 -> 3.707 (80,1% -> 87,9%) — dan kenapa ini BELUM tentu benar
+
+Perubahannya satu baris: `page2 = 0x284;` -> `page2 = page + 0x18;`.
+
+Sebabnya PANJANG. Bentuk literal memancarkan simpanan-immediate
+`mov [page2],284h` (6 byte); aslinya memuat KEEMPAT konstanta ke ax/bx/cx/dx
+lebih dulu (termasuk `0x8004`, argumen `open()`) baru menyimpan semuanya.
+Selisih 2 byte itu menggeser SELURUH fungsi. Sesudah diperbaiki, panjang cocok
+lagi mulai 0x013b dan 324 celah ikut terjajar — dari situlah +329 datang.
+
+⚠ TAPI KODE LOKALNYA MASIH SALAH, dan ini harus dicatat jujur:
+```
+KITA 0126 mov [page],bx / add bx,0x18      ASLI 0126 mov cx,0x284
+```
+Asli memuat DUA literal terpisah (`bx=0x26c`, `cx=0x284`) dan MENUNDA kedua
+simpanannya; kita menyimpan `page` lebih awal lalu menghitung. Jadi
+`page + 0x18` kemungkinan besar BUKAN bentuk sumber aslinya — ia kebetulan
+memberi panjang yang benar. Persis kelas "TAMBALAN" yang baru dicatat dari
+`animvm`, cuma kali ini tambalannya besar (+329) karena yang ditambal adalah
+geseran global.
+
+Hipotesis untuk bentuk yang BENAR: MS C menaruh konstanta di register hanya
+kalau nilainya dipakai LEBIH DARI SEKALI (itu sebabnya `0x140` masuk AX — dua
+global memakainya). Untuk `page`/`page2` yang masing-masing dipakai sekali, ia
+memilih simpanan-immediate. Perlu dicari apa yang membuat keduanya dianggap
+dipakai ulang. Sisa celah di situ: 4 byte @0x0132.
+
+⭐ Karena ini tambalan, UJI ULANG baris ini begitu ada perbaikan lain di `main_`
+yang mengubah panjang.
+
+## `pickvar`: bentuk `goto` DIGUGURKAN — `do/while ||` memang benar
+
+Aturan `goto` yang memecahkan `animvm` disapukan ke dua gelung `do/while ||` di
+`pickvar` (baris 111..124). Hasilnya GLOBAL **1.654 -> 1.635 (-19)**. Ditolak.
+Catatan lama di berkas ("SATU do-while dengan `||`, bukan dua loop bersarang")
+tetap berlaku. Contoh lagi pelajaran (b): aturan yang baru saja membayar besar
+di satu tempat bisa merugikan di tempat lain.
+
+`pickvar` sisa: 602/653 bentuk cocok (92,2%), panjang -3. Situs utamanya 0x43a5
+— asli meng-commit simpanan lebih dulu lalu MEMUAT ULANG register yang sama
+(tanda batas blok), dan memancarkan `mov [bp+2],si` (tumpahan 3 byte) yang kita
+tidak punya. Itu persis -3 kita.
+
+## Alat baru: `src_c/verify/shapediff.py`
+
+Diff instruksi KASAR dijadikan alat tetap (sudah dua kali membayar). Pasangan
+dari `gapprof.py`: gapprof menutup PANJANG, shapediff menutup BENTUK.
+Pakai `--stop <addr>` untuk berhenti sebelum tabel data.
