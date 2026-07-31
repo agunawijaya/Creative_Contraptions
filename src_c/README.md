@@ -999,6 +999,14 @@ terrujuk `[bp+0x52]`. Dengan `char pad[74]` (mengira temp 8 byte) hasilnya
 0x4E dan `t` mendarat di 0x4C — 8 byte meleset. Dengan `char pad[80]`
 bingkainya 0x54, `t` di 0x52, dan seluruh 114 byte **cocok persis**.
 
+⚠ **Ruang bawah itu bisa juga MILIK TEMP** — jangan otomatis menambah
+pengganjal. `f15d0` @0x15d0 punya bingkai 0x0A dengan slot terlihat di
+[bp+6] dan [bp+8]; menambahkan `char pad[6]` membuat bingkainya 0x10 karena
+kompiler sudah memesan 6 byte temp sendiri. Tanpa pengganjal: 80/80 **cocok**.
+
+Jadi urutan kerjanya: **kompilasi dulu TANPA pengganjal**, lihat `sub sp` yang
+keluar, baru tambahkan pengganjal kalau bingkainya masih kurang.
+
 ⚠ Bedakan dari kasus `main`: di sana membesarkan penyangga adalah KOMPENSASI
 yang salah, karena penyangga itu **dirujuk** dan menggesernya memindahkan
 offset yang jelas terlihat di biner. Aturan ini hanya berlaku untuk ruang yang

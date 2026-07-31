@@ -33,6 +33,7 @@ moveball   29b0  163
 drawpal    3b83  204
 timedrw    4c04  208
 loadarc    531d  226
+f15d0      15d0   80
 setupscr   1620  255
 autofill   5954  263
 askopts    31da  225
