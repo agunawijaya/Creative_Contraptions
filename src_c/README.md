@@ -1103,7 +1103,32 @@ TERNARY. Jangan menyeragamkan — ukur tiap tempat.
 Alur kendalinya IDENTIK; yang berbeda cuma apakah kompiler masih menganggap
 penunjuknya hidup di register. Sepola dengan aturan penugasan-di-dalam-syarat.
 
-## ⚠ Hasil NEGATIF: `imul word ptr [mem]` BUKAN dari perkalian biasa
+## ⚠⚠ DIVERGENSI BISA JAUH DARI SEBABNYA — alokasi register itu se-BLOK
+
+Kasus paling mahal sesi ini, dan pelajarannya berlaku umum.
+
+`animvm` @0x1afd berbeda: asli `mov ax,3 / imul word ptr [bp+10h]` (5 byte),
+kita `mov ax,var / mov bx,3 / imul bx` (8 byte). Divergensinya terlokalisasi
+sempurna ke SATU instruksi. Tiga probe menguji tiga hipotesis tentang bentuk
+perkalian itu — **ketiganya gagal**, dan kesimpulannya sempat ditulis sebagai
+"tidak bisa dihasilkan dari perkalian yang ditulis programmernya".
+
+Sebab sebenarnya ada **30 instruksi lebih jauh**: dua pernyataan
+(`slot = c2; curz = c1;`) ditaruh SESUDAH `printf(...)` padahal aslinya
+SEBELUM. Begitu diperbaiki, kompiler memuat `c1`/`c2` ke register di AWAL
+blok, tekanan registernya berubah, dan `imul word ptr [mem]` **plus** pemilihan
+`DI` muncul sendiri — tanpa menyentuh ekspresi perkaliannya sama sekali.
+
+Hasilnya: 8 geseran jadi 4, penjajaran 2.642 → 2.700, dan EMPAT geseran yang
+sudah dicap "buntu" lunas sekaligus.
+
+**Aturannya:** kompiler ini mengalokasikan register **per-BLOK DASAR**, bukan
+per-pernyataan. Instruksi pertama yang berbeda menunjukkan DI MANA akibatnya
+terlihat, **bukan di mana sebabnya**. Kalau probe atas bentuk lokal semuanya
+gagal, berhentilah menguji bentuk itu — periksa URUTAN PERNYATAAN di seluruh
+blok, terutama yang menyentuh variabel yang sama.
+
+## ⚠ Hasil NEGATIF (KONTEKS DIKOREKSI): `imul word ptr [mem]`
 
 `animvm` @0x1afd memancarkan `mov ax,3 / imul word ptr [bp+10h]` (5 byte),
 sedangkan semua bentuk C yang wajar memberi `mov ax,<var> / mov bx,3 / imul bx`
@@ -1115,9 +1140,11 @@ sedangkan semua bentuk C yang wajar memberi `mov ax,<var> / mov bx,3 / imul bx`
 | konteks indeks larik / dua penunjuk hidup | probe20a-d | selalu `imul bx` |
 | skala indeks larik STRUCT (`t[a].id`) | probe22a-c | `mov bx,6 / imul bx`, tanpa `shl` |
 
-Jadi `imul` beroperan-MEMORI tidak bisa dihasilkan dari perkalian yang ditulis
-programmernya di kompiler ini. Sumbernya masih BELUM DIKETAHUI. Jangan ulangi
-ketiga percobaan itu.
+Ketiga probe itu benar: **bentuk perkalian memang tidak menentukan.** Yang
+salah adalah kesimpulan yang sempat ditarik darinya ("sumbernya tidak
+diketahui"). Sumbernya adalah TEKANAN REGISTER di blok itu, dan itu diatur
+oleh urutan pernyataan yang jauh di bawahnya — lihat bagian di atas.
+Ketiga probe tetap berguna sebagai bukti bahwa bentuk lokalnya bukan jawabannya.
 
 ## ⭐ CAST PENUNJUK ≠ TIPE PENUNJUK — `*(char *)p` bukan `*p`
 

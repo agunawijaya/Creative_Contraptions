@@ -1228,3 +1228,46 @@ yang lain.
 Empat yang pertama berpangkal pada dua tempat `imul word ptr [mem]` (cabang
 MEKANISME 0x1afd dan cabang ZANY 0x1bb7) yang sudah dinyatakan BUNTU di tahap 6
 — jangan diulang tanpa pemahaman baru.
+
+---
+
+## `animvm` tahap 8: "jalan buntu" ternyata gejala — 2.642 → 2.700 (88,8%)
+
+| | sebelum | sesudah |
+|---|---|---|
+| TERJAJAR | 2.642 / 3.040 (86,9%) | **2.700 / 3.040 (88,8%)** |
+| POSISI | 982 | **2.378** |
+| geseran | 8 | **4** |
+| panjang | −6 | −8 |
+
+### ⚠⚠ Koreksi penting: divergensi 0x1afd BUKAN soal perkalian
+
+Tahap 6 mencap 0x1afd "BUNTU" setelah tiga probe gagal, dan menulis bahwa
+`imul word ptr [mem]` "tidak bisa dihasilkan dari perkalian yang ditulis
+programmernya". Probe-probenya benar — bentuk perkalian memang tidak
+menentukan. **Kesimpulan yang ditarik darinya yang salah.**
+
+Sebabnya ada **30 instruksi lebih jauh**: `slot = c2; curz = c1;` ditaruh
+SESUDAH `printf(...)`, padahal aslinya SEBELUM. Begitu dipindah, kompiler
+memuat `c1`/`c2` ke register di AWAL blok; tekanan registernya berubah; dan
+`mov ax,3 / imul word ptr [bp+10h]` **plus** pemilihan `DI` untuk penunjuk
+kedua muncul sendiri — tanpa satu pun perubahan pada ekspresi perkaliannya.
+
+EMPAT geseran yang sudah dicap buntu (`0x1b28`, `0x1b50`, `0x1bd8`, `0x1c07`)
+lunas sekaligus.
+
+### Aturan yang bertambah
+
+**Kompiler ini mengalokasikan register per-BLOK DASAR, bukan per-pernyataan.**
+Instruksi pertama yang berbeda menunjukkan DI MANA akibatnya terlihat, bukan
+di mana sebabnya. Kalau probe atas bentuk lokal semuanya gagal, berhenti
+menguji bentuk itu — periksa URUTAN PERNYATAAN di seluruh blok.
+
+Ini memperdalam aturan lama "TERLOKALISASI belum berarti TERDIAGNOSIS": kali
+ini lokalisasinya tepat sampai ke satu instruksi, dan tetap menyesatkan.
+
+### Geseran tersisa (4)
+
+`0x21bb:+3`, `0x2236:+5`, `0x22da:+6`, `0x23a0:+8`. Yang di 0x21bb sudah
+terlokalisasi: aslinya punya DUA `jmp 1cd2` berturut di 0x21b4/0x21b7 (yang
+kedua kode MATI), punya kita cuma satu.

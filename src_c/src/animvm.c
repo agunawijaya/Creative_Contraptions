@@ -212,9 +212,13 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 zcnt++;
                 g7e8++;
                 ch18[0] = i + 0x41;
-                printf(msgmech, ch18[0]);
+                /* ⚠ slot/curz disimpan SEBELUM printf. Aslinya memuat c2, c1,
+                   dan i ke bx/cx/dx sekaligus di awal blok lalu menyimpannya
+                   mendahului `call`; menaruhnya SESUDAH printf memaksa
+                   kompiler memuat ulang keduanya (4 byte). */
                 slot = c2;
                 curz = c1;
+                printf(msgmech, ch18[0]);
                 break;
             }
             u5e = fail[c1];
@@ -234,9 +238,9 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 zcnt++;
                 g7e8++;
                 ch18[0] = i + 0x41;
-                printf(msgzany, ch18[0]);
                 curz = c1;
                 slot = c2;
+                printf(msgzany, ch18[0]);
             }
             else {
                 u5e = zflag[c2];
