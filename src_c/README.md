@@ -983,6 +983,27 @@ penjajaran **sama sekali**; setelah diubah ke `int[20]` langsung naik.
 `mov word ptr [bp+si+off]` → larik `int`. `mov byte ptr [bp+si+off]` → larik
 `char`. Jangan menebak dari ukuran penyangga saja.
 
+## ⭐ RUANG BINGKAI TAK TERRUJUK: ukur dari SLOT YANG TERLIHAT, bukan dari temp
+
+Kalau sebuah fungsi memesan bingkai lebih besar daripada lokal yang benar-benar
+dirujuk, **pembagian sisa ruang antara temp dan lokal-mati TIDAK bisa diketahui
+dari biner** — tidak ada satu pun instruksi yang menyentuhnya.
+
+Jadi jangan mencoba menebak jumlah temp. Pilih ukuran pengganjal supaya
+**slot yang TERLIHAT jatuh di offset yang benar** dan totalnya sama dengan
+`sub sp` asli. Kode yang dipancarkan jadi identik, karena hanya slot terlihat
+yang muncul di instruksi.
+
+Contoh (`f171f` @0x171f, 2026-07-31): bingkai asli 0x54, satu-satunya slot
+terrujuk `[bp+0x52]`. Dengan `char pad[74]` (mengira temp 8 byte) hasilnya
+0x4E dan `t` mendarat di 0x4C — 8 byte meleset. Dengan `char pad[80]`
+bingkainya 0x54, `t` di 0x52, dan seluruh 114 byte **cocok persis**.
+
+⚠ Bedakan dari kasus `main`: di sana membesarkan penyangga adalah KOMPENSASI
+yang salah, karena penyangga itu **dirujuk** dan menggesernya memindahkan
+offset yang jelas terlihat di biner. Aturan ini hanya berlaku untuk ruang yang
+memang tidak pernah disentuh.
+
 ## ⚠ Menambah nama extern baru butuh TIGA langkah, bukan satu
 
 `buildall.ps1` **tidak** menjalankan `gendata.py`, dan **tidak** ikut
