@@ -2845,3 +2845,35 @@ pekerjaan tersendiri, bukan iterasi tambahan dengan alat yang sama.
 ⚠ Konsekuensi praktis: `loadcon` TIDAK LAGI sasaran paling menjanjikan meski
 byte-nya paling banyak. Sasaran yang tersisa dengan peluang nyata cuma ~11 byte
 di `main_`.
+
+
+## `main_` 4.205 -> 4.215 (99,9%) — literal 0x26c/0x284 ternyata SIMBOL
+
+Sasaran iterasi ini adalah gugusan 8 byte di 0x0126, satu-satunya blok >2 byte
+yang belum terbukti buntu. Ternyata bukan soal penundaan simpanan sama sekali:
+0x26c dan 0x284 adalah `pbufA`/`pbufB`, simbol DGROUP yang sudah dideklarasikan
+di `drawball.c`. Diganti jadi `(int)pbufA` / `(int)pbufB` -> **+10**.
+
+Celah `main_` kini **4 byte dalam 4 celah**, semuanya 1-byte:
+0x0c84, 0x0c88, 0x0c8a (kelas BX-vs-SI yang sudah DIPARKIR) dan 0x0e01.
+Artinya `main_` praktis selesai: yang tersisa cuma kelas yang terbukti di luar
+jangkauan alat, plus satu byte di 0x0e01.
+
+⭐ PELAJARAN TERPENTING: `page2 = page + 0x18` bertahan DUA kali uji-ulang dan
+sempat saya sebut "BUKAN tambalan" dengan yakin — karena panjangnya memang
+benar. Yang membongkarnya bukan pengukuran ke sekian, melainkan pertanyaan yang
+belum pernah diajukan: "apakah angka ini simbol?" Pengukuran memverifikasi
+hipotesis yang ADA; ia tidak memunculkan hipotesis yang belum terpikir.
+
+## Sapuan "literal yang sebenarnya simbol": tidak ada kandidat lain
+
+Pemindai dibuat (kumpulkan semua `@0xNNN` dari deklarasi `extern` di seluruh
+`src_c/src/`, lalu cari literal heksa 3-4 digit di baris KODE) dan dijalankan
+atas `loadcon`, `pickvar`, `place`, `main_`, `f498c`, `nvar`, `animvm`.
+Hasilnya: tidak ada kandidat yang bisa ditindaklanjuti — sisa temuannya semua
+teks komentar, dan dua literal argumen `load()` di `main_` (0x526 `hdrspr`,
+0x646 `hintspr`) tidak berada di celah mana pun, jadi byte-nya memang sudah
+cocok.
+
+Peta sisa DIPERBARUI: dari 71 byte tinggal **61 byte**, dan 60 di antaranya
+kelas yang terbukti buntu. Yang berpeluang tinggal 1 byte (`main_` 0x0e01).

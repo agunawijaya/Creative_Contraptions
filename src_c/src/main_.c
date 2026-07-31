@@ -110,6 +110,8 @@ extern int  recbase;            /* @0x73c */
 extern int  mark[];             /* @0x742 */
 extern int  prevx;              /* @0x266 */
 extern int  prevtop;            /* @0x262 */
+extern char pbufA[];            /* buffer halaman @0x26c */
+extern char pbufB[];            /* buffer halaman @0x284 */
 extern int  page;               /* @0x2e0 */
 extern int  page2;              /* @0x2e2 */
 /* ⚠ 0x846 sudah bernama `miscfh` di berkas lain, tapi di sini jelas ia
@@ -248,16 +250,17 @@ main()
     /* Urutan dibaca dari MUATAN: ax=140h, bx=26Ch, cx=284h, dx=8004h. */
     prevx = 0x140;
     prevtop = 0x140;
-    page = 0x26c;
-    /* ⭐ `page + 0x18`, BUKAN literal 0x284. Bentuk literal memancarkan
-       simpanan-immediate `mov [page2],284h`; aslinya memuat keempat
-       konstanta ke ax/bx/cx/dx dulu (termasuk argumen open()) baru
-       menyimpan. GLOBAL 3.378 -> 3.707.
-       ⚠ Sempat dicurigai cuma "menambal panjang". DIUJI ULANG sesudah panjang
-       fungsi lurus (4.219 = 4.219): bentuk literal memberi 3.305, bentuk ini
-       4.169. Jadi ini BUKAN tambalan. Sisa 4 byte @0x0132 soal LOKAL
-       (asli `mov cx,284h`, kita `mov [page],bx / add bx,18h`). */
-    page2 = page + 0x18;
+    /* ⭐⭐ ALAMAT SIMBOL, bukan literal. 0x26c dan 0x284 ternyata `pbufA`/
+       `pbufB` (dideklarasikan di drawball.c). `&larik` memancarkan
+       `mov reg,offset` + simpanan yang DITUNDA — persis bentuk asli
+       (`mov bx,26ch / mov cx,284h` lalu kedua simpanan sesudah `push`).
+       Bentuk literal memancarkan simpanan-immediate 6 byte dan menggeser
+       seluruh fungsi; bentuk `page + 0x18` kebetulan panjangnya benar tapi
+       kodenya salah. GLOBAL 4.205 -> 4.215.
+       ⭐ PELAJARAN: sebelum menerima sebuah literal alamat sebagai literal,
+       CEK apakah ia simbol DGROUP yang sudah dikenal. Satu grep. */
+    page = (int)pbufA;
+    page2 = (int)pbufB;
     miscfh = open(0x952, 0x8004);
     if (miscfh == -1) {
         printf(0x957);

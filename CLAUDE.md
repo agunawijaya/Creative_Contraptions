@@ -155,7 +155,7 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
   kode C game 72,5%. **TIDAK ADA stub tersisa** — `animvm` (3.040 B) SELESAI
   2026-07-31, dan `nvar` (566 B) juga.
   Empat fungsi belum byte-exact tapi sudah sangat dekat (metrik GLOBAL):
-  `main` 4.203/4.219 (99,6%), `place` 501/503, `loadcon` 687/739 (93,0%),
+  `main` 4.215/4.219 (99,9%), `place` 501/503, `loadcon` 687/739 (93,0%),
   `pickvar` 1.654/1.730 (95,6%). `f498c` SELESAI 2026-07-31.
   ⚠ Sisanya SELURUHNYA kelas alokasi register — bingkai semua fungsi sudah cocok
   dan tidak ada lagi struktur yang belum ditulis.

@@ -1212,6 +1212,35 @@ Semua fungsi lain, termasuk `main` yang angkanya paling rendah, sudah lengkap
 secara struktur. Persentase RENDAH tidak berarti "masih banyak yang belum
 ditulis" — itu keliru yang dipegang berminggu-minggu.
 
+## ⭐⭐⭐ LITERAL ALAMAT BISA JADI SIMBOL — CEK SEBELUM MENERIMANYA
+
+`main_` 4.205 -> **4.215/4.219 (99,9%)**, celah 14 -> **4 byte**. Satu perubahan.
+
+`page = 0x26c; page2 = 0x284;` ternyata bukan literal sama sekali: 0x26c dan
+0x284 adalah `pbufA` dan `pbufB`, dua penyangga halaman yang SUDAH dideklarasikan
+di `drawball.c`. Bentuk yang benar:
+
+```c
+extern char pbufA[], pbufB[];
+page  = (int)pbufA;
+page2 = (int)pbufB;
+```
+
+`&larik` memancarkan `mov reg,offset` (slot relokasi) lalu simpanan yang
+DITUNDA — persis bentuk asli `mov bx,26ch / mov cx,284h` dengan kedua simpanan
+sesudah `push`. Bentuk literal memancarkan simpanan-immediate 6 byte dan
+menggeser seluruh fungsi.
+
+⚠ INI MENJELASKAN KENAPA DUA ITERASI SEBELUMNYA MELESET. `page2 = page + 0x18`
+memberi PANJANG yang benar (dan karenanya +329 waktu itu) tapi kodenya salah;
+ia bertahan dua kali uji-ulang justru karena panjangnya kebetulan pas. Yang
+membongkarnya bukan pengukuran lagi, melainkan satu pertanyaan yang belum
+pernah ditanyakan: "apakah angka ini simbol?"
+
+⭐ ATURAN: sebelum menerima literal heksa 3-4 digit di rentang DGROUP sebagai
+literal, CEK apakah ia alamat simbol yang sudah dikenal (grep `@0xNNN` di
+seluruh `src_c/src/`). Satu grep, dan ia menjelaskan bentuk kode sekaligus.
+
 ## ⚠ BX vs SI: BAWAAN kompiler adalah BX — dan probe TIDAK bisa memaksanya
 
 `probes/probeC.c` (lima varian) menguji apa yang membuat MS C memakai ULANG
