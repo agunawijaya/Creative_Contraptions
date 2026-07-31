@@ -928,6 +928,24 @@ pernah terbit dan LINK melaporkan unresolved. Ini memblokir satu instruksi di
 `main` (0x00B9 `mov bx,[0]`, biaya 7 byte). **Belum diperbaiki** — menyentuh
 penataan DGROUP yang sekarang 100% cocok (9.556/9.556), jadi butuh keputusan.
 
+## ⭐ TIPE deklarasi lokal menentukan BENTUK PENGALAMATAN, bukan cuma ukuran
+
+Dua deklarasi berukuran sama memberi kode yang jauh berbeda:
+
+| sumber | pancaran |
+|---|---|
+| `int arr[20];` lalu `arr[i] = -1` | `mov si,ax` / `mov [bp+si+0A8h],bx` |
+| `char arr[0x28];` lalu `((int*)arr)[i] = -1` | `lea bx,[bp+0A4h]` / `add bx,ax` / `mov [bx],ax` |
+
+Keduanya 40 byte, tapi yang pertama memakai **indeks langsung** dengan basis
+larik sebagai displacement, yang kedua menghitung penunjuk lebih dulu.
+Terbukti di `main` (2026-07-31): versi `char[]`+cast tidak menaikkan angka
+penjajaran **sama sekali**; setelah diubah ke `int[20]` langsung naik.
+
+**Cara mengenali dari disassembly:** lihat lebar aksesnya.
+`mov word ptr [bp+si+off]` → larik `int`. `mov byte ptr [bp+si+off]` → larik
+`char`. Jangan menebak dari ukuran penyangga saja.
+
 ## ⚠ Menambah nama extern baru butuh TIGA langkah, bukan satu
 
 `buildall.ps1` **tidak** menjalankan `gendata.py`, dan **tidak** ikut
