@@ -75,6 +75,11 @@ extern int  fh;                 /* @0x72c */
 extern int  objfh;              /* @0x72e */
 extern int  mode;               /* @0x792 */
 extern int  sub;                /* @0x3b2 */
+extern int  goal;               /* @0x718 */
+extern int  lvl;                /* @0x734 */
+extern int  nmax;               /* @0x3b4 */
+extern int  nzany;              /* @0x4b4 */
+extern int  nmechc;             /* @0x41c */
 extern int  scrmode;            /* @0x3b0 */
 extern int  g83a;               /* @0x83a  belum dianalisa maknanya */
 
@@ -165,6 +170,16 @@ main()
     setfont();
     mode = 0;
     sub = 0x80;
+    /* `mov ax,1` di-hoist lalu disimpan ke DUA tempat sesudah push argumen;
+       urutan pancarannya [0x734] lalu [0x718] = KEBALIKAN urutan sumber. */
+    goal = 1;
+    lvl = 1;
+    if (loadcon(-1) < 0) {
+        printf(0x957);
+        return;
+    }
+    f171f(2, 0x8ca, 0, nmax, 0x3b6);
+    loadarc(fh, recbase, 0, 0x4b6, nzany, 0x742);
 }
 
 /* ⏳ BELUM DITULIS: 0x0101 ke atas (4.100 byte).
