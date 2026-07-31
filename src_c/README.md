@@ -839,6 +839,35 @@ varian mana yang benar, dan percobaan berikutnya langsung cocok.
    (deklarasi pertama di `bp+2`). Kalau ukuran `sub sp,N` tidak cocok, jumlah atau
    urutan lokal masih salah — itu petunjuk paling cepat.
 
+## ⚠⚠ LUBANG METRIK PENJAJARAN: ia BUTA terhadap identitas simbol
+
+`aligncmp.py` memperlakukan slot relokasi sebagai wildcard (harus begitu —
+alamatnya belum final di `.OBJ`). Akibatnya **penyimpanan ke simbol yang SALAH
+tidak terdeteksi sama sekali**: `mov [hintshown],ax` dan `mov [both],ax`
+menghasilkan byte yang identik (`a3 00 00`).
+
+Dibuktikan 2026-07-31: membalik urutan enam penugasan nol di `main` memberi
+byte yang **persis sama** dan TERJAJAR yang **persis sama**, padahal simbol
+tujuannya berbeda total. Yang membedakan hanya rekaman **FIXUPP**.
+
+Cara memeriksanya:
+```python
+from symcheck import read_obj
+ext, fx = read_obj("src_c/out/main_.OBJ")
+[nm for off, mb, nm in sorted(fx) if lo < off < hi]   # urutan simbol sebenarnya
+```
+
+**Konsekuensinya serius:** `symcheck.py` MELEWATI fungsi yang belum cocok
+byte-per-byte (offsetnya tak sejajar, hasilnya sampah). Jadi untuk `main`,
+`pickvar`, `place`, `nvar`, `loadcon` identitas simbol **belum terverifikasi
+sama sekali** — TERJAJAR setinggi apa pun tidak membuktikan simbolnya benar.
+Periksa manual lewat FIXUPP seperti di atas untuk blok-blok kritis.
+
+Dengan cara itu pula aturan "urutan pancaran = KEBALIKAN urutan sumber"
+akhirnya diverifikasi langsung, bukan disimpulkan dari panjang byte:
+sumber `hintshown, g7e8, cursel, failed, sub, both` memancarkan
+`both, sub, failed, cursel, g7e8, hintshown` — dan itu cocok dengan biner asli.
+
 ## ⚠⚠ CARA MENGUKUR: jangan pakai "byte cocok per POSISI"
 
 Menghitung byte yang sama **di posisi yang sama** hanya sahih kalau panjang
