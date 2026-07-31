@@ -1941,3 +1941,37 @@ yang terbaik.
 ⚠ Ini kebalikan dari kasus `pickvar` (di mana metrik lama menyembunyikan
 perbaikan). Metrik baru bekerja dua arah: ia membatalkan dugaan yang salah
 DAN memulihkan percobaan yang salah dibuang.
+
+---
+
+## `f498c`: sisa 3 byte terbukti MURNI pilihan register
+
+GLOBAL tetap **162/165 (98,2%)**, panjang tepat. Tidak ada kemajuan angka.
+
+Divergensinya terisolasi sempurna ke satu tempat, 0x49BC..0x49C5:
+
+```
+kita: mov bx,[bp+7Ch] / add bx,ax / push [bx]
+asli: mov si,[bp+7Ch] / add si,ax / push [si]
+```
+
+Panjangnya IDENTIK — yang beda cuma REGISTER. Aslinya MEMAKAI ULANG SI yang
+tadi dipakai untuk `sel[i]`; kita mengambil BX yang baru bebas sesudah
+`imul bx`.
+
+### Dua bentuk indeks disapu, keduanya tidak membantu
+
+| bentuk | GLOBAL |
+|---|---|
+| `nvar(tab[i * 3 + 2], buf)` (sekarang) | 162/165 |
+| `nvar(tab[3 * i + 2], buf)` | 162/165 — **identik** |
+| `nvar(*(tab + i * 3 + 2), buf)` | 150/165 — jauh lebih buruk |
+
+Jadi bentuk ekspresi indeksnya BUKAN pengungkitnya. Yang tersisa: mengubah
+tekanan register SE-BLOK lewat urutan/struktur pernyataan LAIN di dalam gelung
+— sudut yang sama seperti yang memecahkan `animvm` tahap 8. Sudah dicatat di
+`f498c.c` supaya sweep ini tidak diulang.
+
+⚠ `place` (501/503) tersisa dengan gejala yang SAMA PERSIS (SI vs DI di
++407/+410). Kedua fungsi ini kemungkinan besar butuh pengungkit yang sama, dan
+menemukannya sekali akan menuntaskan keduanya.

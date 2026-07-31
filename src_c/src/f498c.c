@@ -37,3 +37,19 @@ int *tab, *sel, *sel2;
                  sel[i], sel2[i]);
     }
 }
+
+/* ⏳ BELUM COCOK — panjang SUDAH TEPAT 165, GLOBAL 162/165. Sisa TIGA byte,
+ * semuanya di satu tempat: 0x49BC..0x49C5.
+ *     kita: mov bx,[bp+7Ch] / add bx,ax / push [bx]
+ *     asli: mov si,[bp+7Ch] / add si,ax / push [si]
+ * Panjangnya IDENTIK; yang beda cuma REGISTER. Aslinya MEMAKAI ULANG SI yang
+ * tadi dipakai untuk `sel[i]` (0x49A4), sedangkan kita mengambil BX yang baru
+ * bebas sesudah `imul bx`.
+ *
+ * SUDAH DICOBA & GAGAL (diukur dengan metrik GLOBAL, 2026-07-31):
+ *   - `nvar(tab[3 * i + 2], buf)`      -> 162/165, IDENTIK (tak berpengaruh)
+ *   - `nvar(*(tab + i * 3 + 2), buf)`  -> 150/165, JAUH lebih buruk
+ * Jadi bentuk ekspresi indeksnya BUKAN pengungkitnya. Yang tersisa untuk
+ * dicoba: mengubah TEKANAN REGISTER se-blok lewat urutan/struktur pernyataan
+ * lain di dalam gelung (aturan tahap 8/12), bukan lewat ekspresi ini.
+ */
