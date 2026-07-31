@@ -213,6 +213,8 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
             if (ord1[c1] != rec1[3 * c1 + 2]) {
                 failed = -1;
                 both = i;
+                curz = c1;
+                slot = c2;
                 fail[c1]++;
                 zcnt++;
                 g7e8++;
@@ -221,8 +223,6 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                    dan i ke bx/cx/dx sekaligus di awal blok lalu menyimpannya
                    mendahului `call`; menaruhnya SESUDAH printf memaksa
                    kompiler memuat ulang keduanya (4 byte). */
-                slot = c2;
-                curz = c1;
                 printf(msgmech, ch18[0]);
                 break;
             }
@@ -238,13 +238,13 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
             /* CABANG ZANY OBJECT: sama, tapi atas pencacah dan tabel kedua. */
             if (ord2[c2] != rec2[3 * c2 + 2]) {
                 failed = 1;
+                slot = c2;
+                curz = c1;
                 both = i;
                 zflag[c2]++;
                 zcnt++;
                 g7e8++;
                 ch18[0] = i + 0x41;
-                curz = c1;
-                slot = c2;
                 printf(msgzany, ch18[0]);
             }
             else {

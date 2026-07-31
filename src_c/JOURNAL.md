@@ -1456,3 +1456,45 @@ peran), bukan panjang. Belum ada cara mengendalikannya.
 
 Memindah `both = i;` ke belakang pencacah di cabang ZANY: 2.799 → 2.798.
 Dibatalkan.
+
+---
+
+## `animvm` tahap 13: aturan urutan-muatan disapukan — 2.860 → 2.913 (95,8%)
+
+| | sebelum | sesudah |
+|---|---|---|
+| TERJAJAR | 2.860 / 3.040 (94,1%) | **2.913 / 3.040 (95,8%)** |
+| POSISI | 2.399 | **2.430** |
+| total CELAH | 180 byte | **127 byte** |
+| panjang / geseran | −1 / 2 | −1 / 2 (tak berubah) |
+
+Sekali lagi **+53 byte tanpa mengubah panjang** — murni beda isi.
+
+### Aturan tahap 12 dipakai untuk MEMBACA urutan sumber
+
+Blok kegagalan kedua cabang tinggal beda PILIHAN REGISTER. Dengan aturan
+"muatan register mengikuti urutan sumber", urutan pernyataannya bisa DIBACA
+langsung dari biner, bukan ditebak:
+
+| cabang | urutan muatan di biner | urutan sumber yang disimpulkan |
+|---|---|---|
+| MEKANISME | `ax=i`, `bx=c1`, `cx=c2` | `both=i; curz=c1; slot=c2;` |
+| ZANY | `bx=c2`, `cx=c1`, `dx=i` | `slot=c2; curz=c1; both=i;` |
+
+⚠ Perhatikan: **urutannya BERBEDA di dua cabang yang secara logika kembar.**
+Kalau diseragamkan, salah satu pasti rusak. Ini contoh paling bersih dari
+aturan "bentuk yang benar ditentukan PER-TEMPAT".
+
+Celah 48 byte dan 26 byte di kedua blok itu turun jadi 21 byte total.
+
+### Dicoba dan GAGAL
+
+Kembali ke `do { scrptr++; } while (*scrptr != 0xff || *++scrptr != 0xff);`
+di gelung bunyi `case 0x04` (pengulangan sadar sesuai pelajaran tahap 10,
+karena bloknya sudah berubah): 2.913 → 2.908. Bentuk `for`/`continue` tetap
+yang benar di sana. Sisa 1 byte-nya `jmp` mubazir yang belum terpecahkan.
+
+### Celah tersisa (127 byte)
+
+`0x22ea` (26), `0x1b22` (21), `0x2313` (13), `0x23b7` (13), `0x1ac6` (11),
+`0x2332` (9), `0x1ce0` (8), `0x1a9f` (7).
