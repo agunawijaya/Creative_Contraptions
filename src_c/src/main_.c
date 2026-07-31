@@ -86,6 +86,7 @@ extern int  recC[];             /* @0x4b6 */
 /* postab bertipe `struct pos` di berkas lain; di sini isinya tidak dipakai,
    cuma alamatnya yang dioper, jadi cukup dideklarasikan sebagai char[]. */
 extern char postab[];           /* @0x3b6 */
+extern int  sndok;              /* @0x71a  hasil sndini(); belum pernah dinamai */
 extern int  state[];            /* @0x4f2 */
 extern char idtab[];            /* @0x2ea */
 extern int  scrmode;            /* @0x3b0 */
@@ -122,7 +123,9 @@ main()
     int  j;                     /* 6f8c */
     char g2[4];                 /* 6f8e  tak terreferensi */
     int  k;                     /* 6f92 */
-    int  m;                     /* 6f94 */
+    char m;                     /* 6f94  ⚠ CHAR, bukan int -- biner memakai
+                                   `mov byte ptr [bp+6f94],al` lalu
+                                   `xor ah,ah` tiap kali dibaca */
 
     bios10(scrmode);
     put(curopt, ctx);
@@ -211,6 +214,29 @@ main()
     f498c(ytop, nzany, recC, e08, e58);
     drawslot(ytop, nmechc, recB, ed0, ef8);
     animvm(state, nmechc, recB, ef8, e120, nzany, recC, e58, e80);
+    do {
+        m = getkey();
+    } while (m != 0xd && m != 0x1b);
+    /* ⚠ Ketiga lompatan ini menuju 0x10E8, jauh di ujung fungsi. Selama
+       badan sesudahnya belum ditulis, labelnya dekat sehingga kompiler
+       memancarkan JMP PENDEK (2 byte) padahal aslinya JMP NEAR (3 byte).
+       Selisih 1 byte x3 itu HILANG SENDIRI begitu sisa fungsi ditulis --
+       jangan dikejar. */
+    if (m == 0x1b)
+        goto quit;
+    if (credits() == -1)
+        goto quit;
+    if (askopts() == -1)
+        goto quit;
+    sndok = sndini();
+    /* ⚠ 0x5a5b itu `rnd` (generator acak), BUKAN rutin suara -- modulnya
+       kebetulan bernama snd1.asm. Jadi ini MEMANASKAN generator acak
+       20 kali, bukan membunyikan apa pun. */
+    for (i = 0; i < 0x14; i++)
+        rnd(1);
+    k = 1;
+quit:
+    ;
 }
 
 /* ⏳ BELUM DITULIS: 0x0101 ke atas (4.100 byte).
