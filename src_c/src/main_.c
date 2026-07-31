@@ -86,6 +86,8 @@ extern int  recC[];             /* @0x4b6 */
 /* postab bertipe `struct pos` di berkas lain; di sini isinya tidak dipakai,
    cuma alamatnya yang dioper, jadi cukup dideklarasikan sebagai char[]. */
 extern char postab[];           /* @0x3b6 */
+extern int  lvl2;               /* @0x736 */
+extern int  lvl3;               /* @0x738 */
 extern int  shufflg;            /* @0x794 */
 extern int  sndok;              /* @0x71a  hasil sndini(); belum pernah dinamai */
 extern int  state[];            /* @0x4f2 */
@@ -259,6 +261,33 @@ main()
             break;
         case 1:
             shufflg = 0;
+            break;
+        }
+        /* Switch PADAT kedua, tabel di 0x04F3. Urutan case lagi-lagi mengikuti
+           urutan ALAMAT badannya: 0x4A0(case 2), 0x4BA(3), 0x4D4(4), 0x4E2(1). */
+        switch (mode) {
+        case 2:
+            lvl2 = 1;
+            if (lvl == 1)
+                lvl3 = 1;
+            else
+                lvl3 = 2;
+            break;
+        case 3:
+            lvl3 = 1;
+            if (lvl == 1)
+                lvl2 = 1;
+            else
+                lvl2 = 2;
+            break;
+        case 4:
+            lvl3 = 3;
+            lvl2 = 2;
+            break;
+        case 1:
+            sub = 7;
+            lvl3 = 1;
+            lvl2 = 1;
             break;
         }
     }
