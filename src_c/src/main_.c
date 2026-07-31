@@ -87,6 +87,7 @@ extern int  recC[];             /* @0x4b6 */
 /* postab bertipe `struct pos` di berkas lain; di sini isinya tidak dipakai,
    cuma alamatnya yang dioper, jadi cukup dideklarasikan sebagai char[]. */
 extern char postab[];           /* @0x3b6 */
+extern int  tinit;              /* @0x832 */
 extern int  ta;                 /* @0x7ec */
 extern int  tx;                 /* @0x7ee */
 extern int  schi;               /* @0x732 */
@@ -381,9 +382,35 @@ main()
             failed = 0;
             sub = 0;
             both = 0;
-            range = 0x140 - 0x14;
+            /* Aslinya BERBAGI register: `mov bx,140h` dipakai untuk tx lalu
+               `sub bx,14h` untuk range. Menulis 0x140-0x14 sebagai konstanta
+               memberi simpan-langsung, bukan pengurangan. */
+            range = tx - 0x14;
             pickmax();
             goal = 6;
+            /* 0x06AB -- gelung permainan. Keluar ke 0x0A2E. */
+            while (goal > 0) {
+                if (cursel == -1)
+                    break;
+                if (hintshown != 0)
+                    break;
+                if (lvl == 1)
+                    goal = 1;
+                if (failed != 0)
+                    goto redo;
+                tinit = 1;
+                /* Kosongkan kolom pertama tiap record. Batasnya (0x78=120 dan
+                   0x23=35) COCOK dengan ukuran penyangga di peta bingkai:
+                   recs 1.500/12 = 125 dan basebuf 420/12 = 35. Dua temuan
+                   yang saling menguatkan. */
+                for (i = 0; i < 0x78; i++)
+                    recs[i * 0xc] = 0;
+                for (i = 0; i < 0x23; i++)
+                    basebuf[i * 0xc] = 0;
+                sub++;
+            redo:
+                ;
+            }
             break;
         case 2:
             break;
