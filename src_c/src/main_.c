@@ -291,11 +291,13 @@ main()
     }
     setfont();
     mode = 0;
-    sub = 0x80;
-    /* `mov ax,1` di-hoist lalu disimpan ke DUA tempat sesudah push argumen;
-       urutan pancarannya [0x734] lalu [0x718] = KEBALIKAN urutan sumber. */
+    /* ⭐ `goal`/`lvl` (keduanya = 1) DI DEPAN `sub`: nilai 1 dipakai DUA kali
+       sehingga masuk register dan dimaterialisasi di PUNCAK blok — asli
+       memancarkan `mov ax,1` SEBELUM `mov [sub],80h`. Simpanannya sendiri
+       tetap ditata ulang ([0x734] lalu [0x718] = kebalikan urutan sumber). */
     goal = 1;
     lvl = 1;
+    sub = 0x80;
     if (loadcon(-1) < 0) {
         printf(0x957);
         return;
@@ -383,9 +385,11 @@ main()
             lvl2 = 2;
             break;
         case 1:
-            sub = 7;
+            /* ⭐ Sama seperti situs 0x0256: nilai 1 dipakai dua kali, jadi
+               dimaterialisasi sebelum simpanan `sub`. */
             lvl3 = 1;
             lvl2 = 1;
+            sub = 7;
             break;
         }
     restart:

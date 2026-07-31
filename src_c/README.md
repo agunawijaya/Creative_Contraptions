@@ -1212,6 +1212,28 @@ Semua fungsi lain, termasuk `main` yang angkanya paling rendah, sudah lengkap
 secara struktur. Persentase RENDAH tidak berarti "masih banyak yang belum
 ditulis" — itu keliru yang dipegang berminggu-minggu.
 
+## ⭐⭐ KONSTANTA yang dipakai >1 KALI dimaterialisasi di PUNCAK BLOK
+
+Berlaku untuk nilai APA PUN, bukan cuma nol. Empat kali membayar di `main_`
+(+203, +4, +2, lalu +5 dan +5 untuk nilai `1`).
+
+```
+ASLI  mov ax,1 / mov [sub],80h / ... / mov [lvl],ax
+KITA  mov [sub],80h / mov ax,1 / ...
+```
+
+Kalau sebuah konstanta dipakai LEBIH DARI SEKALI (dua global, atau satu global
+plus argumen panggilan), MS C menaruhnya di register dan memuatnya di PUNCAK
+blok — SEBELUM simpanan-immediate lain di blok yang sama. Kalau dipakai sekali,
+ia memancarkan `mov [glob],imm` (6 byte).
+
+⭐ PERBAIKANNYA: pindahkan penugasan yang MEMAKAI konstanta itu ke DEPAN
+penugasan lain di blok yang sama. Simpanannya sendiri tetap ditata ulang, jadi
+jangan menilai dari urutan simpanan.
+
+⭐ GEJALA: celah 3 byte tepat di batas antara `mov [glob],imm` dan `mov reg,imm`
+yang bertukar tempat.
+
 ## ⭐⭐ ARAH SYARAT + BADAN DITUKAR: semantik sama, byte BEDA
 
 Bentuk `if (A) X; Y;` dan `if (!A) Y; X;` menghasilkan kode yang SETARA tapi

@@ -2472,3 +2472,33 @@ Jadi -3 byte di `pickvar` bukan soal urutan pernyataan. Yang dicari tetap
 apa yang membuat asli MENUMPAHKAN `si` ke `[bp+2]` di 0x43b5 (3 byte) dan
 memakai DI alih-alih SI sesudahnya — tanda `&list[idx]` masih HIDUP di sana.
 Kita menghitung ulang, jadi tidak perlu menumpahkan.
+
+
+## `main_` 4.189 -> 4.199 (99,5%); sapuan arah-syarat TUNTAS
+
+Celah tinggal **20 byte dalam 13 celah**, dan 10 di antaranya menumpuk di satu
+situs (0x0126..0x0138, blok `page`/`page2`).
+
+**Sapuan aturan pembalikan arah syarat: BERSIH.** Dua pemindai dijalankan atas
+kelima fungsi sisa — satu untuk pola ketat (`jcc` + dua `jmp` bertukar), satu
+untuk pola longgar (SEMUA `jcc` yang mnemonic-nya terbalik dari asli). Keduanya
+melaporkan NOL di `pickvar`, `loadcon`, `place`, `f498c`, dan `main_`. Aturan
+itu sudah habis dipakai; jangan disapukan lagi.
+
+**Dua situs baru diperbaiki** lewat perluasan aturan hoisting konstanta (yang
+sebelumnya cuma dirumuskan untuk NOL):
+```
+0x0256  ASLI mov ax,1 / mov [sub],80h    KITA mov [sub],80h / mov ax,1
+0x04e2  ASLI mov ax,1 / mov [sub],7      KITA mov [sub],7   / mov ax,1
+```
+Nilai `1` dipakai dua kali (`goal`+`lvl`, dan `lvl3`+`lvl2`), jadi ia masuk
+register dan dimaterialisasi di puncak blok. Memindah `sub = ...` ke BELAKANG
+kedua penugasan `1` memberi +5 masing-masing. Aturannya diperluas di README:
+berlaku untuk konstanta APA PUN, bukan cuma nol.
+
+**Uji ulang `page2` (aturan kedaluwarsa):** di dasar 4.199, bentuk literal
+`page2 = 0x284;` memberi 3.329 dan `page = page2 - 0x18;` memberi 3.318. Bentuk
+`page + 0x18` bertahan untuk KEDUA kalinya. Sisa 10 byte di situs itu adalah
+soal LOKAL: asli menahan `0x26c` di BX dan `0x284` di CX dengan KEDUA simpanan
+ditunda; kita menyimpan `page` lebih awal lalu menghitung. Belum ketemu bentuk
+sumber yang memberi dua literal terpisah ke register.
