@@ -2679,3 +2679,40 @@ Polanya konsisten: begitu sebuah pertanyaan bisa dirumuskan sebagai "faktor apa
 yang membedakan?", probe menjawabnya dalam SATU kompilasi.
 
 CLAUDE.md ikut disegarkan ke 78/81 / 18.851 / 77,3%.
+
+
+## `main_` 0x0b39: pemetaan ke sumber AMBIGU — dicatat supaya tidak diulang
+
+Situs ini dua kali disebut "rantai lompatan yang kita runtuhkan". Dibedah lebih
+teliti, dan kesimpulan itu BELUM TENTU benar — pemetaannya ke sumber tidak
+konvergen. Rinciannya dicatat supaya iterasi berikutnya tidak mengulang analisis
+yang sama dari nol.
+
+Yang TERUKUR di biner:
+```
+0x0b39  cmp word ptr [cursel], -1
+0x0b3e  jne 0x0b43          <- 0x0b43 = `again2` (badan f498c, terverifikasi
+                               dari urutan push: e80, e58, recC, nzany, ytop)
+0x0b40  KITA jmp 0x0450     ASLI jmp 0x0bf6
+        0x0450 = `restart`   0x0bf6 = ekor `endcase2` (yang MENGUJI ULANG cursel)
+```
+
+Kenapa ambigu: kode itu duduk TEPAT sebelum `again2:` (baris 616), tapi sumber
+di baris 601..615 (`case 2:` sampai `again2:`) TIDAK punya uji `cursel` sama
+sekali. Kandidat lain — ekor `case 4` (baris 598, `if (cursel != -1) goto reset;
+continue;`) — juga tidak cocok: sasaran `jne`-nya seharusnya `reset` (0x0668),
+bukan `again2` (0x0b43).
+
+Jadi salah satu dari ini benar dan belum bisa dipilih tanpa bukti tambahan:
+* sumber kita memang `goto restart` di tempat yang aslinya `goto endcase2`
+  (dua-duanya berakhir di `restart`, jadi SETARA secara semantik), atau
+* MS C meruntuhkan `goto endcase2` kita menjadi lompatan langsung ke `restart`
+  sementara asli tidak.
+
+⭐ LANGKAH BERIKUTNYA YANG BENAR: jangan menebak bentuk sumbernya. Tentukan dulu
+BLOK SUMBER MANA yang memancarkan 0x0b39 — mis. dengan menyisipkan penanda unik
+(sebuah pemanggilan yang gampang dikenali) di kandidat blok, kompilasi, dan lihat
+di alamat mana ia mendarat. Baru sesudah itu bentuknya layak diutak-atik.
+
+⚠ Selama pemetaannya belum pasti, `main_` 0x0b41 dan 0x0e01 TETAP DIPARKIR.
+Keduanya 2 byte dan 1 byte; tidak sebanding dengan risiko menebak.
