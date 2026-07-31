@@ -15,7 +15,8 @@
  * Selisih antar-offset memberi ukuran tiap penyangga:
  *
  *   bp+0000..0007  temp (4 slot)
- *   bp+0008        larik 8 entri x 0x28 byte  (08 30 58 80 a8 d0 f8 120)
+ *   bp+0008        DELAPAN penyangga 40 byte terpisah (08 30 58 80 a8 d0 f8 120),
+ *                  dipakai dua kelompok empat -- BUKAN satu larik
  *   bp+0148        264 byte   <- level_  (global 0x740)
  *   bp+0250       1500 byte   <- recbase (global 0x73c) = 125 record x 12
  *                              ⭐ cocok dgn batas `k2 > 0x78` (120) di pickvar
@@ -93,7 +94,17 @@ main()
     /* Deklarasi ditulis supaya OFFSET-nya jatuh persis seperti peta di atas.
        Urutan alokasi lokal MS C 1.04 masih harus diverifikasi lewat `sub sp`:
        kalau bukan 0x6f96, urutannya dibalik dulu sebelum menulis kode. */
-    char ent[8][0x28];          /* 0008 */
+    /* ⭐ KOREKSI peta: ini BUKAN larik 8x0x28, melainkan DELAPAN penyangga
+       40-byte terpisah, dipakai dalam DUA KELOMPOK EMPAT: (08,30,58,80)
+       dioper ke pickpart, (a8,d0,f8,120) ke panggilan berikutnya. */
+    char e08[0x28];             /* 0008 */
+    char e30[0x28];             /* 0030 */
+    char e58[0x28];             /* 0058 */
+    char e80[0x28];             /* 0080 */
+    char ea8[0x28];             /* 00a8 */
+    char ed0[0x28];             /* 00d0 */
+    char ef8[0x28];             /* 00f8 */
+    char e120[0x28];            /* 0120 */
     char lvlbuf[264];           /* 0148 */
     char recs[1500];            /* 0250 */
     char objs[900];             /* 082c */
@@ -191,6 +202,8 @@ main()
     loadarc(seed, base, 0, recB, nmechc, markf);
     j = loadarc(objfh, objtab, 0, recC, nzany, mark);
     loadarc(objfh, objtab + j * 0xc, 0, recB, nmechc, markf);
+    pickpart(4, recbase, fh, big, buf0d54, nzany, e30, e58, recC,
+             buf6f22, e08, e80);
 }
 
 /* ⏳ BELUM DITULIS: 0x0101 ke atas (4.100 byte).
