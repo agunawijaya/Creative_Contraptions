@@ -2087,3 +2087,48 @@ satu titik, ekornya pun masih tercemar.
 (`[bp+0ch]`/`[bp+0eh]` dan `[bp+10h]`/`[bp+12h]`), yaitu `oy = dy3; ox = dx3;`
 yang tertulis terbalik. Dua sisanya displacement lompatan, artefak geseran.
 Urutan sumber terbaca dari MUATANNYA (loads), bukan dari simpanannya.
+
+## ⭐⭐⭐ LABEL TELANJANG = BATAS BLOK DASAR = SEMUA SIMPANAN TERTUNDA DI-COMMIT
+
+Ini lever paling kuat yang ditemukan sejauh ini, dan **biayanya NOL byte**.
+
+Sebuah label C yang tidak pernah dituju `goto` mana pun tidak memancarkan satu
+instruksi pun, tapi MC2 tetap memperlakukannya sebagai **akhir blok dasar**:
+semua nilai yang masih menunggu disimpan langsung di-flush di titik itu, dan
+registernya jadi bebas.
+
+```c
+            /* sp masih dianggap menempati SI -> dp terdorong ke DI */
+            dp->spr2 = q;
+```
+```c
+blk1:       /* label telanjang: SI dibebaskan -> dp masuk SI seperti asli */
+            dp->spr2 = q;
+```
+
+`place` langsung **501/503 → 503/503**. Nol byte ditambahkan.
+
+Mekanismenya diverifikasi terpisah lewat reproduksi mini (`sw20`): pada bentuk
+`do { p = f(); if (g != s) break; ... }` simpanan `p` DITUNDA melewati pemuatan
+`g` (global masuk BX, 4 byte). Menyisipkan label telanjang tepat sebelum `if`
+membuat simpanan `p` ter-commit lebih dulu dan global masuk AX (3 byte) —
+hasil yang SAMA dengan bentuk `while (A && B && C)` yang sudah terbukti benar.
+
+⭐ Ini juga menjelaskan MENGAPA bentuk `&&` bekerja di `loadcon`: `do{}while(c)`
+menaruh label (sasaran `continue`) tepat sebelum `c`, jadi badan gelung yang
+kosong membuat batas bloknya jatuh di antara penugasan dan syarat. Dua aturan
+yang selama ini terpisah ternyata satu mekanisme.
+
+⚠ **Letaknya menentukan.** Label SESUDAH gelung tidak berpengaruh sama sekali
+(varian kontrol W6). Label harus berada tepat di titik yang ingin dijadikan
+batas blok.
+
+⚠ **Ia TUMPUL.** Label mem-flush SEMUA simpanan tertunda. Kalau biner asli hanya
+membuang SATU register (spill karena kebutuhan, mis. `pickvar` 0x44fd yang cuma
+membuang BX lalu memakainya untuk `q`), label justru salah: ia membuang
+ketiga-tiganya. Pakai label untuk "bebaskan semua di sini", bukan untuk meniru
+spill selektif.
+
+⚠ Jangan mengklaim dua varian "identik" tanpa hash. Bentuk label dan bentuk
+`&&` menghasilkan awalan instruksi yang SAMA di reproduksi mini, tapi `.OBJ`
+lengkapnya BERBEDA — dua-duanya 64 byte, hash tidak sama.

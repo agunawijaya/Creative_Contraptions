@@ -127,7 +127,13 @@ int  *flag;
            TETAP di-CSE: teks beda tidak cukup, tipe harus beda. */
         while (*(char *)sp != 0) {
             if (sp->id == id && sp->row == row) {
-                dp->spr2 = q;
+                /* ⭐ LABEL TELANJANG (tak ada `goto` ke sini di seluruh berkas).
+               Ia tidak memancarkan satu byte pun, tapi memaksa MC2 menutup
+               blok dasar: semua simpanan tertunda di-COMMIT di sini, SI jadi
+               bebas, dan `dp` masuk SI seperti aslinya -- bukan DI. Tanpa
+               label ini `sp` masih dianggap menempati SI. 501/503 -> 503/503. */
+blk1:
+            dp->spr2 = q;
                 t2 = load(objfh, objtab, k, q);
                 if (t2 != sp->spr)
                     printf(0x1e1e);
