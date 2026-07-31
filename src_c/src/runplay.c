@@ -32,7 +32,7 @@ extern int  best;           /* @0x82e */
 extern int  tinit;          /* @0x832 */
 extern int  both;           /* @0x844 */
 extern int  state[];        /* @0x4f2 */
-extern int  seed;           /* @0x72a */
+extern int  mechfh;           /* @0x72a */
 extern int  nmech;          /* @0x3ac */
 extern int  curz;            /* @0x2e6 */
 extern char idtab[];        /* @0x2ea */
@@ -91,7 +91,7 @@ top:
         redraw();
         while (sel >= 0 && sel != 0xfe) {
             if (state[both] == -1) {
-                nmech = mkpal(seed, p1, p3, p2, p7);
+                nmech = mkpal(mechfh, p1, p3, p2, p7);
                 /* ENAM argumen, dan nilainya didorong LANGSUNG dari [si]/[bx]
                    -- bukan lewat lokal. Ghidra menampilkan argumen ke-7
                    (curz*3*2) yang TIDAK ada di biner: hanya 6 push. */
@@ -176,7 +176,7 @@ top:
         }
 fin:
     if (chg1 == 1) {
-        place(0x1a8, base, seed, p11, p12, p2, p8, p10, 0, 0);
+        place(0x1a8, base, mechfh, p11, p12, p2, p8, p10, 0, 0);
         chg1 = 0;
     }
     if (chg2 == 1) {

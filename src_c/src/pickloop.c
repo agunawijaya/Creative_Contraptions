@@ -5,7 +5,7 @@
  * jawaban + sprite-nya dan tandai `changed`. Slot aktif maju melingkar.
  * Keluar dengan ESC (-1) atau ENTER.
  *
- *   nmech @0x3ac, seed @0x72a, curz @0x2e6, base @0x73a, idtab[] @0x2ea
+ *   nmech @0x3ac, mechfh @0x72a, curz @0x2e6, base @0x73a, idtab[] @0x2ea
  *   mkpal()=3909, kbflush()=36ef (sudah direkonstruksi), redraw()=5936,
  *   review()=3c4f, clrbot()=5911 (sudah direkonstruksi), place()=4e3e
  *
@@ -13,7 +13,7 @@
  */
 
 extern int  nmech;          /* @0x3ac */
-extern int  seed;           /* @0x72a */
+extern int  mechfh;           /* @0x72a */
 extern int  curz;            /* @0x2e6 */
 /* `base` adalah PENUNJUK ke tabel record 0xc byte, bukan int biasa. Buktinya
    "mov si,[73ah] / add si,ax / mov al,[si]" -- dua instruksi, langsung ke SI.
@@ -41,7 +41,7 @@ int   g, h, k;
 {
     int changed, v, r;   /* changed di slot PERTAMA (bp+0ah) sesuai biner */
 
-    nmech = mkpal(seed, a, tab, n, f);
+    nmech = mkpal(mechfh, a, tab, n, f);
     changed = 0;
     /* GOTO, bukan for(;;). Buktinya: setelah `switch` biner TIDAK memancarkan
        apa pun — tak ada `jmp` balik ke atas dan tak ada `break` keluar loop.
@@ -83,7 +83,7 @@ top:
         }
 done:
     if (changed == 1 && r != 0xffff) {
-        place(0x1a8, base, seed, h, k, n, ans, g, 0, 0);
+        place(0x1a8, base, mechfh, h, k, n, ans, g, 0, 0);
         changed = 0;        /* biner benar-benar memancarkan "mov [bp+0ah],0" */
     }
 fin:

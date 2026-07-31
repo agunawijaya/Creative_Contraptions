@@ -4,14 +4,14 @@
  * kosong; yang sudah terisi digambar sprite-nya. Sumber sprite berbeda
  * tergantung apakah ini pemuatan pertama (ans[0] == -1) atau bukan.
  *
- *   nmech @0x3ac, seed @0x72a, sprtab[] @0x1ae
+ *   nmech @0x3ac, mechfh @0x72a, sprtab[] @0x1ae
  *   mkpal()=3909, fillrect()=6869, blit()=672f
  *
  * SLOT dari disassembly: bp+6, 8, 0ah, 0ch, 0eh; bingkai 10h (3 slot temp).
  */
 
 extern int nmech;           /* @0x3ac */
-extern int seed;            /* @0x72a */
+extern int mechfh;            /* @0x72a */
 /* Tabel sprite: record 12 byte, hanya word pertama yang dipakai di sini.
    Ditulis sebagai array STRUCT supaya subscript memberi skala 12 SEKALIGUS
    bentuk displacement "mov ax,[si+1aeh]" -- bukan "add ax,OFFSET". */
@@ -33,7 +33,7 @@ int *ans;
 
     if (*ans == -1) {
         flag = 0;
-        nmech = mkpal(seed, base, tab, n);
+        nmech = mkpal(mechfh, base, tab, n);
     }
     else
         flag = 1;

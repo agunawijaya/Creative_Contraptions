@@ -8,7 +8,7 @@ struct mitem {
 };
 
 extern struct mitem mtablv[];   /* @0x1b74 */
-extern int mode_;
+extern int miscfh;
 extern int level_;
 extern int ytop_;
 
@@ -17,9 +17,9 @@ lvlmenu()
     int y1, y2, h;
 
     y1 = ytop_;
-    h = load(mode_, level_, 11, y1);
+    h = load(miscfh, level_, 11, y1);
     y2 = y1 + h;
-    load(mode_, level_, 12, y2);
+    load(miscfh, level_, 12, y2);
     mtablv[0].y = y1;
     mtablv[1].y = y2;
     setsel(mtablv, 7);

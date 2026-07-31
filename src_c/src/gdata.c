@@ -279,7 +279,7 @@ int sndnull[3] = {
     0x0000, 0x0000, 0x0000
 };
 
-int seed = 0x0000;
+int mechfh = 0x0000;
 
 int fh = 0x0000;
 
@@ -389,7 +389,7 @@ int failed = 0x0000;
 
 int both = 0x0000;
 
-int mode_ = 0x0000;
+int miscfh = 0x0000;
 
 int hintshown = 0x0000;
 

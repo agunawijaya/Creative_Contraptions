@@ -81,14 +81,14 @@ extern int  prevx;              /* @0x266 */
 extern int  prevtop;            /* @0x262 */
 extern int  page;               /* @0x2e0 */
 extern int  page2;              /* @0x2e2 */
-/* ⚠ 0x846 sudah bernama `mode_` di berkas lain, tapi di sini jelas ia
+/* ⚠ 0x846 sudah bernama `miscfh` di berkas lain, tapi di sini jelas ia
    PEGANGAN BERKAS: diisi hasil open() lalu diteruskan ke loadarc sebagai
    argumen pertama. Namanya menyesatkan; JANGAN diganti (aturan: satu alamat
    satu nama), cukup dicatat. */
-extern int  mode_;              /* @0x846 */
-extern int  seed;               /* @0x72a  ⚠ juga pegangan berkas di sini */
-extern int  fh;                 /* @0x72c */
-extern int  objfh;              /* @0x72e */
+extern int  miscfh;              /* @0x846 */
+extern int  mechfh;             /* @0x72a  arsip "mechs" */
+extern int  fh;                 /* @0x72c  arsip "graph" */
+extern int  objfh;              /* @0x72e  arsip "animate" */
 extern int  mode;               /* @0x792 */
 extern int  sub;                /* @0x3b2 */
 extern int  goal;               /* @0x718 */
@@ -134,7 +134,12 @@ extern int  state[];            /* @0x4f2 */
 extern char rowtab[];           /* @0x870 */
 extern char idtab[];            /* @0x2ea */
 extern int  scrmode;            /* @0x3b0 */
-extern int  g83a;               /* @0x83a  belum dianalisa maknanya */
+extern int  g83a;               /* @0x83a  salinan _TOP selama permainan */
+/* _TOP dan _BASE ada di DUA kata pertama DGROUP dan disumbang C.OBJ (crt0),
+   BUKAN gdata.c -- makanya tidak boleh diberi komentar alamat di sini.
+   `main` MENYIMPAN _TOP di awal dan MENGEMBALIKANNYA saat keluar, karena
+   bingkai tumpukannya sendiri 28.566 byte. */
+extern int  _TOP;
 
 main()
 {
@@ -186,12 +191,7 @@ main()
     level_ = (int)lvlbuf;
     base = (int)basebuf;
     recbase = (int)recs;
-    /* ⚠ TERTUNDA: 0x00B9 `mov bx,[0]` = baca kata pertama DGROUP (offset 0).
-       Butuh simbol bernama di DGROUP:0000, TAPI gendata.py menyaring
-       `START <= a` dengan START=4 -- alamat DGROUP 0..3 DIBUANG diam-diam,
-       jadi namanya tidak pernah terbit dan LINK gagal (unresolved dg0).
-       Memperbaikinya menyentuh penataan DGROUP yang saat ini 100% cocok,
-       jadi TIDAK dikerjakan tanpa pengawasan. Biayanya 7 byte di sini. */
+    g83a = _TOP;
     for (i = 0; i < 0x14; i++)
         markf[i] = 1;
     for (i = 0; i < 0x14; i++)
@@ -203,26 +203,24 @@ main()
     page2 = 0x284;
     prevtop = 0x140;
     prevx = 0x140;
-    mode_ = open(0x952, 0x8004);
-    if (mode_ == -1) {
+    miscfh = open(0x952, 0x8004);
+    if (miscfh == -1) {
         printf(0x957);
         return;
     }
-    loadarc(mode_, level_, 1);
+    loadarc(miscfh, level_, 1);
     /* Enam muatan awal dari arsip yang sama. Argumen ke-3 = nomor record,
        ke-4 = alamat tujuan di DGROUP. */
-    load(mode_, level_, 0, 0x31c);
-    load(mode_, level_, 1, 0x364);
-    load(mode_, level_, 2, 0x526);
-    load(mode_, level_, 3, 0x586);
-    load(mode_, level_, 4, 0x5e6);
-    load(mode_, level_, 0x13, 0x646);
+    load(miscfh, level_, 0, 0x31c);
+    load(miscfh, level_, 1, 0x364);
+    load(miscfh, level_, 2, 0x526);
+    load(miscfh, level_, 3, 0x586);
+    load(miscfh, level_, 4, 0x5e6);
+    load(miscfh, level_, 0x13, 0x646);
     /* Tiga arsip lagi dibuka, masing-masing dengan penanganan galat yang
-       SAMA PERSIS (34 byte tiap blok). ⚠ 0x72a bernama `seed` di berkas lain
-       padahal di sini jelas pegangan berkas -- nama menyesatkan, tidak
-       diganti (aturan satu alamat satu nama). */
-    seed = open(0x963, 0x8004);
-    if (seed == -1) {
+       SAMA PERSIS (34 byte tiap blok). */
+    mechfh = open(0x963, 0x8004);
+    if (mechfh == -1) {
         printf(0x957);
         return;
     }
@@ -252,12 +250,12 @@ main()
        ter-relokasi (slot wildcard), sedangkan angka harfiah memancarkan
        konstanta biasa -- kebetulan bytenya sama, tapi itu bukan rekonstruksi. */
     loadarc(fh, recbase, 0, recC, nzany, mark);
-    loadarc(seed, base, 0, recB, nmechc, markf);
+    loadarc(mechfh, base, 0, recB, nmechc, markf);
     j = loadarc(objfh, objtab, 0, recC, nzany, mark);
     loadarc(objfh, objtab + j * 0xc, 0, recB, nmechc, markf);
     pickpart(4, recbase, fh, big, buf0d54, nzany, e30, e58, recC,
              buf6f22, e08, e80);
-    fillans(0x1a8, base, seed, buf62ae, buf6df2, nmechc, ed0, ef8, recB,
+    fillans(0x1a8, base, mechfh, buf62ae, buf6df2, nmechc, ed0, ef8, recB,
             idtab, ea8, e120, ytop, lvl);
     f498c(ytop, nzany, recC, e08, e58);
     drawslot(ytop, nmechc, recB, ed0, ef8);
@@ -372,7 +370,7 @@ main()
                 n = 0;
             else
                 n = 1;
-            loadarc(seed, base, n, recB, nmechc, markf);
+            loadarc(mechfh, base, n, recB, nmechc, markf);
             break;
         }
         /* Lima penugasan nol di-hoist dari satu `xor ax,ax` yang juga jadi
@@ -463,12 +461,12 @@ main()
                     n = 1;
                 /* Hasilnya ditampung j juga -- ada `mov [bp+6f8c],ax` yang
                    ditunda sampai sebelum panggilan berikutnya. */
-                j = loadarc(seed, base, n, recB, nmechc, markf);
+                j = loadarc(mechfh, base, n, recB, nmechc, markf);
                 j = loadarc(objfh, objtab, 0, recC, nzany, mark);
                 loadarc(objfh, objtab + j * 0xc, 0, recB, nmechc, markf);
                 pickpart(4, recbase, fh, big, buf0d54, nzany, e30, e58, recC,
                          buf6f22, e08, e80);
-                fillans(0x1a8, base, seed, buf62ae, buf6df2, nmechc, ed0, ef8,
+                fillans(0x1a8, base, mechfh, buf62ae, buf6df2, nmechc, ed0, ef8,
                         recB, idtab, ea8, e120, ytop, lvl);
                 goto after;
             redo:
@@ -499,7 +497,7 @@ main()
                     goto done1;
                 }
                 if (lvl == 1)
-                    autofill(0x1a8, base, seed, buf62ae, buf6df2, nmechc, ed0,
+                    autofill(0x1a8, base, mechfh, buf62ae, buf6df2, nmechc, ed0,
                              ef8, recB, idtab, ea8, e120, ytop, lvl);
             done1:
                 /* Tanda-tangan autofill PERSIS sama dengan fillans (14 arg,
@@ -551,7 +549,7 @@ main()
                 continue;
             case 0:
                 if (lvl == 1)
-                    autofill(0x1a8, base, seed, buf62ae, buf6df2, nmechc, ed0,
+                    autofill(0x1a8, base, mechfh, buf62ae, buf6df2, nmechc, ed0,
                              ef8, recB, idtab, ea8, e120, ytop, lvl);
                 f171f(2, 0x922, sub, nmax, postab);
                 break;
@@ -592,7 +590,7 @@ main()
             e30[i] = buf6f22[j];
             e80[i] = recC[i * 3 + 2];
             e58[i] = -1;
-            fillans(0x1a8, base, seed, buf62ae, buf6df2, nmechc, ed0, ef8,
+            fillans(0x1a8, base, mechfh, buf62ae, buf6df2, nmechc, ed0, ef8,
                     recB, idtab, ea8, e120, ytop, lvl);
             drawslot(ytop, nmechc, recB, ed0, ef8);
         again3:
@@ -635,10 +633,10 @@ main()
             mode = 1;
             goal = 1;
             f2fde();
-            j = loadarc(seed, base, 1);
+            j = loadarc(mechfh, base, 1);
             for (i2 = 0; i2 < 9; i2++)
                 recB[i2 * 3 + 2] = rowtab[i2];
-            nmech = mkpal(seed, ytop, recB, i2, 1);
+            nmech = mkpal(mechfh, ytop, recB, i2, 1);
             cursel = review(ytop, 0, 0, 0, 0, cur);
             if (cursel == -1)
                 continue;
@@ -655,12 +653,12 @@ main()
             p1 = 1;
             pass = 0;
             loadarc(fh, recbase, 0, recC, nzany, mark);
-            loadarc(seed, base, 0, recB, nmechc, markf);
+            loadarc(mechfh, base, 0, recB, nmechc, markf);
             j = loadarc(objfh, objtab, 0, recC, nzany, mark);
             loadarc(objfh, objtab + j * 0xc, 0, recB, nmechc, markf);
             pickpart(4, recbase, fh, big, buf0d54, nzany, e30, e58, recC,
                      buf6f22, e08, e80);
-            fillans(0x1a8, base, seed, buf62ae, buf6df2, nmechc, ed0, ef8,
+            fillans(0x1a8, base, mechfh, buf62ae, buf6df2, nmechc, ed0, ef8,
                     recB, idtab, ea8, e120, ytop, lvl);
         redraw1:
             f498c(ytop, nzany, recC, e08, e58);
@@ -688,12 +686,7 @@ main()
 quit:
     /* 0x10E8 -- blok keluar. */
     bios10(scrmode);
-    /* ⚠ TERTUNDA (penghalang yang SAMA dengan 0x00B9): baris berikutnya
-       adalah `dg0 = g83a;` yaitu mengembalikan kata pertama DGROUP yang
-       disimpan di awal main. Butuh simbol bernama di DGROUP:0000, yang
-       dibuang gendata.py (penyaring START <= a, START = 4). Biayanya 6 byte
-       di sini, jadi TOTAL 13 byte di seluruh main. Perbaikannya menyentuh
-       penataan DGROUP yang sekarang 100% cocok -- keputusan user. */
+    _TOP = g83a;
 }
 
 /* ⏳ BELUM DITULIS: 0x0101 ke atas (4.100 byte).

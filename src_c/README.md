@@ -957,7 +957,30 @@ Alamat simbol sekarang diambil dari rekaman **PUBDEF** `.OBJ`, dan pemadanan
 nama tidak peduli besar-kecil huruf (MASM memancarkan HURUF BESAR, `.c` huruf
 kecil; LINK memadankan tanpa peduli kasus).
 
-## ⚠ `gendata.py` membuang alamat DGROUP 0..3
+## ✅ DGROUP 0..3 milik crt0 — BUKAN bug gendata (koreksi 2026-07-31)
+
+Saya sempat mencatat ini sebagai bug. **Itu keliru.** `START = 4` di
+`gendata.py` memang disengaja: dua kata pertama DGROUP disumbang `C.OBJ`
+(crt0) yang selalu di-link paling depan. Kalau `gdata.c` ikut memancarkannya,
+seluruh DGROUP bergeser 4 byte.
+
+Yang dibutuhkan bukan perubahan `gendata.py`, melainkan memakai simbol yang
+**sudah diekspor crt0**:
+
+| simbol | offset DGROUP |
+|---|---|
+| `_TOP` | 0x0000 |
+| `_BASE` | 0x0002 |
+
+`main` MENYIMPAN `_TOP` di awal dan MENGEMBALIKANNYA saat keluar (bingkai
+tumpukannya sendiri 28.566 byte). Deklarasikan `extern int _TOP;` **tanpa**
+komentar `@0x...` supaya `gendata.py` mengabaikannya dan LINK mengambilnya
+dari `C.OBJ`. Menutup 12 byte di `main`.
+
+**Pelajaran:** sebelum menyebut sesuatu bug, baca komentar kodenya dan cek
+PUBDEF modul lain — alasannya sering sudah tertulis.
+
+## (dulu dianggap bug) `gendata.py` membuang alamat DGROUP 0..3
 
 Penyaringnya `START <= a` dengan `START = 4`, padahal `a` itu alamat **DGROUP**
 sedangkan `START` offset **DATA**. Simbol di DGROUP:0000..0003 karena itu tidak

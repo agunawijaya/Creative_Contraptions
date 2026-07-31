@@ -10,7 +10,7 @@
  * di mana tiap baris berada.
  *
  * Alamat global (DGROUP) di biner asli:
- *   0x846 = mode_    (mode permainan yang dipilih)
+ *   0x846 = miscfh    (mode permainan yang dipilih)
  *   0x740 = level_   (Apprentice / Master Builder)
  *   0x84a = ytop_    (Y baris pertama)
  *   0x1c28 = menu[]  (tabel entri menu, stride 24 byte, field Y di offset 22)
@@ -27,7 +27,7 @@ struct mitem {
 };
 
 extern struct mitem menu[];
-extern int mode_;
+extern int miscfh;
 extern int level_;
 extern int ytop_;
 
@@ -43,17 +43,17 @@ goalmenu()
     int y1, y2, y3, y4, y5, y6, h;
 
     y1 = ytop_;
-    h = load(mode_, level_, 13, y1);
+    h = load(miscfh, level_, 13, y1);
     y2 = y1 + h;
-    h = load(mode_, level_, 14, y2);
+    h = load(miscfh, level_, 14, y2);
     y3 = y2 + h;
-    h = load(mode_, level_, 15, y3);
+    h = load(miscfh, level_, 15, y3);
     y4 = y3 + h;
-    h = load(mode_, level_, 16, y4);
+    h = load(miscfh, level_, 16, y4);
     y5 = y4 + h;
-    h = load(mode_, level_, 17, y5);
+    h = load(miscfh, level_, 17, y5);
     y6 = y5 + h;
-    h = load(mode_, level_, 18, y6);
+    h = load(miscfh, level_, 18, y6);
     menu[0].y = y1;
     menu[1].y = y2;
     menu[2].y = y3;
