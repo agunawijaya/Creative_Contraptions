@@ -1103,6 +1103,29 @@ TERNARY. Jangan menyeragamkan — ukur tiap tempat.
 Alur kendalinya IDENTIK; yang berbeda cuma apakah kompiler masih menganggap
 penunjuknya hidup di register. Sepola dengan aturan penugasan-di-dalam-syarat.
 
+## ⭐⭐ MUATAN REGISTER mengikuti urutan SUMBER; SIMPANANNYA ditata ulang
+
+Aturan paling produktif yang ditemukan sejauh ini untuk membaca urutan
+pernyataan dari biner. Untuk dua pernyataan berurutan yang satu menyimpan
+KONSTANTA-immediate dan satunya menyimpan nilai yang perlu REGISTER:
+
+```
+mov ax, <nilai>        ← muatan register: mengikuti urutan SUMBER
+mov [immediate], K     ← simpanan pernyataan LAIN, disisipkan kompiler
+mov [register], ax     ← simpanan pernyataan pertama, DITUNDA
+```
+
+Jadi kalau di biner muatan `mov ax,X` muncul SEBELUM sebuah simpanan-immediate,
+pernyataan yang memakai X ditulis **lebih dulu** di sumber — walau simpanannya
+muncul belakangan.
+
+Terbukti di `animvm`: menukar `sndmode = 2; sndptr = tune;` jadi
+`sndptr = tune; sndmode = 2;` di EMPAT tempat plus `ticks`/`prevtop` menaikkan
+penjajaran **2.799 → 2.860** tanpa mengubah satu byte pun panjangnya.
+
+**Cara memakainya:** jangan membaca urutan pernyataan dari urutan SIMPANAN —
+baca dari urutan MUATAN REGISTER.
+
 ## ⚠ PERCOBAAN YANG GAGAL BISA BENAR — cek ulang sesudah perbaikan LAIN
 
 Memecah `u4c = *++u54;` jadi `u54++; u4c = *u54++;` di `animvm` `case 0x0c`

@@ -146,12 +146,17 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
         goto quit;
     }
     both = 0;
-    ticks = 0x27;
+    /* Pola yang sama: `mov ax,140h` dimuat SEBELUM simpanan-immediate `ticks`. */
     prevtop = 0x140;
     prevx = 0x140;
+    ticks = 0x27;
     sndoff();
-    sndmode = 2;
+    /* ⚠ `sndptr` DULU walau simpanannya belakangan: aslinya memuat
+       `mov ax,<tune>` SEBELUM simpanan-immediate `sndmode`, lalu menunda
+       simpanan `sndptr`-nya. Muatan register mengikuti urutan SUMBER;
+       simpanannya yang ditata ulang kompiler. */
     sndptr = 0x978;
+    sndmode = 2;
     sndon();
     /* Gelung "jam pasir": dua bingkai bergantian sampai `ticks` habis. */
     for (;;) {
@@ -170,8 +175,8 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
     snd[0] = 0x1f4;
     snd[1] = 0x5b4;
     snd[2] = 0x10;
-    sndmode = 1;
     sndptr = snd;
+    sndmode = 1;
     sndon();
     c1 = 0;
     /* Bilah turun dari 0x78 sampai posisi goal. */
@@ -188,8 +193,8 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
     }
     fillrect(u56 - 8, 0, u56 + 0x10, 7, 3);
     sndoff();
-    sndmode = 0;
     sndptr = snd;
+    sndmode = 0;
     sndon();
     delay(9);
     failed = 0;
@@ -605,8 +610,8 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
 
 quit:
     sndoff();
-    sndmode = 0;
     sndptr = snd;
+    sndmode = 0;
     sndon();
     delay(1);
     sndrest();

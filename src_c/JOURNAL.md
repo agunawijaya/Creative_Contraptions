@@ -1408,3 +1408,51 @@ berkasnya lengkap dengan apa yang sudah dicoba.
 
 `0x21bb:+3` (dua `jmp 1cd2` berturut di aslinya, yang kedua KODE MATI; kita
 cuma satu) dan `0x2304:+1` (jmp mubazir di atas).
+
+---
+
+## `animvm` tahap 12: muatan register = urutan sumber — 2.799 → 2.860 (94,1%)
+
+| | sebelum | sesudah |
+|---|---|---|
+| TERJAJAR | 2.799 / 3.040 (92,1%) | **2.860 / 3.040 (94,1%)** |
+| POSISI | 2.370 | **2.399** |
+| panjang | −1 | −1 (tak berubah) |
+| geseran | 2 | 2 (tak berubah) |
+
+**+61 byte tanpa mengubah panjang sama sekali** — semuanya beda ISI, bukan
+beda ukuran. Ini hasil dari menyisir CELAH (blok yang tidak masuk lari sejajar)
+alih-alih daftar geseran.
+
+### ⭐⭐ Muatan register mengikuti urutan SUMBER; simpanannya ditata ulang
+
+Untuk dua pernyataan berurutan — satu menyimpan konstanta-immediate, satunya
+menyimpan nilai yang perlu register — kompiler memancarkan:
+
+```
+mov ax, <nilai>        ← muatan register: mengikuti urutan SUMBER
+mov [immediate], K     ← simpanan pernyataan LAIN, disisipkan
+mov [register], ax     ← simpanan pernyataan pertama, DITUNDA
+```
+
+Jadi kalau `mov ax,X` muncul SEBELUM sebuah simpanan-immediate, pernyataan yang
+memakai X ditulis LEBIH DULU di sumber — walau simpanannya belakangan.
+
+Menukar `sndmode = N; sndptr = ...;` jadi `sndptr = ...; sndmode = N;` di EMPAT
+tempat, plus `prevtop`/`prevx` sebelum `ticks`, memberi seluruh +61 byte itu.
+
+**Konsekuensi cara kerja:** jangan membaca urutan pernyataan dari urutan
+SIMPANAN — baca dari urutan MUATAN REGISTER. Sudah masuk README.
+
+### Alat baru dalam praktik: sisir CELAH, bukan geseran
+
+Daftar geseran cuma menunjukkan beda PANJANG. Untuk beda ISI, hitung celah
+antar-lari-sejajar dari `align_runs()`. Celah terbesar saat ini:
+0x1bd2 (48 B), 0x1b1d (26 B), 0x22ea (26 B) — ketiganya blok kegagalan
+cabang ZANY/MEKANISME, dan bedanya murni PILIHAN REGISTER (bx/cx/dx bertukar
+peran), bukan panjang. Belum ada cara mengendalikannya.
+
+### Dicoba dan GAGAL
+
+Memindah `both = i;` ke belakang pencacah di cabang ZANY: 2.799 → 2.798.
+Dibatalkan.
