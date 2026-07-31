@@ -26,7 +26,6 @@
 
 /* Fungsi yang DIPANGGIL main tapi belum direkonstruksi -- stub supaya LINK
    jalan. Hapus satu per satu saat fungsinya ditulis. */
-setup() { return 0; }      /* @0x5f90 */
 animvm() { return 0; }     /* @0x18db -- VM animasi, 3.040 byte */
 
 /* Simbol DATA yang tidak bisa lewat gdata.c:

@@ -1042,6 +1042,28 @@ Begitu sebuah `.c` baru ditaruh di `src/`, `buildall.ps1` mengompilnya dan
 `link.ps1` otomatis ikut menautkannya. Kalau fungsi itu masih punya stub di
 `stubs.c`, keduanya bentrok. Cabut stubnya di saat yang sama.
 
+## ⚠ 1.200 BYTE NOL di 0x5F93..0x6442 — BUKAN kode
+
+Wilayah antara `setup` (0x5F90, tiga byte) dan rutin BIOS di 0x6443 berisi
+**1.200 byte nol berturut-turut**. Itu bukan kode game dan tidak perlu
+direkonstruksi. Angka target rekonstruksi mana pun yang menghitung wilayah
+`<0x69d7` sebagai kode akan **terlalu besar 1.200 byte**.
+
+Ditemukan 2026-07-31 saat menggarap `setup`, yang perkiraan ukurannya semula
+"≤1.210 byte" hanya karena entri manifest berikutnya jauh. Ukuran sebenarnya
+**3 byte**.
+
+⚠ Ada juga rutin kecil di **0x6443** (7 byte: `mov al,4 / mov ah,0 / int 10h /
+ret`) yang belum tercakup modul mana pun — `text.asm` baru mulai di 0x644A.
+
+## ⚠ `setup` membuktikan lagi: tidak semua fungsi berasal dari C
+
+`setup` aslinya `sub ax,ax / ret` — TIGA byte, tanpa prolog. MS C 1.04 selalu
+memancarkan `push bp / mov bp,sp ... pop bp`, jadi `setup() { return 0; }`
+memberi TUJUH byte. Ditulis sebagai `.asm` dan langsung cocok.
+**Kalau sebuah fungsi tidak punya prolog `push bp`, jangan coba menulisnya
+dalam C sama sekali.**
+
 ## Fungsi assembly (jangan direkonstruksi sebagai C)
 
 Prolog MS C 1.04 selalu `push bp; sub sp,N; mov bp,sp`. Sensus 144 fungsi:
