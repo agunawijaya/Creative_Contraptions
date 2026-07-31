@@ -331,6 +331,7 @@ main()
             lvl2 = 1;
             break;
         }
+    restart:
         goal = 1;
         /* ⭐ BENTUK SWITCH KETIGA: RANTAI PERBANDINGAN (0x05F1). Kalau nilai
            case-nya cuma sedikit, MS C 1.04 tidak membuat tabel sama sekali --
@@ -527,6 +528,19 @@ main()
             failed = animvm(state, nmechc, recB, ef8, e120, nzany, recC, e58,
                             e80);
             cursel = waitkey();
+            /* Switch RANTAI atas hasil waitkey (0x0BE6). */
+            switch (cursel) {
+            case 0:
+                if (lvl == 1)
+                    autofill(0x1a8, base, seed, buf62ae, buf6df2, nmechc, ed0,
+                             ef8, recB, idtab, ea8, e120, ytop, lvl);
+                f171f(2, 0x922, sub, nmax, postab);
+                break;
+            case -1:
+                continue;
+            default:
+                goto restart;
+            }
         endcase2:
             break;
         case 3:
