@@ -39,6 +39,20 @@
  * begitu ketemu. Bedanya dengan percobaan lama: ganjal di DEPAN tidak merusak
  * offset penyangga mana pun, sedangkan membesarkan `lvlbuf` merusaknya.
  *
+ * ⚠⚠ KESALAHAN STRUKTUR YANG BELUM DIPERBAIKI, terlokalisasi 2026-07-31 di
+ * 0x0C14. Aslinya:
+ *     cmp [bp+6F1Eh],1
+ *     je  0C19h          <- badan `if`
+ *     jmp 0D15h          <- lompat JAUH melewati SELURUH badan
+ * Punya kita cuma `jne 0C42h`. Sebabnya bukan bentuk syarat: badan `if` kita
+ * BERAKHIR TERLALU CEPAT. Di biner asli seluruh blok 0x0C43..0x0D14 masih DI
+ * DALAM `if` itu; di sumber kita blok yang sama berjalan TANPA SYARAT.
+ * (Kompiler memakai `je`+`jmp` justru KARENA jaraknya > 127 byte; `jne` pendek
+ * kita muat karena badannya kependekan.)
+ * Kode di 0x0C43 dan sesudahnya sudah cocok instruksi-per-instruksi, jadi yang
+ * salah murni LETAK KURUNG TUTUP-nya. Perbaikannya butuh menelusuri sampai
+ * 0x0D15 untuk menemukan di mana `if` itu seharusnya berakhir.
+ *
  * ⚠ JANGAN "memperbaiki"-nya dengan membesarkan salah satu penyangga.
  * Percobaan: menambah 2 byte ke lvlbuf menaikkan TERJAJAR 2.682 -> 3.470 dan
  * membuat SEMUA slot cocok -- tapi itu KOMPENSASI, bukan kebenaran: ia
@@ -432,6 +446,11 @@ main()
                dimaterialisasi, dan rantai dikompilasi sama persis dengan
                pernyataan terpisah. Selisihnya 6 byte; pemicunya kemungkinan
                di luar bentuk penugasan itu sendiri. */
+            /* ⚠ SUDAH DICOBA & GAGAL: memindah kelompok nol ke DEPAN
+               `sclo = 0` (mengikuti `xor ax,ax` yang muncul lebih dulu di
+               biner) menurunkan GLOBAL 3.378 -> 3.270 walau geseran 4 -> 2 dan
+               TERJAJAR naik. Contoh lagi bahwa daftar geseran yang lebih
+               pendek TIDAK berarti lebih baik. */
             sclo = 0;
             /* Urutan DIBACA dari muatan: `mov bx,140h` DULU (jadi `tx`
                pernyataan pertama), lalu simpanan-immediate `ta`, lalu

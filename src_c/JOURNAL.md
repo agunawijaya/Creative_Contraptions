@@ -1826,3 +1826,38 @@ tidak bisa dibandingkan langsung dari .OBJ.
 ⚠ Capstone berhenti di tiap tabel TANPA peringatan. Disassembly harus dimulai
 ulang di 0x0488, 0x0511, dan sesudah 0x10ca. Sebelum ini, seluruh wilayah
 0x0511..0x10fc — dua pertiga fungsi — TIDAK PERNAH TERLIHAT.
+
+---
+
+## `main`: tanpa kemajuan angka — tapi satu KESALAHAN STRUKTUR terlokalisasi
+
+GLOBAL tetap **3.378/4.219 (80,1%)**. Iterasi ini tidak menaikkan angka.
+
+### ⚠⚠ Blok yang seharusnya DI DALAM `if` berjalan tanpa syarat (0x0C14)
+
+Wilayah 0x0511..0x10fc baru bisa dilihat sejak tabel lompatnya dipetakan.
+Sisiran pertama langsung menemukan kesalahan struktur nyata:
+
+```
+asli:  cmp [bp+6F1Eh],1 / je 0C19h / jmp 0D15h      <- lompat JAUH melewati badan
+kita:  cmp [bp+6F1Eh],1 / jne 0C42h                 <- lompat pendek
+```
+
+Kompiler asli memakai `je`+`jmp` justru KARENA jarak lompatnya > 127 byte.
+`jne` pendek kita muat **karena badan `if` kita berakhir terlalu cepat**: di
+biner seluruh blok 0x0C43..0x0D14 masih DI DALAM `if` itu, sedangkan di sumber
+kita blok yang sama berjalan TANPA SYARAT.
+
+Kode di 0x0C43 dan sesudahnya sudah cocok instruksi-per-instruksi — yang salah
+murni LETAK KURUNG TUTUP. Sudah dicatat di kepala `main_.c`.
+
+⭐ Pola yang bisa dipakai lagi: **`je <dekat>` + `jmp <jauh>` di biner sementara
+kita memancarkan satu lompatan pendek = badan blok kita KEPENDEKAN.** Panjang
+lompatan adalah petunjuk struktur, bukan cuma detail penyandian.
+
+### Dicoba dan GAGAL
+
+Memindah kelompok penugasan nol ke DEPAN `sclo = 0` (mengikuti `xor ax,ax`
+yang muncul lebih dulu di biner): GLOBAL **3.378 → 3.270**, walau geseran
+turun 4 → 2 dan TERJAJAR naik 3.999 → 4.062. Contoh ketiga bahwa daftar
+geseran yang lebih pendek TIDAK berarti lebih baik. Dibatalkan dan dicatat.
