@@ -1212,6 +1212,26 @@ Semua fungsi lain, termasuk `main` yang angkanya paling rendah, sudah lengkap
 secara struktur. Persentase RENDAH tidak berarti "masih banyak yang belum
 ditulis" — itu keliru yang dipegang berminggu-minggu.
 
+## ⭐⭐ ARAH SYARAT + BADAN DITUKAR: semantik sama, byte BEDA
+
+Bentuk `if (A) X; Y;` dan `if (!A) Y; X;` menghasilkan kode yang SETARA tapi
+TIDAK identik. Yang pertama memancarkan lompatan-syarat untuk `!A`, yang kedua
+untuk `A` — dan kedua `jmp` sesudahnya ikut TERTUKAR.
+
+```
+KITA  je  L / jmp X / L: jmp Y        ASLI  jne L / jmp Y / L: jmp X
+```
+
+Tiga situs di `main_` diperbaiki dengan ini (2026-07-31): +5, +4, +5 -> 99,3%.
+Semuanya berbentuk "uji lalu dua lompatan" di ekor sebuah `case`.
+
+⭐ GEJALANYA MUDAH DIKENALI: celah 3-4 byte tepat di `jcc` yang diikuti DUA
+`jmp` berurutan, dengan sasaran yang sama tapi TERBALIK urutannya. Kalau
+melihat itu, balik syaratnya dan tukar badannya.
+
+⚠ ARAHNYA per-TEMPAT, bukan aturan global. Di `main_` dua situs perlu `== -1`
+(dari `!= -1`) dan satu situs perlu justru `!= -1` (dari `== -1`). UKUR.
+
 ## ⭐⭐⭐ GELUNG yang keluar lewat JATUH-TEMBUS harus ditulis dengan `goto`
 
 Ini menyelesaikan `animvm` (3.040 byte, fungsi terbesar yang tersisa):

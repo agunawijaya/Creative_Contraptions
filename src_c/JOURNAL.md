@@ -2444,3 +2444,31 @@ dua perlu dipindah dan satu tidak — pelajaran (b) lagi.
 Sisa `main_` (22 celah): 0x0132=4B (asli `mov cx,284h`), 0x0a36=4B, 0x0bfe=4B,
 0x0e01=4B, 0x0256=3B, 0x04e2=3B, sisanya <= 2 B. Semuanya BENTUK lokal;
 tidak ada lagi masalah panjang untuk disingkirkan lebih dulu.
+
+
+## `main_` 4.175 -> 4.189 (99,3%) lewat TIGA pembalikan arah syarat
+
+Celah tinggal 30 byte dalam 17 celah, terbesar 4 B.
+
+Ketiganya gejala yang SAMA dan digarap berpasangan (pelajaran g): `jcc` diikuti
+DUA `jmp` berurutan, sasarannya sama tapi urutannya TERBALIK dari asli.
+Aturannya dicatat di README.
+
+* baris 636 (`endcase2`) `!= -1` -> `== -1` + badan ditukar : +5
+* baris 703 (`endcase3`) `!= -1` -> `== -1` + badan ditukar : +4
+* baris 587 (`case 1`)   `== -1` -> `!= -1` + badan ditukar : +5
+
+⚠ Perhatikan arahnya BERLAWANAN di situs ketiga. Bentuk sumbernya nyaris
+identik dengan dua yang lain, tapi jawabannya kebalikan — kesekian kalinya
+kemiripan bentuk sumber terbukti bukan bukti.
+
+## `pickvar`: urutan pernyataan DIGUGURKAN (tiga permutasi)
+
+Dasar 1.654/1.730. Empat penugasan sebelum `if (idx + 1 < n)` (`k2`, `k`, `q`,
+`sel`) dipermutasi: `q,sel,k2,k` -> 1.584; `sel,q,k2,k` -> 1.579;
+`k2,k,sel,q` -> 1.649. Semua LEBIH BURUK.
+
+Jadi -3 byte di `pickvar` bukan soal urutan pernyataan. Yang dicari tetap
+apa yang membuat asli MENUMPAHKAN `si` ke `[bp+2]` di 0x43b5 (3 byte) dan
+memakai DI alih-alih SI sesudahnya — tanda `&list[idx]` masih HIDUP di sana.
+Kita menghitung ulang, jadi tidak perlu menumpahkan.

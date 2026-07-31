@@ -584,9 +584,11 @@ main()
             }
             /* 0x0A2E -- ekor case 4. Tidak pernah jatuh ke bawah: kalau
                dibatalkan kembali ke menu, kalau tidak ulangi dari `reset`. */
-            if (cursel == -1)
-                continue;
-            goto reset;
+            /* ⭐ Arah `!=` dengan badan DITUKAR — sama seperti kedua ekor
+               `endcase` di bawah. Asli memancarkan `jne` lebih dulu. */
+            if (cursel != -1)
+                goto reset;
+            continue;
         case 2:
             failed = 1;
             cursel = 0;
@@ -633,9 +635,13 @@ main()
             }
             /* 0x0BF6 -- ekor case 2: kalau belum dibatalkan, ulangi dari
                0x0AB2; kalau dibatalkan, ulangi dari `restart`. */
-            if (cursel != -1)
-                goto again2;
-            goto restart;
+            /* ⭐ Syaratnya `== -1` dengan badan DITUKAR: asli memancarkan
+               `je` lebih dulu lalu jatuh-tembus ke `goto again2`. Bentuk
+               `!= -1` memberi `jne` dan menukar kedua `jmp` sesudahnya —
+               semantiknya sama, byte-nya beda. */
+            if (cursel == -1)
+                goto restart;
+            goto again2;
         endcase2:
             break;
         case 3:
@@ -700,9 +706,13 @@ main()
                 goto restart;
             }
         endcase3:
-            if (cursel != -1)
-                goto again3;
-            goto restart;
+            /* ⭐ Syaratnya `== -1` dengan badan DITUKAR: asli memancarkan
+               `je` lebih dulu lalu jatuh-tembus ke `goto again3`. Bentuk
+               `!= -1` memberi `jne` dan menukar kedua `jmp` sesudahnya —
+               semantiknya sama, byte-nya beda. */
+            if (cursel == -1)
+                goto restart;
+            goto again3;
         case 1:
             cur = -1;
         again1:
