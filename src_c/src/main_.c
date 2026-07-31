@@ -130,6 +130,10 @@ extern int  lvl3;               /* @0x738 */
 extern int  shufflg;            /* @0x794 */
 extern int  sndok;              /* @0x71a  hasil sndini(); belum pernah dinamai */
 extern int  state[];            /* @0x4f2 */
+/* Tabel byte 9 entri, dipakai mengisi recB[i*3+2] di case 1. Ada di dalam
+   blok pengisi (simbol bernama terdekat: ytop_ @0x84a, hintstr @0xa26),
+   jadi aman dinamai. Maknanya belum dianalisa lebih jauh. */
+extern char rowtab[];           /* @0x870 */
 extern char idtab[];            /* @0x2ea */
 extern int  scrmode;            /* @0x3b0 */
 extern int  g83a;               /* @0x83a  belum dianalisa maknanya */
@@ -163,7 +167,7 @@ main()
     char g3[2];                 /* 6f20 */
     int  buf6f22[50];           /* 6f22  larik INT (dibaca per kata) */
     int  i;                     /* 6f86  pencacah loop, dipakai 9 kali */
-    char g1[2];                 /* 6f88  tak terreferensi */
+    int  i2;                    /* 6f88  pencacah kedua */
     int  cnt2;                  /* 6f8a */
     int  j;                     /* 6f8c */
     char g2[2];                 /* 6f8e  tak terreferensi */
@@ -619,6 +623,10 @@ main()
             mode = 1;
             goal = 1;
             f2fde();
+            j = loadarc(seed, base, 1);
+            for (i2 = 0; i2 < 9; i2++)
+                recB[i2 * 3 + 2] = rowtab[i2];
+            mkpal(seed, ytop, recB, i2, 1);
             break;
         }
     }
