@@ -197,9 +197,12 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
     sndmode = 0;
     sndon();
     delay(9);
-    failed = 0;
-    c2 = 0;
+    /* ⚠ Urutan TERBALIK dari urutan simpanan di biner: untuk beberapa
+       penugasan nol berturut yang berbagi satu register, kompiler memancarkan
+       simpanannya dalam urutan KEBALIKAN sumber. */
     c1 = 0;
+    c2 = 0;
+    failed = 0;
     prevx = 0x140;
     prevtop = 0x140;
     kbflush();
@@ -213,12 +216,12 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
             if (ord1[c1] != rec1[3 * c1 + 2]) {
                 failed = -1;
                 both = i;
+                ch18[0] = i + 0x41;
                 curz = c1;
                 slot = c2;
                 fail[c1]++;
                 zcnt++;
                 g7e8++;
-                ch18[0] = i + 0x41;
                 /* ⚠ slot/curz disimpan SEBELUM printf. Aslinya memuat c2, c1,
                    dan i ke bx/cx/dx sekaligus di awal blok lalu menyimpannya
                    mendahului `call`; menaruhnya SESUDAH printf memaksa

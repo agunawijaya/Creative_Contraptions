@@ -1498,3 +1498,38 @@ yang benar di sana. Sisa 1 byte-nya `jmp` mubazir yang belum terpecahkan.
 
 `0x22ea` (26), `0x1b22` (21), `0x2313` (13), `0x23b7` (13), `0x1ac6` (11),
 `0x2332` (9), `0x1ce0` (8), `0x1a9f` (7).
+
+---
+
+## `animvm` tahap 14: dua penataan ulang kecil — 2.913 → 2.929 (96,3%)
+
+| | sebelum | sesudah |
+|---|---|---|
+| TERJAJAR | 2.913 / 3.040 (95,8%) | **2.929 / 3.040 (96,3%)** |
+| POSISI | 2.430 | **2.437** |
+| total CELAH | 127 byte | **111 byte** |
+
+Panjang dan geseran tetap; semuanya beda ISI.
+
+### Dua temuan, keduanya soal URUTAN
+
+1. **`ch18[0] = i + 0x41;` naik ke tepat setelah `both = i;`** di cabang
+   MEKANISME. Bukti dari biner: `mov [844h],ax` lalu `add ax,41h` BERURUTAN —
+   perhitungannya menempel pada `both`, sedangkan simpanannya ditunda sampai
+   sesudah ketiga pencacah. Persis penerapan aturan tahap 12.
+   ⚠ Perubahan yang SAMA dicoba di cabang ZANY dan MEMPERBURUK (2.913 → 2.905).
+   Di sana ketiga pencacah memang duluan. Kembali lagi: **per-tempat.**
+
+2. **Penugasan nol berturut dipancarkan TERBALIK.** `failed = 0; c2 = 0;
+   c1 = 0;` memancarkan simpanan `c1, c2, failed`. Jadi urutan sumber yang
+   benar adalah KEBALIKAN urutan simpanan di biner. Membaliknya di sumber
+   memberi +7 byte.
+
+   ⚠ Ini pengecualian terhadap kebiasaan membaca urutan dari muatan register:
+   di sini TIDAK ADA muatan pembeda (ketiganya `= 0` dari AX yang sama), jadi
+   satu-satunya sinyal adalah urutan simpanan — dan sinyal itu TERBALIK.
+
+### Celah tersisa (111 byte)
+
+`0x22ea` (26), `0x2313` (13), `0x23b7` (13), `0x1b1c` (12), `0x1ac6` (11),
+`0x2332` (9), `0x1ce0` (8), `0x1a9f` (7).
