@@ -478,6 +478,12 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                     u52 = bally;
                     f2823(u44, u4e, u52, u4c, u50, u46, 1);
                     break;
+                /* ⭐ `default: break;` EKSPLISIT — tanpa ini kedua `break`
+                   (dalam lalu luar) diruntuhkan jadi SATU `jmp`. Aslinya
+                   memancarkan DUA `jmp 0x1cd5` berturut di 0x21b4/0x21b7.
+                   GLOBAL 2.901 -> 2.908. */
+                default:
+                    break;
                 }
                 break;
 
@@ -622,6 +628,12 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
             /* Badan `case 0xff` di 0x23d1 KOSONG dan paling belakang di biner,
                jadi labelnya WAJIB terakhir. */
             case 0xff:
+                break;
+            /* ⭐ `default:` EKSPLISIT DI BELAKANG. Tanpa ini badan `case 0xff`
+               yang kosong tidak memancarkan apa pun; aslinya ada `jmp` di
+               0x23d1 tepat sebelum tabel 0x23d4. GLOBAL 2.908 -> 2.921.
+               Menaruh `default:` DI DEPAN `case 0xff` tidak berpengaruh (2.908). */
+            default:
                 break;
             }
         }

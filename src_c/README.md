@@ -1212,6 +1212,32 @@ Semua fungsi lain, termasuk `main` yang angkanya paling rendah, sudah lengkap
 secara struktur. Persentase RENDAH tidak berarti "masih banyak yang belum
 ditulis" — itu keliru yang dipegang berminggu-minggu.
 
+## ⭐⭐⭐ `default:` EKSPLISIT MEMANCARKAN `jmp` — dan letaknya menentukan
+
+Dua kali membayar di `animvm` (2026-07-31): GLOBAL 2.901 -> 2.908 -> **2.921**.
+
+MS C 1.04 meruntuhkan rantai lompatan (aturan lama), tapi sebuah `default:`
+memaksa satu `jmp` TAMBAHAN yang tidak diruntuhkan:
+
+1. **Switch BERSARANG, `break` dalam lalu `break` luar.** Tanpa `default:`
+   keduanya runtuh jadi SATU `jmp`. Aslinya memancarkan DUA `jmp 0x1cd5`
+   berturut di 0x21b4/0x21b7 — tepat sebelum tabel pindainya di 0x21ba.
+   Menambah `default: break;` di switch DALAM memulihkannya (+7).
+
+2. **Badan `case` terakhir yang KOSONG.** `case 0xff: break;` sebagai label
+   TERAKHIR tidak memancarkan apa pun (jatuh keluar switch). Aslinya ada `jmp`
+   di 0x23d1, tepat sebelum tabel utama 0x23d4. Menambah `default: break;`
+   SESUDAH-nya memulihkan (+13).
+
+⚠ LETAKNYA PENTING: `default:` di DEPAN `case 0xff` tidak berpengaruh sama
+sekali (tetap 2.908). Yang bekerja hanya `default:` SESUDAH label terakhir —
+karena yang dibutuhkan adalah badan `case` terakhir berhenti menjadi yang
+terakhir.
+
+⭐ GEJALA yang harus dicari: diff instruksi kasar melaporkan `insert @asli`
+berupa satu `jmp` TEPAT SEBELUM tabel switch. Itu hampir selalu `default:` yang
+hilang, bukan salah badan case.
+
 ## ⭐⭐ KAPAN `&&` vs BERSARANG BERPENGARUH — syaratnya SUBEKSPRESI BERSAMA
 
 Aturan `&&` di bawah TIDAK berlaku di mana-mana. Empat titik data (2026-07-31):

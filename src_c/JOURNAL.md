@@ -2270,3 +2270,30 @@ yang BENAR (`mov ax / add ax`) di 0x5239.
 `"x"` ke berkas, kompilasi gagal, dan `.OBJ` LAMA yang terukur. Sejak itu tiap
 pengukur menghapus `.OBJ` dulu dan menolak melapor kalau kompilasi gagal. Ini
 kejadian KEDUA dari kelas yang sama (yang pertama: `cp` ke `/tmp` yang tidak ada).
+
+
+## `animvm` 2.901 -> 2.921 lewat DUA `default:` yang hilang
+
+96,1%. Profil celah berubah dari 140 B/114 celah jadi **119 B/76 celah**,
+terbesar 5 B. Diff instruksi kasar: 1.021 -> 1.029 dari 1.037 cocok.
+
+Keduanya ditemukan lewat gejala yang SAMA di diff kasar: `insert @asli` berupa
+satu `jmp` tepat sebelum sebuah tabel switch (0x21b7 sebelum tabel 0x21ba, dan
+0x23d1 sebelum tabel 0x23d4). Aturannya dicatat di README.
+
+Yang menarik: `default:` DI DEPAN `case 0xff` tidak berpengaruh (2.908), yang
+DI BELAKANG memberi +13. Jadi bukan keberadaan `default:` yang penting,
+melainkan bahwa badan `case` terakhir berhenti menjadi yang terakhir.
+
+Sisa di `animvm` (3 situs bentuk):
+* 0x22ea — KITA punya `jmp` yang ASLI tidak punya (kelebihan `break`?)
+* 0x23d1 — masih dilaporkan hilang walau GLOBAL naik; perlu dicek ulang apakah
+  laporan itu artefak penjajaran sesudah tabel
+* 0x235c/0x2365/0x2374 — di sekitar tabel pindai 0x235a; kemungkinan besar
+  ARTEFAK karena tabel kita bergeser 2 byte akibat `jmp` ekstra di 0x22ea.
+  Perbaiki 0x22ea dulu, baru nilai ulang ketiganya.
+
+⚠ Catatan alat: byte tabel switch KITA tampak acak di disassembly karena
+wildcard slot relokasi memakai offset KITA; kalau tabel bergeser relatif ke
+asli, byte yang disalin mendarat di posisi yang salah. Jangan membaca isi tabel
+dari keluaran ber-wildcard.
