@@ -2804,3 +2804,44 @@ place     2 byte
 Semuanya kelas alokasi register, dan untuk `main_` 0x0c83 + `place` baru saja
 TERBUKTI di luar jangkauan alat yang ada. `pickvar` sudah gagal EMPAT kali,
 `loadcon` sudah menggugurkan 13 varian. Kemajuan per iterasi kini 0-2 byte.
+
+
+## PENUTUPAN CAKUPAN: ~57 dari 71 byte sisa ada di kelas yang TERBUKTI di luar
+## jangkauan alat sekarang
+
+`loadcon` dipetakan lewat penanda (mendarat 0x5101, jadi situs 0x5115 memang di
+dalam gelung `do` seperti dicatat — pemetaan lama BENAR kali ini). Lalu celahnya
+diukur ulang:
+
+```
+52 byte / 41 celah, SELURUHNYA terkurung di 0x5107..0x5298
+sebelum 0x5115: cuma 1 byte (displacement lompatan ke dalamnya)
+sesudah 0x5298: TIDAK ADA
+```
+
+Jadi klaim lama di berkas — "seluruh sisa adalah SATU kaskade dari satu
+keputusan register" — TERBUKTI dengan pengukuran, bukan cuma dugaan. Dan
+keputusan itu (`mov bx,[lastgoal]` vs asli `mov ax`) persis kelas yang `probeC`
+baru saja buktikan TIDAK bisa dijawab dari bentuk sumber.
+
+⭐ AKIBATNYA, PETA SISA PEKERJAAN JADI JELAS:
+```
+KELAS "DI LUAR JANGKAUAN ALAT SEKARANG" (pilihan register se-fungsi)
+  loadcon  52 byte  (kaskade dari 0x5115)
+  main_     3 byte  (0x0c84/88/8a, BX vs SI — probeC seragam)
+  place     2 byte  (0x4fd4, SI vs DI)
+  pickvar   3 byte  (0x43b5, tumpahan — gagal 4x, sekelas)
+  = 60 byte
+KELAS LAIN (masih mungkin)
+  main_    ~11 byte (gugusan 8 B di 0x0126 = penundaan simpanan; sisanya kecil)
+```
+
+Ini BUKAN vonis "tidak bisa selesai" — ini pengakuan bahwa alat yang ada
+(pemetaan penanda, probe terkendali, pemindai pola, metrik GLOBAL) sudah
+mencapai batasnya untuk kelas itu. Yang dibutuhkan: pemahaman tentang bagaimana
+MS C 1.04 mewariskan keadaan alokator antar-blok dalam satu fungsi. Itu
+pekerjaan tersendiri, bukan iterasi tambahan dengan alat yang sama.
+
+⚠ Konsekuensi praktis: `loadcon` TIDAK LAGI sasaran paling menjanjikan meski
+byte-nya paling banyak. Sasaran yang tersisa dengan peluang nyata cuma ~11 byte
+di `main_`.

@@ -159,6 +159,11 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
   `pickvar` 1.654/1.730 (95,6%). `f498c` SELESAI 2026-07-31.
   ⚠ Sisanya SELURUHNYA kelas alokasi register — bingkai semua fungsi sudah cocok
   dan tidak ada lagi struktur yang belum ditulis.
+  ⚠⚠ Dari 71 byte sisa, **~60 byte TERBUKTI di luar jangkauan alat sekarang**:
+  pilihan register yang diwarisi SE-FUNGSI, bukan dari bentuk sumber lokal
+  (dibuktikan `src_c/probes/probeC.c` — lima varian semuanya memberi hasil
+  sama). `loadcon` 52 byte seluruhnya kaskade dari SATU keputusan di 0x5115.
+  Yang masih punya peluang nyata cuma ~11 byte di `main`.
 - TIGA fungsi selesai 2026-07-31 lewat DUA aturan baru (keduanya di `src_c/README.md`):
   - `f2823` (397 B, interpolator parabola) — `probes/probe19.c`: slot bingkai berisi
     konstanta `long` menandakan VARIABEL, dan cor `(long)` yang mubazir secara
