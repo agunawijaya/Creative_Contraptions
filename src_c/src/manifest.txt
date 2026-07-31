@@ -80,3 +80,4 @@ blit     672f     314
 prep     6939     271
 snd2     5b57     356
 waitn    2b11      35
+animvm   18db    3040

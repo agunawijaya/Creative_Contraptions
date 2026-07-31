@@ -25,8 +25,9 @@
 /* main() kini ada di main_.c (draf 126 byte dari 4.219). */
 
 /* Fungsi yang DIPANGGIL main tapi belum direkonstruksi -- stub supaya LINK
-   jalan. Hapus satu per satu saat fungsinya ditulis. */
-animvm() { return 0; }     /* @0x18db -- VM animasi, 3.040 byte */
+   jalan. Hapus satu per satu saat fungsinya ditulis.
+   ✅ KOSONG: stub terakhir (`animvm`) sudah punya sumber nyata di animvm.c
+   (baru prolog, belum byte-exact -- tapi bukan stub lagi). */
 
 /* Simbol DATA yang tidak bisa lewat gdata.c:
  *   sndbuf -- alamat aslinya 0x670e, DI LUAR DGROUP (itu segmen kode).

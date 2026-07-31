@@ -820,3 +820,59 @@ perlu diturunkan ulang dari disassembly — cek ke sana dulu tiap menulis case.
 1.039 instruksi di badan utama + 160 byte ekor. Ini pekerjaan BERTAHAP:
 kerangka (prolog, gelung baca skrip, dispatcher, ekor) dulu, baru case satu
 per satu menurut urutan alamat di tabel atas.
+
+---
+
+## `animvm` tahap 1: prolog ditulis — stub TERAKHIR habis
+
+| | sebelum | sesudah |
+|---|---|---|
+| `animvm` TERJAJAR | 0 / 3.040 (stub) | **412 / 3.040 (13,6%)** |
+| stub tersisa | 1 | **0** |
+| fungsi COCOK | 75/80 | 75/81 (animvm belum cocok, kini ikut dihitung) |
+| DATA (DGROUP) | 100% | 100% |
+
+480 byte tertulis, 412 di antaranya sejajar (86% dari yang ditulis). `stubs.c`
+sekarang KOSONG dari fungsi — tiap fungsi game punya sumber nyata, walau lima
+di antaranya belum byte-exact. `animvm` juga sudah masuk `manifest.txt` supaya
+verifyall melaporkannya apa adanya, bukan menyembunyikannya.
+
+### Bingkai: pengganjal SEMENTARA yang harus dibuang nanti
+
+Kompilasi pertama memberi bingkai 0x60, bukan 0x6a — kurang 10 byte. Sebabnya
+jelas: 92 byte lokal sudah benar, tapi draf ini baru menuntut 4 byte TEMP
+karena badan case belum ditulis (aslinya 14). Tanpa ganjal, SEMUA offset lokal
+bergeser 10 byte dan prolog yang sudah benar pun terhitung salah — penjajaran
+cuma 326. Dengan `char tpad[10]` di depan: bingkai 0x6a tepat, penjajaran 408.
+
+⚠ `tpad` WAJIB dibuang begitu ekspresi asli menuntut temp-nya sendiri, kalau
+tidak bingkainya akan kelebihan.
+
+### Dua perbaikan kecil yang terukur (408 → 412)
+
+- Urutan `u42 = 0; u56 = 0;` — aslinya menyimpan +56 DULU baru +42, dan
+  ternyata urutan sumber yang memberi itu justru yang terbalik dari dugaan.
+- Alamat data ditulis sebagai INDEKS larik bernama, bukan literal: 0x586 dan
+  0x5e6 ada DI DALAM `hdrspr[]` (@0x526) — tiga sprite 96 byte, jadi
+  `hdrspr`, `&hdrspr[96]`, `&hdrspr[192]`. Literal `0x586` tidak memancarkan
+  slot relokasi sama sekali, jadi selain salah byte ia juga lolos dari
+  symcheck. Ini persis aturan "alamat di dalam larik bernama ditulis sebagai
+  indeks larik itu".
+
+### Yang MASIH literal (utang untuk iterasi berikut)
+
+`sndptr = 0x978` masih angka mentah. 0x978 ada di dalam salah satu larik string
+DGROUP tapi pemetaannya belum bisa dipastikan — penelusur offset ad-hoc yang
+saya tulis meleset (melaporkan `hdrspr` di 0x048d padahal komentar sumber
+bilang 0x526), jadi angkanya TIDAK dipakai. Pakai alat resmi `dgroup.py`, jangan
+penelusur dadakan.
+
+### Sisa pekerjaan
+
+480 dari 3.040 byte. Yang belum ditulis: gelung utama (0x1ab8..0x1cd2),
+dispatcher (0x1cd2..0x1d06 + 0x241c..0x2430), 18 badan case, dan ekor
+(0x2433..0x24ba). Satu hal yang sudah terlihat dan perlu disiapkan: skor
+di 0x730 ditambah dengan `add [0x730],imm / adc [0x732],0` — aritmetika `long`
+atas pasangan word yang di gdata.c bernama `sclo`/`schi`. Trik yang sama
+seperti `char *scrptr` berlaku: deklarasikan `extern long sclo;` (nama SAMA,
+tipe beda) — tautannya tetap sah karena LINK memadankan nama, bukan tipe.
