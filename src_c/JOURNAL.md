@@ -2913,3 +2913,63 @@ Untuk melanjutkan dibutuhkan hal yang BUKAN iterasi tambahan: pemahaman
 bagaimana MS C 1.04 mewariskan keadaan alokator antar-blok dalam satu fungsi
 (mis. dengan membaca kode generator MS C 1.04 sendiri, atau menyusun model
 alokatornya dari eksperimen sistematis berskala jauh lebih besar).
+
+
+## TIGA TEMUAN BESAR DI TINGKAT .EXE (2026-07-31 sore)
+
+Sesi ini beralih dari "byte per fungsi" ke "apakah .EXE-nya benar", dan langsung
+menemukan tiga hal yang selama ini tidak terlihat karena tidak pernah diukur.
+
+### 1. `main_` TIDAK ADA DI MANIFEST — 4.219 byte tidak pernah dihitung
+`verifyall` membaca `manifest.txt`, dan `main_` tidak tercantum di sana. Jadi
+angka "78/81 fungsi, 18.851 byte" selama berminggu-minggu MENGABAIKAN fungsi
+terbesar kedua. Ditambahkan -> laporan jadi 78/82 dan `main_` muncul apa adanya
+("3 byte beda"). ⭐ Pelajaran: alat verifikasi hanya melihat apa yang didaftarkan
+kepadanya. Periksa CAKUPAN alat, bukan cuma keluarannya.
+
+### 2. PEMBAGI PERSENTASE salah DUA KALI
+* `~26.000` memuat 1.207 byte NOL di 0x5F93 yang bukan kode -> KODE NYATA 25.758.
+* `total_target = 26000 + 1200 + data` MENGHITUNG GANDA: modul assembly (blit,
+  snd1, prep, text, ...) semuanya sudah ada di manifest dan ikut `ok_bytes`;
+  menambah "+1.200 assembly" menghitungnya dua kali — dan +1.200 itu sendiri
+  keliru karena wilayah itu NOL.
+Sesudah dikoreksi: TOTAL 77,3% -> **79,9%** (bukan turun; angka lama yang salah).
+
+### 3. `drawtab` dan `setsel` ADALAH FUNGSI YANG SAMA — 177 byte dihitung ganda
+Keduanya terdaftar di 0x3769 ukuran 177, dan keduanya "COCOK". Byte-nya berbeda
+HANYA di slot relokasi (rujukan simbol), jadi kode mesinnya identik. `drawtab`
+(29 Jul, 1 pemanggil) adalah rekonstruksi lama dari fungsi yang sama dengan
+`setsel` (30 Jul, 12 pemanggil). Akibatnya fungsi itu di-LINK DUA KALI.
+Disatukan ke `setsel`; `askopts` diarahkan ulang; `drawtab.c` dipindah ke
+`probes/drawtab_DUPLIKAT.c`.
+⚠ Aturan lama "SATU NAMA jangan untuk DUA alamat" ternyata punya CERMIN yang
+sama berbahayanya: **DUA NAMA untuk SATU alamat**. Yang pertama bikin simbol
+salah tunjuk; yang kedua bikin kode terduplikasi di .EXE dan angka menggelembung.
+
+### 4. URUTAN LINK SALAH — abjad, bukan alamat
+`link.ps1` memakai `Sort-Object BaseName`. LINK menempatkan modul sesuai urutan
+pemberian, jadi .EXE kita isinya benar tapi TATA LETAKNYA acak. Diukur:
+```
+sebelum perbaikan   : 6,7% byte cocok per posisi, emulator LANGSUNG KELUAR
+urut alamat         : 34,1%
++ duplikat dibuang  : 43,0%
+```
+Sesudahnya geseran offset tinggal **±8 byte sampai 0x6449** — dan ±8 itu persis
+defisit per-fungsi yang sudah dikenal (place -2, pickvar -3, loadcon dst.).
+
+### 5. SISA TERBESAR DI TINGKAT .EXE: 1.207 byte NOL yang tidak kita hasilkan
+Di 0x06449 offset melompat -1.215: wilayah 0x5F93..0x6442 (1.207 byte NOL) ada
+di biner asli tapi TIDAK ADA di build kita. Manifest lompat dari `setup`
+(0x5f90, 3 B) langsung ke `text` (0x644a). Jadi ada satu "modul" sepanjang
+1.207 byte nol yang belum diketahui asalnya — kemungkinan penyangga tak
+terinisialisasi di modul assembly, atau padding LINK.
+⭐ INI SASARAN BARU YANG BUKAN KELAS ALOKATOR. Ia tidak butuh pemahaman
+alokator sama sekali, cuma perlu tahu modul apa yang menempati wilayah itu.
+
+### Butir yang TIDAK dikerjakan, dengan alasan
+Sudut "ubah keadaan alokator dari HULU" untuk 3 byte `main_` 0x0c83:
+blok tepat sebelumnya berakhir dengan panggilan `nvar()`, yang mengosongkan
+semua register. Jadi pilihan register di situ memang dibuat dari keadaan
+BERSIH — persis kondisi yang sudah diuji `probeC` (lima varian, semuanya BX).
+Mengubahnya berarti merestrukturisasi kode yang sudah cocok byte-per-byte,
+mempertaruhkan 4.216 byte demi 3. Tidak sepadan; tetap DIPARKIR.

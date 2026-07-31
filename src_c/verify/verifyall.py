@@ -95,7 +95,12 @@ def main():
     if art_bytes:
         print("      %d byte di antaranya ARTEFAK KOMPILER yang TIDAK cocok "
               "(tidak dihitung di atas)" % art_bytes)
-    print("Kode C game   : %d / ~26.000 byte  (%.1f%%)" % (ok_bytes, ok_bytes / 26000.0 * 100))
+    # KODE NYATA = wilayah 0x0082..0x69d7 (26.965 B) DIKURANGI 1.207 byte NOL
+    # di 0x5F93..0x6442 yang TERBUKTI bukan kode. Pembagi lama (~26.000)
+    # memuat byte nol itu, jadi semua persentase dulu terlalu KECIL.
+    CODE_TARGET = 25758
+    print("Kode C game   : %d / %d byte  (%.1f%%)"
+          % (ok_bytes, CODE_TARGET, ok_bytes * 100.0 / CODE_TARGET))
 
     # Segmen DATA (DGROUP) diverifikasi dari .EXE HASIL LINK -- itu artefak yang
     # sebenarnya, bukan .OBJ tunggal. Sumbernya: gdata.OBJ (offset 4..akhir) +
@@ -120,7 +125,12 @@ def main():
     print("Segmen DATA   : %d / %d byte  (%.1f%%)  [%s]"
           % (dg_ok, dg_tot, dg_ok * 100.0 / dg_tot, src))
 
-    total_target = 26000 + 1200 + (dg_tot or 9556)      # kode C + assembly + data
+    # ⚠ KOREKSI: rumus lama `26000 + 1200 + data` MENGHITUNG GANDA. Modul
+    # assembly (blit, blitmsk, keyio, text, prep, snd1, snd2, line, shftl,
+    # vbio, fillrec, setup, unrle) SEMUANYA ada di manifest dan sudah ikut
+    # `ok_bytes`; menambah +1.200 lagi menghitungnya dua kali. Dan +1.200 itu
+    # sendiri keliru — 1.207 byte di 0x5F93 ternyata NOL, bukan assembly.
+    total_target = CODE_TARGET + (dg_tot or 9556)       # kode game + data
     total_ok = ok_bytes + dg_ok
     print("-" * 46)
     print("TOTAL         : %d / %d byte  (%.1f%%)"

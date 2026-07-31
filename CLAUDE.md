@@ -151,8 +151,12 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
 
 - **LINK berhasil**: 61 `.OBJ` + `MC.LIB` → `src_c/out/CONTRAP.EXE`, tanpa error.
 - **Segmen DATA 9.556/9.556 byte, 0 beda** vs biner asli (diukur dari .EXE hasil link).
-- **Kode C+ASM: 78/81 fungsi COCOK byte-per-byte, 18.851 byte**; TOTAL 77,3%,
-  kode C game 72,5%. **TIDAK ADA stub tersisa** — `animvm` (3.040 B) SELESAI
+- **Kode C+ASM: 77/81 fungsi COCOK byte-per-byte, 18.674 byte**; TOTAL 79,9%,
+  kode C game 72,5% (dari 25.758 byte KODE NYATA).
+  ⚠ Angka lama "78/81 & 18.851" MENGGELEMBUNG: `drawtab` dan `setsel` ternyata
+  FUNGSI YANG SAMA di 0x3769 (177 byte dihitung dua kali, dan di-LINK dua kali).
+  Pembagi lama juga salah dua kali — memuat 1.207 byte NOL dan menghitung
+  modul assembly dua kali. Semua sudah dikoreksi di `verifyall.py`. **TIDAK ADA stub tersisa** — `animvm` (3.040 B) SELESAI
   2026-07-31, dan `nvar` (566 B) juga.
   Empat fungsi belum byte-exact tapi sudah sangat dekat (metrik GLOBAL):
   `main` 4.216/4.219 (99,9%), `place` 501/503, `loadcon` 687/739 (93,0%),
@@ -163,7 +167,13 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
   pilihan register yang diwarisi SE-FUNGSI, bukan dari bentuk sumber lokal
   (dibuktikan `src_c/probes/probeC.c` — lima varian semuanya memberi hasil
   sama). `loadcon` 52 byte seluruhnya kaskade dari SATU keputusan di 0x5115.
-  ⚠⚠ SEJAK 2026-07-31 SORE: **TIDAK ADA LAGI sasaran di luar kelas itu.**
+  ⚠ SASARAN BARU DI TINGKAT .EXE (bukan kelas alokator, jadi MASIH TERBUKA):
+  wilayah 0x5F93..0x6442 berisi **1.207 byte NOL di biner asli yang TIDAK ADA
+  di build kita** — manifest lompat dari `setup` (0x5f90) ke `text` (0x644a).
+  Cari modul apa yang menempatinya. Sesudah urutan LINK diperbaiki (dulu
+  ABJAD, seharusnya ALAMAT), .EXE kita cocok 43,0% per posisi dan geserannya
+  tinggal ±8 byte sampai 0x6449 — sisanya persis lubang 1.207 byte itu.
+  ⚠⚠ Selain itu: **tidak ada sasaran di luar kelas alokator.**
   Keempat sisa (main 3 B, loadcon 52 B, pickvar 3 B, place 2 B = 60 B)
   semuanya pilihan register se-fungsi. Melanjutkan butuh pemahaman BARU
   soal alokator MS C 1.04, bukan iterasi tambahan dengan alat yang ada.

@@ -4,7 +4,7 @@
  * Pertanyaan 2 (tabel @0x1af6): set `sndflag` (saklar suara).
  * ESC di salah satunya membatalkan (balikan -1); selesai -> balikan 1.
  *
- *   drawtab()=3769, show()=381a, kbflush()=36ef (sudah direkonstruksi)
+ *   setsel()=3769, show()=381a, kbflush()=36ef (sudah direkonstruksi)
  *   keyhit()=1791, getkey()=1814, tone2()=3734 (sudah direkonstruksi)
  *   put()=65e0 ; curopt @0x522, ctx @0x524, sndflag @0x83c
  *
@@ -28,7 +28,7 @@ askopts()
     char pad[2];         /* bingkai asli 4, kita 2. Lokal int tak-terpakai
                             DIBUANG kompiler di sini; array selalu dialokasikan. */
 
-    drawtab(ta1, 3);
+    setsel(ta1, 3);
     kbflush();
     for (;;) {
         while (keyhit() == 0)

@@ -18,11 +18,22 @@ $out  = "$root\src_c\out"
 New-Item -ItemType Directory -Force -Path $dos, $out | Out-Null
 
 # Urutan: crt0, lalu semua modul kode, lalu data, lalu stub.
+# ⚠⚠ URUTAN MODUL = URUTAN ALAMAT, BUKAN ABJAD.
+# LINK menempatkan modul sesuai urutan pemberiannya, jadi urutan abjad
+# menghasilkan .EXE yang isinya benar tapi TATA LETAKNYA acak -- cuma 6,7%
+# byte cocok per posisi, dan emulator langsung keluar. Urutan yang benar
+# dibaca dari manifest.txt (nama + alamat asli).
+$order = @{}
+Get-Content "$root\src_c\src\manifest.txt" | ForEach-Object {
+    if ($_ -match '^\s*(\S+)\s+([0-9a-fA-F]+)\s+(\d+)') {
+        $order[$Matches[1]] = [Convert]::ToInt32($Matches[2], 16)
+    }
+}
 $objs = @()
 $code = Get-ChildItem "$out\*.OBJ" | Where-Object {
     $n = $_.BaseName
     $n -notlike "probe*" -and $n -ne "gdata" -and $n -ne "stubs"
-} | Sort-Object BaseName
+} | Sort-Object @{Expression={ if ($order.ContainsKey($_.BaseName)) { $order[$_.BaseName] } else { 0x7FFF } }}, BaseName
 foreach ($f in $code) { $objs += $f.BaseName }
 $objs += "gdata"
 $objs += "stubs"
