@@ -31,7 +31,8 @@
  *   bp+6f86        int i    (pencacah loop, dipakai 9 kali)
  *   bp+6f88        4 byte TAK TERREFERENSI
  *   bp+6f8c        int
- *   bp+6f8e        4 byte TAK TERREFERENSI
+ *   bp+6f8e        2 byte TAK TERREFERENSI
+ *   bp+6f90        int n  (dikira pengganjal, ternyata variabel)
  *   bp+6f92        int
  *   bp+6f94        int
  *   ------------------------------------------------ total 0x6f96 = 28.566
@@ -124,7 +125,8 @@ main()
     int  i;                     /* 6f86  pencacah loop, dipakai 9 kali */
     char g1[4];                 /* 6f88  tak terreferensi */
     int  j;                     /* 6f8c */
-    char g2[4];                 /* 6f8e  tak terreferensi */
+    char g2[2];                 /* 6f8e  tak terreferensi */
+    int  n;                     /* 6f90 */
     int  k;                     /* 6f92 */
     char m;                     /* 6f94  ⚠ CHAR, bukan int -- biner memakai
                                    `mov byte ptr [bp+6f94],al` lalu
@@ -306,6 +308,26 @@ main()
                 goto quit;
             if (mode == 3)
                 setzany(nzany + nmechc, state, lvl2, markf, mark);
+            if (k == 1) {
+                /* Badan 0x566 (case 3) sebelum 0x56F (case 2) -> case 3 dulu. */
+                switch (mode) {
+                case 3:
+                    if (menu11() == -1)
+                        continue;
+                    break;
+                case 2:
+                    if (menu9() == -1)
+                        continue;
+                    break;
+                }
+            }
+            k = 0;
+            f171f(mode, 0x922, sub, nmax, postab);
+            loadarc(fh, recbase, 0, recC, nzany, mark);
+            if (lvl3 == 1)
+                n = 0;
+            else
+                n = 1;
             break;
         }
     }
