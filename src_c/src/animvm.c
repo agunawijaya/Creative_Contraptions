@@ -19,7 +19,8 @@
  *   f2823()=2823  setball()=2a53  showsc()=2a86  waitn()=2b11  prompts()=2b77
  *   kbflush()=36ef  timedrw()=4c04  sndoff()=5a74  sndon()=5a76  sndsave()=5a7f
  *   bounce()=2504  shftr()=6600  f66fd()=66fd (modul keyio.asm; PUBDEF-nya F66FD, bukan `keyio`)  blit()=672f  fillrect()=6869
- *   printf()=6a48  text()=6453  blitmsk()=6524
+ *   printf()=6a48  text()=6453  putmsk()=6524 (modul blitmsk.asm; PUBDEF-nya
+ *   PUTMSK, bukan `blitmsk` -- nama BERKAS != nama SIMBOL)
  *
  * ⏳ TAHAP 1: baru prolog. Angka penjajaran ada di JOURNAL.
  */
@@ -31,6 +32,7 @@ extern char *scrptr;
 
 extern int  prevtop;            /* @0x262 */
 extern int  prevx;              /* @0x266 */
+extern int  page2;              /* @0x2e2 */
 extern int  ticks;              /* @0x2e4 */
 extern int  goal;               /* @0x718 */
 extern int *sndptr;             /* @0x720 */
@@ -50,6 +52,10 @@ extern int  zcnt;               /* @0x7e6 */
 extern int  g7e8;               /* @0x7e8 */
 extern char msgmech[];          /* @0x9dd */
 extern char msgzany[];          /* @0xa01 */
+extern char buf9c5[];           /* @0x9c5 -- penyangga; dioper ke bounce()
+                                   dan blitmsk(). Perannya belum diturunkan,
+                                   tapi HARUS bernama: literal alamat tidak
+                                   memancarkan slot relokasi. */
 extern int  ballx;              /* @0x260 */
 extern int  bally;              /* @0x25e */
 extern int  mflag;              /* @0x834 */
@@ -123,7 +129,9 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
     int  u4c, u4e;
     int  u50, u52;
     char *u54;                  /* 0x54 — kursor tulis skrip sintetis */
-    int  u56, u58, u5a, u5c, u5e;
+    int  u56;
+    char *u58;                  /* 0x58 — awal badan gelung skrip (op 0x0d) */
+    int  u5a, u5c, u5e;
     char ch60[2];               /* 0x60/0x61 — pasangan (dx,dy) hasil pilihan */
     char ch62[8];               /* 0x62 — skrip SINTETIS {00, dx, dy, FF} */
 
@@ -317,7 +325,7 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 break;
 
             case 0x11:          /* 0x1e85 — tulis teks berparameter dari skrip */
-                bounce(0x9c5);
+                bounce(buf9c5);
                 u32 = *(int *)scrptr;
                 scrptr += 2;
                 u34 = *(int *)scrptr;
@@ -430,8 +438,103 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 }
                 break;
 
-            /* ⏳ 8 badan case menyusul; `case 0xff` (0x23d1, kosong) WAJIB
-               tetap paling akhir karena badannya paling belakang di biner. */
+            case 0x0c:          /* 0x21e1 — lempar bola ke koordinat RELATIF */
+                u44 = *scrptr++;
+                u44 = (u44 >= 0xc8) ? u44 - 0x100 : u44;
+                u46 = *scrptr++;
+                u54 = scrptr;
+                u4c = *++u54;
+                u4c = ((u4c >= 0xc8) ? u4c - 0x100 : u4c) + u22;
+                u50 = *u54++;
+                u50 = ((u50 >= 0xc8) ? u50 - 0x100 : u50) + u24;
+                u4e = ballx;
+                u52 = bally;
+                f2823(u44, u4e, u52, u4c, u50, u46, 1);
+                break;
+
+            case 0x04:          /* 0x2280 — ganti sumber BUNYI */
+                sndoff();
+                sndmode = *scrptr++;
+                switch (sndmode) {
+                case 1:         /* tiga kata tetap, disalin ke penyangga lokal */
+                    for (u1c = 0; u1c < 3; u1c++) {
+                        snd[u1c] = *(int *)scrptr;
+                        scrptr += 2;
+                    }
+                    sndptr = snd;
+                    break;
+                case 2:
+                case 3:         /* aliran mentah sampai penanda GANDA 0xFF 0xFF */
+                    sndptr = scrptr;
+                    do {
+                        scrptr++;
+                    } while (*scrptr != 0xff || *++scrptr != 0xff);
+                    scrptr++;
+                    break;
+                }
+                sndon();
+                break;
+
+            case 0x05:          /* 0x2305 */
+                putmsk(buf9c5, page2);
+                break;
+
+            case 0x06:          /* 0x2315 */
+                prevx = 0x140;
+                prevtop = 0x140;
+                break;
+
+            case 0x0d:          /* 0x2321 — tandai AWAL badan gelung */
+                u58 = scrptr;
+                u5a = -1;
+                u5c = 0;
+                break;
+
+            case 0x0e:          /* 0x2334 — aktifkan mode TUNGGU TOMBOL */
+                u5c = 1;
+                break;
+
+            case 0x0f:          /* 0x233c — akhir gelung / tunggu tombol */
+                if (u5c == 1) {
+                    /* Switch bersarang, tabelnya sendiri di 0x235a. */
+                    switch (keyhit()) {
+                    case 0x1b:
+                    case 0x0d:
+                    case 0x20:
+                        /* ⚠ `continue`, bukan `break`: di biner badan ini
+                           melompat LANGSUNG ke puncak gelung skrip dan
+                           melewati switch kedua di bawah. */
+                        u5a = 0;
+                        scrptr++;
+                        continue;
+                    case 0x00:
+                        break;
+                    default:
+                        getkey();
+                        break;
+                    }
+                }
+                switch (u5a) {
+                case 0:
+                    if (*scrptr != 0xff) {
+                        scrptr++;
+                        break;
+                    }
+                    u5c = 1;
+                    /* ⚠ JATUH TEMBUS ke case -1 */
+                case -1:
+                    u5a = *scrptr++;
+                    scrptr = u58;
+                    break;
+                default:
+                    u5a--;
+                    scrptr = u58;
+                    break;
+                }
+                break;
+
+            /* Badan `case 0xff` di 0x23d1 KOSONG dan paling belakang di biner,
+               jadi labelnya WAJIB terakhir. */
             case 0xff:
                 break;
             }
@@ -447,7 +550,7 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
         if ((lvl == 2 && goal <= 1) || (sub == 6 && failed == 0))
             showhint();
         if (i != n1 + n2)
-            bounce(0x9c5);
+            bounce(buf9c5);
         while (keyhit() == 0)
             ;
     }

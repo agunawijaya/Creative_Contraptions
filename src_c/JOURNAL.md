@@ -1082,3 +1082,59 @@ Ekspresi baru menuntut 8 byte temp, jadi `tpad` dikecilkan 8 → 6. Sebelum
 dikecilkan penjajaran cuma 1.322; sesudahnya 2.002. Ini kali KETIGA pola yang
 sama: **periksa bingkai lebih dulu, sebelum menyimpulkan apa pun dari angka
 penjajaran.**
+
+---
+
+## `animvm` tahap 5: KE-18 CASE LENGKAP (2.002 → 2.561, 84,2%)
+
+| | sebelum | sesudah |
+|---|---|---|
+| `animvm` TERJAJAR | 2.002 / 3.040 (65,9%) | **2.561 / 3.040 (84,2%)** |
+| panjang | 2.508 | **3.027 / 3.040 (−13)** |
+| badan case tertulis | 11 dari 18 | **18 dari 18** |
+| DATA / symcheck CURIGA | 100% / 0 | 100% / 0 |
+
+Ditulis: `0x0c`, `0x04`, `0x05`, `0x06`, `0x0d`, `0x0e`, `0x0f`. Seluruh
+struktur fungsi sekarang ADA — sisanya tinggal 12 geseran kecil.
+
+### `case 0x0f` — dua switch bersarang dan `continue` yang WAJIB
+
+Ini bagian paling berliku. `case 0x0f` memuat DUA switch bersarang berurutan:
+satu atas `keyhit()` (tabel sendiri di 0x235a) dan satu atas `u5a`.
+
+Yang penting: badan untuk tombol ESC/ENTER/SPASI melompat **langsung ke puncak
+gelung skrip**, MELEWATI switch kedua. Dalam C itu `continue`, bukan `break` —
+`break` cuma keluar dari switch dalam lalu jatuh ke switch kedua, dan
+perilakunya jadi lain. Salah satu dari sedikit tempat di mana pilihan kata
+kunci C mengubah struktur, bukan cuma byte.
+
+`case 0` di switch kedua **jatuh tembus** ke `case -1` (kalau byte skrip
+berikutnya 0xFF, setel `u5c = 1` lalu teruskan). Ini kemunculan KEDUA pola
+jatuh-tembus di fungsi ini.
+
+### `case 0x04` — aliran bunyi diakhiri penanda GANDA
+
+Mode 2/3 membaca sampai `0xFF 0xFF` BERURUTAN, bukan 0xFF tunggal — persis
+seperti yang sudah dicatat `parse_op04` di jalur port. Bentuk C-nya:
+`do { scrptr++; } while (*scrptr != 0xff || *++scrptr != 0xff);`
+Pra-increment di operan kedua itu penting: biner menaikkan kursor DULU baru
+membaca.
+
+### ⚠ Nama BERKAS ≠ nama SIMBOL — menggigit KEDUA kalinya
+
+`blitmsk(...)` gagal ditautkan: modul `blitmsk.asm` mem-PUBDEF **`PUTMSK`**
+(di offset 0), bukan `blitmsk`. Sama persis dengan `keyio`/`F66FD` dua iterasi
+lalu. Pemeriksaan PUBDEF sekarang WAJIB sebelum memanggil fungsi dari modul
+assembly:
+
+    python -c "import sys;sys.path.insert(0,'src_c/verify');from symcheck import read_pubdefs;print(read_pubdefs('src_c/out/blitmsk.OBJ'))"
+    -> [('DRAW', 88), ('PUT', 188), ('PUTMSK', 0), ('SHFTR', 220)]
+
+Satu modul, EMPAT simbol publik, dan tak satu pun bernama sama dengan berkasnya
+kecuali kebetulan.
+
+### Geseran tersisa (12)
+
+`0x1b28:+10`, `0x1b50:-1`, `0x1bd8:+3`, `0x1c07:-2`, `0x1ce8:-5`, `0x1fab:-7`,
+`0x2012:-1`, `0x2103:+5`, `0x21b9:+8`, `0x2236:+10`, `0x22da:+11`, `0x23a0:+13`.
+Semuanya BARU TERLOKALISASI, belum terdiagnosis.
