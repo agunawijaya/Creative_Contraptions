@@ -1212,6 +1212,64 @@ Semua fungsi lain, termasuk `main` yang angkanya paling rendah, sudah lengkap
 secara struktur. Persentase RENDAH tidak berarti "masih banyak yang belum
 ditulis" — itu keliru yang dipegang berminggu-minggu.
 
+## ⭐⭐⭐ GELUNG yang keluar lewat JATUH-TEMBUS harus ditulis dengan `goto`
+
+Ini menyelesaikan `animvm` (3.040 byte, fungsi terbesar yang tersisa):
+2.921 -> 2.961 dari satu bentuk, lalu 3.040/3.040 sesudah satu penghapusan.
+
+Biner sering memancarkan gelung yang KELUAR lewat jatuh-tembus dari uji terakhir:
+
+```
+22c6: (puncak)
+  ...
+  jne 0x22c6        <- uji 1 gagal -> ulang
+  mov ax,[3AEh]     <- MEMUAT ULANG (batas blok)
+  ...
+  jne 0x22c6        <- uji 2 gagal -> ulang
+  inc word ptr [3AEh]  <- JATUH-TEMBUS keluar, tanpa jmp apa pun
+```
+
+Tidak ada bentuk gelung C yang memberi itu:
+* `for(;;)` + `break`   -> keluar lewat `jmp` MUBAZIR ke instruksi berikutnya
+* `do {} while (A || B)` -> jatuh-tembus BENAR, tapi satu blok jadi uji kedua
+                            MEMAKAI ULANG SI alih-alih memuat ulang
+* `for` + `continue`    -> muat-ulang BENAR, `jmp` mubazirnya tersisa
+
+Yang memberi KEDUANYA adalah **dua `goto` ke satu label**:
+
+```c
+sndloop:
+    scrptr++;
+    if (*scrptr != 0xff) goto sndloop;
+    if (*++scrptr != 0xff) goto sndloop;
+    scrptr++;              /* jatuh-tembus, tanpa jmp */
+```
+
+Tiap `goto` adalah batas blok (jadi operan kedua memuat ulang), dan keluarnya
+jatuh-tembus alami. Lima bentuk gelung sudah diukur di tempat ini; hanya ini
+yang benar. ⭐ Kalau biner menunjukkan gelung tanpa `jmp` di jalan keluarnya,
+JANGAN mencari bentuk gelung — tulis `goto`.
+
+## ⚠⚠ PERBAIKAN YANG BENAR BISA BERUBAH JADI SALAH — ukur ulang sesudah tiap fix
+
+Pelajaran (c) selama ini berbunyi "daftar dicoba & gagal hanya berlaku untuk
+keadaan blok saat itu". Kebalikannya juga benar dan baru terbukti mahal:
+
+`default: break;` di switch UTAMA `animvm` memberi **+13** saat gelung bunyi
+masih salah — ia mengompensasi geseran 3 byte dengan menambah `jmp` kedua.
+Begitu gelung bunyi diperbaiki jadi bentuk `goto`, `default:` yang sama justru
+MENAHAN fungsi di 2.961. Menghapusnya -> **3.040/3.040**.
+
+⭐ Karena itu: sesudah setiap perbaikan yang mengubah PANJANG, uji ulang
+perbaikan-perbaikan sebelumnya di fungsi yang sama — terutama yang dulu hanya
+memberi kenaikan KECIL. Kenaikan kecil sering berarti "menambal geseran",
+bukan "benar".
+
+⚠ Gejalanya terbaca dari data, bukan dari firasat: panjang KITA 3.043 vs 3.040
+dan deretan celah 1-byte yang SEMUANYA displacement lompatan +3. Kalau semua
+selisih displacement seragam, cari SATU sisipan sebesar itu — jangan
+memperbaiki lompatannya satu per satu.
+
 ## ⭐⭐⭐ `default:` EKSPLISIT MEMANCARKAN `jmp` — dan letaknya menentukan
 
 Dua kali membayar di `animvm` (2026-07-31): GLOBAL 2.901 -> 2.908 -> **2.921**.

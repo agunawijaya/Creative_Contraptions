@@ -2297,3 +2297,34 @@ Sisa di `animvm` (3 situs bentuk):
 wildcard slot relokasi memakai offset KITA; kalau tabel bergeser relatif ke
 asli, byte yang disalin mendarat di posisi yang salah. Jangan membaca isi tabel
 dari keluaran ber-wildcard.
+
+
+## ✅ `animvm` SELESAI byte-per-byte — 3.040/3.040 (2026-07-31)
+
+Fungsi ke-77 dan yang TERBESAR di antara sisa. `verifyall`: COCOK 77/81,
+18.686 byte (naik 3.040). Kode C game 60,2% -> **71,9%**; TOTAL 68,6% -> **76,8%**.
+
+Jalannya dalam satu iterasi: 2.901 -> 2.908 -> 2.921 -> 2.961 -> **3.040**.
+
+1. `default: break;` di switch DALAM (case 0x03) — +7.
+2. `default: break;` di switch UTAMA sesudah `case 0xff` — +13.
+3. Gelung bunyi ditulis ulang dengan **dua `goto` ke satu label** — +40.
+   Ini yang menentukan; aturannya di README.
+4. `default:` di switch UTAMA DIHAPUS lagi — +79, jadi 100%.
+
+Butir 4 adalah pelajaran yang paling layak diingat. Perbaikan di butir 2 BENAR
+menurut pengukuran saat itu (+13), tapi ia sebenarnya menambal geseran 3 byte
+yang disebabkan gelung bunyi yang masih salah. Sesudah butir 3, ia berubah jadi
+penghalang. Kenaikan yang KECIL patut dicurigai sebagai tambalan.
+
+Gejala yang menuntun ke sana murni data: panjang 3.043 vs 3.040, dan tujuh celah
+1-byte yang SEMUANYA displacement lompatan +3 (75 vs 72, 8b vs 88, 81 vs 7e,
+54 vs 51, 4d vs 4a, 9e vs 9b, 16 vs 13) plus satu displacement 16-bit
+0x0902 vs 0x08ff. Keseragaman itu berarti SATU sisipan 3 byte, bukan tujuh
+kesalahan. Menelusuri di mana offset KITA-ASLI berubah dari +0 ke +3 menunjuk
+tepat ke 0x23d4, dan byte mentahnya memperlihatkan DUA `jmp` (`e9 fe f8` +
+`e9 fb f8`) di tempat asli cuma punya satu.
+
+⭐ Diff instruksi KASAR mencapai 1.037/1.037 sesudah butir 3 — semua beda
+struktural habis — padahal byte masih 79 beda. Jadi diff kasar dan profil celah
+saling melengkapi: yang satu menutup BENTUK, yang lain menutup PANJANG.

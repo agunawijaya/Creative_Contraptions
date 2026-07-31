@@ -548,13 +548,20 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                        keluar lewat FALL-THROUGH dari `jne` yang kedua — bentuk
                        do/while `||` memberi itu tapi memakai ulang SI. Sisa
                        1 byte, belum ada bentuk yang memberi KEDUANYA. */
-                    for (;;) {
-                        scrptr++;
-                        if (*scrptr != 0xff)
-                            continue;
-                        if (*++scrptr == 0xff)
-                            break;
-                    }
+                /* ⭐ BENTUK `goto`, bukan gelung. Biner keluar lewat JATUH-TEMBUS
+                   dari `jne` KEDUA (0x22e8), lalu langsung `inc [3AEh]`.
+                   `for/break` memancarkan `jmp` mubazir ke instruksi
+                   berikutnya; `do/while ||` jatuh-tembus tapi memakai ulang SI
+                   alih-alih memuat ulang. Dua `goto` ke label yang sama memberi
+                   KEDUANYA: batas blok (jadi operan kedua MEMUAT ULANG
+                   `mov ax,[3AEh]`) dan keluar lewat jatuh-tembus.
+                   GLOBAL 2.921 -> 2.961. (do/while + continue: 2.960.) */
+                sndloop:
+                    scrptr++;
+                    if (*scrptr != 0xff)
+                        goto sndloop;
+                    if (*++scrptr != 0xff)
+                        goto sndloop;
                     scrptr++;
                     break;
                 }
@@ -629,12 +636,11 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                jadi labelnya WAJIB terakhir. */
             case 0xff:
                 break;
-            /* ⭐ `default:` EKSPLISIT DI BELAKANG. Tanpa ini badan `case 0xff`
-               yang kosong tidak memancarkan apa pun; aslinya ada `jmp` di
-               0x23d1 tepat sebelum tabel 0x23d4. GLOBAL 2.908 -> 2.921.
-               Menaruh `default:` DI DEPAN `case 0xff` tidak berpengaruh (2.908). */
-            default:
-                break;
+            /* ⚠ JANGAN tambahkan `default:` di sini. Sempat ditambahkan saat
+               gelung bunyi masih salah (memberi +13 karena mengompensasi
+               geseran 3 byte); begitu gelung bunyi diperbaiki jadi bentuk
+               `goto`, `default:` justru memancarkan `jmp` KEDUA di 0x23d4 dan
+               menahan fungsi di 2.961. Tanpa `default:`: 3.040/3.040. */
             }
         }
         if (steps[i] == -1)
