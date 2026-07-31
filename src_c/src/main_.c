@@ -415,6 +415,17 @@ main()
                 setmark(nzany + nmechc, state, lvl, markf, mark);
                 f171f(2, 0x922, sub, nmax, postab);
                 p1 = 1;
+                /* Tiga nol di-hoist dari satu `xor ax,ax` yang juga jadi
+                   argumen; pancarannya kebalikan urutan sumber. */
+                slot = 0;
+                curz = 0;
+                pass = 0;
+                j = loadarc(fh, recbase, 0, recC, nzany, mark);
+                if (lvl3 == 1)
+                    n = 0;
+                else
+                    n = 1;
+                loadarc(seed, base, n, recB, nmechc, markf);
             redo:
                 ;
             }
