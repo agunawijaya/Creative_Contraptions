@@ -1212,6 +1212,41 @@ Semua fungsi lain, termasuk `main` yang angkanya paling rendah, sudah lengkap
 secara struktur. Persentase RENDAH tidak berarti "masih banyak yang belum
 ditulis" — itu keliru yang dipegang berminggu-minggu.
 
+## ⭐⭐ KAPAN `&&` vs BERSARANG BERPENGARUH — syaratnya SUBEKSPRESI BERSAMA
+
+Aturan `&&` di bawah TIDAK berlaku di mana-mana. Empat titik data (2026-07-31):
+
+```
+nvar         syarat & badan berbagi `list[r]`,`list[r-1]` -> MERGE MEMPERBAIKI (+155, exact)
+pickvar 207  berbagi `list[idx+1]`                        -> MERGE MEMPERBURUK (-87)
+place   129  `sp->id`/`sp->row` vs badan `sp->spr`        -> BYTE-IDENTIK (b3ae839b60d6fec7)
+pickvar 317  cuma skalar `idx` yang sama                  -> GLOBAL SAMA
+```
+
+PREDIKAT: pertukaran `&&` <-> bersarang hanya mengubah kode kalau syarat dan
+badan (atau kedua syarat) berbagi SUBEKSPRESI MAJEMUK — muatan ber-indeks atau
+lewat penunjuk seperti `list[r]`. Variabel SKALAR yang sama TIDAK cukup; field
+BERBEDA dari penunjuk yang sama juga TIDAK cukup.
+
+Konsisten dengan mekanismenya: yang jadi masalah adalah CSE yang harus BERTAHAN
+melintasi cabang, dan hanya subekspresi majemuk yang layak di-CSE. Kalau tidak
+ada yang perlu bertahan, kedua bentuk runtuh ke pohon yang sama.
+
+⚠ ARAHNYA TIDAK BISA DITEBAK, hanya DIUKUR. `nvar` dan `pickvar` sama-sama
+memenuhi predikat dan bentuk sumbernya nyaris identik (keduanya `- 100 ==`),
+tapi jawabannya BERLAWANAN. Predikat menyaring MANA yang layak diprobe; ia tidak
+menentukan hasilnya.
+
+## ⚠ DIFF TINGKAT INSTRUKSI: slot relokasi memancing beda PALSU
+
+Perbandingan byte men-wildcard slot relokasi, tapi DISASSEMBLY tidak — operannya
+masih placeholder. Di `loadcon` itu membuat 44 situs terlihat beda padahal yang
+NYATA cuma DUA; sisanya `call 0xffffdc92` vs `call 0x6e8b`, `mov ax,[0x5003]` vs
+`mov ax,[0x3b4]`, dan sejenisnya.
+
+Kalau memakai diff instruksi, ABAIKAN operan yang jatuh di slot relokasi, atau
+bandingkan mnemonic + register saja.
+
 ## ⭐⭐⭐ `if (A) { if (B) ... }` vs `if (A && B)` — BUKAN sekadar gaya
 
 Ini menyelesaikan `nvar` SEKALIGUS: GLOBAL 411/566 -> **566/566 byte-per-byte**,

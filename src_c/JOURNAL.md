@@ -2195,3 +2195,31 @@ pernyataan pertama):
 
 Kesimpulan: sasaran untuk aturan ini habis. Sisa pekerjaan seluruhnya kelas
 alokasi register.
+
+
+## `loadcon` dipersempit ke DUA situs; predikat untuk aturan `&&` ditemukan
+
+**`loadcon`** — bingkai KITA = ASLI (`sub sp,0x124`), panjang TEPAT 739. Diff
+tingkat instruksi: 268 instruksi di kedua sisi, 224 cocok. Dari 44 situs yang
+"beda", hampir semuanya PALSU (operan slot relokasi). Yang NYATA cuma dua:
+
+```
+0x5115  KITA mov bx,[lastgoal] / cmp bx,[sub]     ASLI mov ax,... / cmp ax,...
+0x527e  KITA mov ax,[A] / mov dx,[B] / add dx,ax  ASLI mov ax,[A] / add ax,[B]
+```
+
+Yang kedua penting karena idiom yang SAMA muncul 60 byte sebelumnya di 0x5239
+dan di sana bentuk kita SUDAH BENAR (`mov ax,X / add ax,Y`). Jadi per teknik (A)
+bentuk sumbernya BUKAN sebabnya — konteksnya yang beda. Sejalan dengan
+probe11..13 yang dulu mereproduksi bentuk lokal ini dan semua variannya
+memancarkan perilaku yang benar.
+
+**Predikat untuk aturan `&&`** — empat titik data, tabelnya di README.
+Ringkasnya: pertukaran hanya berpengaruh kalau syarat dan badan berbagi
+subekspresi MAJEMUK. `place` baris 129 dipecah dan keluarannya BYTE-IDENTIK
+(hash b3ae839b60d6fec7); `pickvar` 317 juga tak berubah — keduanya tidak berbagi
+apa pun yang layak di-CSE. Predikat menyaring kandidat; arahnya tetap harus
+diukur, karena `nvar` dan `pickvar` 207 nyaris sama tapi jawabannya BERLAWANAN.
+
+Alat pemecah menolak sendiri lima dari enam kandidat `pickvar` (karena `while`,
+atau tak berkurung) — menolak lebih baik daripada diam-diam mengubah semantik.
