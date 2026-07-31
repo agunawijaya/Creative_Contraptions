@@ -1103,6 +1103,20 @@ TERNARY. Jangan menyeragamkan — ukur tiap tempat.
 Alur kendalinya IDENTIK; yang berbeda cuma apakah kompiler masih menganggap
 penunjuknya hidup di register. Sepola dengan aturan penugasan-di-dalam-syarat.
 
+## ⚠ PERCOBAAN YANG GAGAL BISA BENAR — cek ulang sesudah perbaikan LAIN
+
+Memecah `u4c = *++u54;` jadi `u54++; u4c = *u54++;` di `animvm` `case 0x0c`
+dicoba di tahap 9 dan **gagal**: panjang melonjak +10 tanpa menaikkan
+penjajaran, jadi dibatalkan. Percobaan yang SAMA PERSIS dicoba lagi satu
+iterasi kemudian — setelah perbaikan yang TIDAK BERHUBUNGAN di blok yang sama
+(pemulihan tanda yang hasilnya dibuang) — dan kali ini **berhasil**:
+penjajaran 2.748 → 2.753 dan satu geseran lunas.
+
+Sebabnya: alokasi register se-BLOK. Selama masih ada bentuk yang salah di blok
+itu, bentuk yang BENAR di tempat lain bisa terlihat memburuk. **Daftar "sudah
+dicoba & gagal" hanya berlaku untuk keadaan blok saat itu.** Kalau blok yang
+sama kemudian berubah, percobaan yang tercatat gagal layak diulang.
+
 ## ⭐ NILAI YANG DIBUANG tetap memancarkan kode — dan itu bisa BUG ASLINYA
 
 Di `animvm` `case 0x0c` biner menghitung pemulihan tanda 0xC8 lalu **membuang

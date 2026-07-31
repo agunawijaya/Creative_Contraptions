@@ -470,7 +470,8 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 (u44 >= 0xc8) ? u44 - 0x100 : u44;
                 u46 = *scrptr++;
                 u54 = scrptr;
-                u4c = *++u54;
+                u54++;
+                u4c = *u54++;
                 u4c = ((u4c >= 0xc8) ? u4c - 0x100 : u4c) + u22;
                 u50 = *u54++;
                 u50 = ((u50 >= 0xc8) ? u50 - 0x100 : u50) + u24;
@@ -493,6 +494,12 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 case 2:
                 case 3:         /* aliran mentah sampai penanda GANDA 0xFF 0xFF */
                     sndptr = scrptr;
+                    /* ⚠ SUDAH DICOBA & GAGAL: bentuk `for(;;) { scrptr++;
+                       if (*scrptr == 0xff && *++scrptr == 0xff) break; }`
+                       menurunkan penjajaran 2.753 -> 2.731. Bentuk do/while
+                       dengan `||` di bawah ini yang benar. Sisa 1 byte di
+                       0x22da: aslinya MEMUAT ULANG `mov ax,[3AEh]` sedangkan
+                       kita memakai ulang SI dari uji pertama. */
                     do {
                         scrptr++;
                     } while (*scrptr != 0xff || *++scrptr != 0xff);

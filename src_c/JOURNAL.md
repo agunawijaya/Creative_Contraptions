@@ -1316,3 +1316,43 @@ Bentuk pra-increment satu-ekspresi tetap yang benar di sana.
 `0x21bb:+3`, `0x2219:+7`, `0x22da:+8`, `0x23a0:+10`.
 Yang di 0x21bb masih sama: aslinya punya DUA `jmp 1cd2` berturut di
 0x21b4/0x21b7 (yang kedua KODE MATI), punya kita cuma satu. Belum terpecahkan.
+
+---
+
+## `animvm` tahap 10: percobaan yang gagal ternyata benar — 2.748 → 2.753
+
+| | sebelum | sesudah |
+|---|---|---|
+| TERJAJAR | 2.748 / 3.040 (90,4%) | **2.753 / 3.040 (90,6%)** |
+| geseran | 4 | **3** |
+| panjang | −10 | −6 |
+
+### ⚠ Percobaan yang GAGAL bisa BENAR sesudah perbaikan lain
+
+Memecah `u4c = *++u54;` jadi `u54++; u4c = *u54++;` dicoba di tahap 9 dan
+**gagal** (panjang +10, penjajaran tetap), jadi dibatalkan dan dicatat sebagai
+jangan-diulang. Percobaan yang SAMA PERSIS dicoba lagi iterasi ini — setelah
+perbaikan tahap 9 yang tidak berhubungan di blok yang sama — dan **berhasil**:
+geseran `0x2219` lunas.
+
+Alasannya sudah dipahami: alokasi register se-BLOK. Selama masih ada bentuk
+yang salah di blok itu, bentuk yang BENAR di tempat lain bisa terlihat
+memburuk. Konsekuensinya untuk cara kerja: **daftar "sudah dicoba & gagal"
+hanya berlaku untuk keadaan blok saat itu.** Sudah masuk README.
+
+Pemeriksaan berdampingan juga menemukan bahwa bentuk lama SALAH secara
+semantik, bukan cuma boros: ia membaca byte `p+2` DUA KALI dan tidak pernah
+membaca `p+3`. Bentuk baru membaca `p+2` lalu `p+3` seperti aslinya.
+
+### Dicoba dan GAGAL iterasi ini
+
+Gelung aliran bunyi `case 0x04` ditulis ulang sebagai
+`for(;;) { scrptr++; if (*scrptr == 0xff && *++scrptr == 0xff) break; }`:
+penjajaran TURUN 2.753 → 2.731 walau daftar geserannya terlihat lebih pendek.
+Dibatalkan; alasannya ditulis di berkasnya. Bentuk `do/while` dengan `||` yang
+benar. Sisa 1 byte di sana: aslinya MEMUAT ULANG `mov ax,[3AEh]` sedangkan kita
+memakai ulang SI dari uji pertama.
+
+### Geseran tersisa (3)
+
+`0x21bb:+3`, `0x22da:+4`, `0x23a0:+6`.
