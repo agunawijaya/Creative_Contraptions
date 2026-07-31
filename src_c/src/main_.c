@@ -160,9 +160,10 @@ main()
     char buf6df2[300];          /* 6df2 */
     int  p1;                    /* 6f1e  dikira bagian penyangga, ternyata int */
     char g3[2];                 /* 6f20 */
-    char buf6f22[100];          /* 6f22 */
+    int  buf6f22[50];           /* 6f22  larik INT (dibaca per kata) */
     int  i;                     /* 6f86  pencacah loop, dipakai 9 kali */
-    char g1[4];                 /* 6f88  tak terreferensi */
+    char g1[2];                 /* 6f88  tak terreferensi */
+    int  cnt2;                  /* 6f8a */
     int  j;                     /* 6f8c */
     char g2[2];                 /* 6f8e  tak terreferensi */
     int  n;                     /* 6f90 */
@@ -561,6 +562,16 @@ main()
                     e80[i] = -1;
                     e58[i] = -1;
                 }
+            }
+            i = nzany - 1;
+            /* 0x4BA itu recC + 2 kata, jadi recC[i*3+2] -- BUKAN simbol baru
+               (aturan: satu alamat satu nama). */
+            cnt2 = nvar(recC[i * 3 + 2], buf6f22);
+            for (j = 0; j < cnt2; j++) {
+                /* recbase di berkas ini bertipe int (main mengisinya dengan alamat),
+                   jadi butuh cast; urutan operan tetap bentuk PENUNJUK. */
+                if ((buf6f22[j] * 0xc + (char *)recbase)[1] == sub)
+                    break;
             }
             break;
         case 1:
