@@ -14,8 +14,15 @@
  * SUDAH DICOBA & GAGAL: menukar urutan balltop/scrptr++ (3 bentuk, termasuk
  * penugasan bersarang `balltop = 0xc7 - (ballx = ...)`) -- tidak satu pun
  * menaikkan penjajaran.
- * Ambang tanda 0xC8 sudah terkonfirmasi dari biner; yang belum pas adalah
- * cara kompiler menyusun ulang pembacaan kedua byte.
+ * ⭐ DIVERGENSI SUDAH TERLOKALISASI (0x273A): aslinya `inc word ptr [3AEh]`
+ * -- menaikkan kursor DI MEMORI lalu MEMUAT ULANG (`mov si,[3AEh]`) untuk
+ * pembacaan berikutnya. Punya kita menyimpan kursor di register
+ * (`mov bx,[3AEh]; inc bx`) dan memakainya ulang, jadi 3 byte lebih pendek
+ * di satu tempat dan lebih panjang di tempat lain.
+ * ⚠ BEDA dari f278e: di sana post-increment satu-ekspresi (`*(char*)p++`)
+ * yang benar; di SINI justru bentuk dua-pernyataan dengan muat-ulang.
+ * Yang belum dicoba: menyisipkan pemakaian scrptr lain di antaranya, atau
+ * memaksa muat ulang dengan menulis `scrptr = scrptr + 1;`.
  */
 
 extern int  scrptr;             /* @0x3ae  kursor baca skrip (char *) */
