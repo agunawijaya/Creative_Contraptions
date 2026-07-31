@@ -336,46 +336,57 @@ inner:
     goto inner;
 }
 
-/* ⏳ DRAF — 543 byte ditulis, 256 cocok. Divergensi pertama +231.
+/* ⏳ DRAF — SELURUH fungsi sudah tertulis (tidak ada blok yang belum digarap).
+ * Panjang 1.726 vs 1.730 asli. TERJAJAR 1.616/1.730 (93%).
  *
- * ⭐⭐ MISTERI GHIDRA TERPECAHKAN. `if (param_7 + 0x141 != param_7)` berasal
- * dari DUA perbandingan nyata di 0x4500..0x4519:
- *       mov bx,[bp+0Ah] ; cmp bx,ax ; jne .. ; jmp 4713   -> if (q == idx) goto L4713;
- *       add ax,141h     ; cmp ax,bx ; jne .. ; jmp 45DD   -> if (idx+141h != q) {...}
- * Karena `q = idx + 141h` (diset di 0x439C), syarat pertama SELALU salah dan
- * kedua SELALU salah -- jadi blok 0x451A..0x45DC (~200 byte) TIDAK PERNAH
- * TERCAPAI di biner asli. Ghidra melipat keduanya jadi satu syarat mustahil.
+ * ⚠ CARA MENGUKUR. Jangan pakai "byte cocok per POSISI" untuk fungsi yang
+ * panjangnya belum pas: satu sisipan menggeser sisa berkas dan byte yang
+ * sebenarnya benar terhitung salah. Angka posisi fungsi ini cuma 368 padahal
+ * yang benar-benar sejajar 1.616. Pakai alat penjajaran:
+ *     python src_c/verify/aligncmp.py pickvar
+ *     python src_c/verify/aligncmp.py pickvar --sbs 43f1 44 -1   (berdampingan)
  *
- * ⚠ Blok mati itu TETAP HARUS DIREPRODUKSI byte-per-byte. Jangan "diperbaiki"
- * dan jangan dihapus -- byte-nya ada di biner. Ini bukti kedua (sesudah bug
- * `load`) bahwa biner ini memuat kode yang tak pernah jalan.
+ * SISA GESERAN (tinggal tiga titik):
+ *   +3 @0x43B8  aslinya memancarkan `mov [bp+2],si` (spill) yang tidak kita
+ *               keluarkan. Di kemunculan KEDUA (0x4633) spill yang sama SUDAH
+ *               keluar, jadi bedanya tekanan register dari `k`/`k2` di atasnya.
+ *   +1 @0x4515  satu byte
+ *   +4 @0x495A  ekor/tabel switch
+ * Register SI vs BX di 0x4400 tidak menggeser panjang (cuma angka POSISI).
  *
- * ⭐ EMPAT bentuk penulisan akses record yang sudah TERBUKTI (pakai ulang di
- * sisa fungsi dan kemungkinan di `main`):
- * 1. `recbase` dideklarasikan char*, BUKAN struct rec* lalu di-cast (cast
- *    memaksa lewat DX: `mov dx,[73Ch] / mov si,dx` = 2 byte berlebih/akses).
- * 2. sisi kiri char-pointer + sisi kanan struct = MEMUTUS CSE atas recbase.
- * 3. bentuk PENUNJUK `(... + basis)[1]`, bukan offset `basis[... + 1]`.
- * 4. urutan operan `(0xc*idx + basis)` -- basis dimuat SESUDAH perkalian.
+ * ⭐ ATURAN YANG DIDAPAT DI FUNGSI INI (berlaku umum, sudah masuk README):
+ * 1. Akses record SELALU bentuk PENUNJUK `(idx * 0xc + recbase)[n]`.
+ *    Bentuk offset `((char*)recbase)[idx*0xc+n]` memuat recbase DUA KALI.
+ *    Bentuk struct `((struct rec*)recbase)[idx].f` memuat recbase dini ke DX
+ *    lalu men-spill-nya. KOREKSI: catatan lama yang bilang "sisi kanan harus
+ *    bentuk struct supaya CSE putus" itu KELIRU.
+ * 2. Yang membedakan kedua sisi perbandingan cuma URUTAN OPERAN kali:
+ *      `0xc * list[i]` -> mov ax,0Ch / imul word ptr [bx]
+ *      `k * 0xc`       -> mov ax,cx  / mov dx,0Ch / imul dx
+ * 3. `if (--x < 0)` != `x--; if (x < 0)`. Yang kedua memakai ulang flag DEC
+ *    (jge); aslinya `test ax,ax` + `jns`, hanya keluar dari bentuk pre-dec.
+ * 4. SWITCH JARANG: tabel nilai/label disusun KEBALIKAN urutan sumber.
+ *    Pemindai mulai dari entri TERAKHIR (si=18h, sub si,4, jns).
+ *    Urutan case di sumber = urutan ALAMAT badannya.
+ * 5. `idx == q` bukan `q == idx` -- operan kiri dimuat lebih dulu dan dipakai
+ *    ulang di perbandingan berikutnya.
+ * 6. Jangan menganggap slot yang belum dikenali itu "filler". Di fungsi ini
+ *    LIMA kali berturut tebakan filler ternyata variabel nyata
+ *    (36/3A/3E/42, 2C..33, 18/1C/50, 20, 4A).
+ * 7. Kalau dua blok terlihat kembar, ukur DUA-DUANYA: 0x4455 dan 0x46A0 sama
+ *    persis kelihatannya, tapi yang kedua menyimpan keempat sudut ke slot.
+ *    Sebaliknya 0x4713 memang duplikat byte-per-byte dari 0x46CD.
  *
- * ⭐ bp+08h itu TEMP KELIMA, bukan lokal (temp = bp+00..09, lokal dari 0Ah).
- * Daftar "slot tidak terpakai" (00 08 14 22 4E) MENYESATKAN.
+ * ⭐⭐ MISTERI GHIDRA TERPECAHKAN (tetap berlaku). `if (param_7 + 0x141 !=
+ * param_7)` berasal dari DUA perbandingan nyata di 0x4500..0x4519. Karena
+ * `q = idx + 0x141`, keduanya SELALU salah, jadi blok 0x451A..0x45DC tidak
+ * pernah tercapai -- tapi bytenya ADA dan wajib direproduksi. Jangan dihapus.
  *
- * DIAGNOSIS SISA di +231, diukur dengan menyejajarkan geseran: dengan geseran
- * +3 byte, blok 240..249 cocok INSTRUKSI DEMI INSTRUKSI. Strukturnya benar;
- * yang kurang cuma `[bp+2] = si`.
- * ⚠ [bp+2] itu SLOT TEMP yang dipakai ulang (store di 43B5, 4547, 45C3, 4633;
- * push di 4553, 45CF), dan yang di 43B5 MATI. Jadi mengejarnya lewat bentuk
- * ekspresi kemungkinan sia-sia: sudah dicoba menulis `list[idx]` DUA KALI
- * (aturan runfill "menulis ulang memesan temp") -- hasilnya IDENTIK, kompiler
- * tetap meng-CSE-nya. Kemungkinan besar alokasi temp baru berubah setelah
- * blok 0x451A..0x4713 ditulis.
- *
- * SUDAH DICOBA & GAGAL (urutan k/k2, diukur DUA KALI):
- *   `q;sel;k;k2` -> +193 | `k2=list[idx];k=k2` -> +220
- *   `k2=list[idx];k=list[idx]` -> +220 | `k=list[idx];k2=k` -> +231 (terbaik)
- *   `k=list[idx];k2=list[idx]` -> IDENTIK dengan yang terbaik (di-CSE)
- *
- * BELUM ditulis: 0x44ea ke atas (~1.200 byte), termasuk blok mati di
- * 0x451A..0x45DC.
+ * SUDAH DICOBA & GAGAL (diukur dgn metrik PENJAJARAN, bukan posisi):
+ *   urutan `k2 = list[idx]; k = k2;`        -> 1.462 (vs 1.495 utk k dulu)
+ *   sisi kanan bentuk struct                -> 1.460 (vs 1.495)
+ *   fillrect bentuk struct `[k].h`          -> bingkai jadi 54h, tidak boleh
+ *   fillrect via rp2 yang sudah ada         -> 1.686 byte, lebih buruk
+ *   `x--; if (x < 0)` dan `if (!(x >= 0))`  -> 1.609 (vs 1.614 utk pre-dec)
+ *   menulis `list[idx]` dua kali            -> IDENTIK (kompiler meng-CSE)
  */
