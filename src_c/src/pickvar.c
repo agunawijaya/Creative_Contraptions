@@ -70,7 +70,8 @@ int  n, idx, flag;
     int  sel;           /* 1Ah  nilai balik, mulai -1 */
     int  j;             /* 1Ch  pencacah tunda dalam */
     int  k;             /* 1Eh  = list[idx] */
-    char f4a[4];        /* 20h..23h */
+    int  c;             /* 20h  tombol yang ditekan */
+    char f4a[2];        /* 22h */
     int  ww;            /* 24h  lebar record utama */
     int  hh;            /* 26h  tinggi record utama */
     int  dx2;           /* 28h  geser x record ke-2, BERTANDA */
@@ -247,22 +248,38 @@ tail:
     /* 0x47D2 -- kedipkan kotak gabungan dua kali; tiap kedip menunggu 12 kali
        retrace kecuali ditekan tombol. `timebar` hanya jalan kalau tb habis. */
     tb = ta;
-    for (i = 0; i < 2; i++) {
-        drawrect(bx0, by0, bw, bh, 3);
-        hintmark();
-        for (j = 0; j < 0xc; j++) {
-            if (keyhit())
-                break;
-            ta = tb;
-            if (ta <= 0)
-                timebar();
-            vbend();
-            vbwait();
+    /* Kedipnya BUKAN sekali jalan: seluruhnya badan do-while yang berputar
+       sampai ada tombol atau `ok` padam (lompatan 0x485C balik ke 0x47D8). */
+    do {
+        for (i = 0; i < 2; i++) {
+            drawrect(bx0, by0, bw, bh, 3);
+            hintmark();
+            for (j = 0; j < 0xc; j++) {
+                if (keyhit())
+                    break;
+                ta = tb;
+                if (ta <= 0)
+                    timebar();
+                vbend();
+                vbwait();
+            }
         }
-    }
-    ok = 1;
+        ok = 1;
+        if (mode == 4 && tx <= 0)
+            ok = 0;
+        ta = tb;
+        if (ta <= 0)
+            timebar();
+    } while (keyhit() == 0 && ok != 0);
+    /* Keluar TANPA `mov sp,bp` -- epilognya `add sp,52h; pop bp; ret`. */
     if (mode == 4 && tx <= 0)
-        ok = 0;
+        return 0xfe;
+    c = getkey();
+    if (c == 0)
+        c = getkey() + 0x100;
+    k = k2;
+    ox = dx3;
+    oy = dy3;
 done:
     return idx;
 }
