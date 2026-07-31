@@ -47,7 +47,25 @@ def run(names):
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def main(d, pola):
+def globalmatch(code, slots, addr, size):
+    """Metrik GLOBAL yang sama dengan aligncmp: difflib atas byte, slot
+    relokasi di-wildcard. Dipakai supaya varian berkas SUNGGUHAN bisa diukur
+    langsung -- reproduksi mini sering tidak setia karena tekanan register
+    di fungsi aslinya tidak ikut tereproduksi."""
+    import difflib
+    import struct
+    raw = open(os.path.join(ROOT, 'work', 'unpack', 'CONTRAP_UNPACKED.EXE'), 'rb').read()
+    lb = struct.unpack_from('<H', raw, 8)[0] * 16
+    o = raw[lb + addr: lb + addr + size]
+    m = bytearray(code)
+    for k in slots:
+        if k < len(m) and k < len(o):
+            m[k] = o[k]
+    sm = difflib.SequenceMatcher(None, bytes(m), o, autojunk=False)
+    return sum(k for _, _, k in sm.get_matching_blocks()), len(m)
+
+
+def main(d, pola, cmp_at=None):
     from objcode import read_omf, pick_code_segment
     from capstone import Cs, CS_ARCH_X86, CS_MODE_16
 
@@ -83,10 +101,16 @@ def main(d, pola):
         #   dilaporkan "quad SAMA" (hash kosong) -- bukti palsu yang meyakinkan.
         h = hashlib.sha1(open(q, 'rb').read()).hexdigest()[:8] if os.path.exists(q) else None
         sama = qh.setdefault(h, n) if h else n
-        _, (code, _) = pick_code_segment(read_omf(o))
+        _, (code, slots) = pick_code_segment(read_omf(o))
         tag = '' if sama == n else '  quad SAMA dgn %s' % sama
         h = h or '(dihapus MC2)'
-        print('%-8s %4d byte  quad=%s%s' % (n, len(code), h, tag))
+        if cmp_at:
+            addr, size = cmp_at
+            g, ln = globalmatch(code, slots, addr, size)
+            print('%-8s %4d byte (%+d)  GLOBAL %d/%d (%.1f%%)%s'
+                  % (n, ln, ln - size, g, size, 100.0 * g / size, tag))
+        else:
+            print('%-8s %4d byte  quad=%s%s' % (n, len(code), h, tag))
         if rx:
             for i in md.disasm(bytes(code), 0):
                 t = '%s %s' % (i.mnemonic, i.op_str)
@@ -97,8 +121,13 @@ def main(d, pola):
 if __name__ == '__main__':
     a = sys.argv[1:]
     p = None
+    c = None
     if '--pola' in a:
         i = a.index('--pola')
         p = a[i + 1]
         a = a[:i] + a[i + 2:]
-    main(a[0], p)
+    if '--cmp' in a:
+        i = a.index('--cmp')
+        c = (int(a[i + 1], 16), int(a[i + 2], 0))
+        a = a[:i] + a[i + 3:]
+    main(a[0], p, c)

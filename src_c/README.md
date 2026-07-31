@@ -2002,3 +2002,50 @@ mengganti `if (A && B)` dengan dua `if (...) goto next` memberi SI yang benar
 dan byte cabang yang identik, tapi kompiler MEMUAT ULANG penunjuknya di antara
 kedua `if` (+3 byte). Jadi `&&` dan `goto` beda BUKAN di cabangnya, melainkan di
 apakah penunjuk dipertahankan di register melintasi uji kedua.
+
+## ⭐⭐ UKUR DI PREFIKS YANG MASIH SEJAJAR untuk lolos dari bingkai tercemar
+
+Masalah berulang: satu situs yang tersisa menggeser panjang, lalu SELURUH ekor
+fungsi salah sejajar dan GLOBAL menghukum perbaikan yang BENAR. Di `loadcon` ini
+sempat membuat perbaikan yang benar terbaca 687 → 682.
+
+Jalan keluarnya sederhana dan pasti: **ukur hanya sampai SEBELUM situs yang
+tersisa.** Di prefiks itu kedua draf masih sejajar dari byte 0, jadi GLOBAL-nya
+bersih. Perintahnya cuma memberi ukuran yang lebih kecil:
+
+```
+python src_c/verify/aligncmp.py <nama> <addr> <ukuran-prefiks>
+```
+
+Kasus nyata `pickvar` (2026-07-31): mengganti `k * 0xc` jadi `list[idx] * 0xc`
+membuat GLOBAL seluruh fungsi TURUN 1.662 → 1.632, tapi di prefiks
+0x42ca..0x44fd hasilnya **528 → 562 dari 563**. Perubahannya benar; angka
+turunnya artefak. Tanpa pengukuran prefiks, perbaikan ini akan ditolak.
+
+⭐ Pasangannya: `sweep.py --cmp <addr> <ukuran>` melaporkan GLOBAL tiap varian
+langsung, jadi puluhan varian berkas SUNGGUHAN bisa diadu sekali jalan. Pakai
+`--cmp` dengan ukuran PREFIKS untuk mengadu varian tanpa gangguan geseran.
+
+## ⭐⭐ `k` vs `list[idx]` walau NILAINYA SAMA: yang satu di-CSE, yang lain tidak
+
+`pickvar` menyimpan `k = list[idx]` lalu memakai `k` di ekspresi berikutnya.
+Menulis ulang `list[idx]` di ekspresi itu — bukan memakai `k` — mengubah TIGA
+hal sekaligus, dan ketiganya ke arah yang benar:
+
+1. Nilai `list[idx]` tetap di **CX** (`mov ax,cx`), bukan dimuat ulang dari slot.
+2. Alamat `&list[idx]` jadi **temp** yang di-spill ke `[bp+2]` — simpanan yang
+   sebenarnya MATI (tak pernah dibaca), tapi ADA di biner asli.
+3. Karena `[bp]` dan `[bp+2]` jadi terpakai, penomoran temp sesudahnya bergeser
+   ke `[bp+4]`/`[bp+6]` — persis seperti aslinya.
+
+Dan karena CX tidak lagi bebas, uji `idx + 1 < n` memakai **DX** sebagai scratch
+(asli), bukan CX (kita). Satu perubahan sumber, empat gejala tertutup.
+
+⚠ Balikannya juga berlaku: `k2 = list[idx]; k = list[idx];` TIDAK menghasilkan
+apa-apa (kompiler meng-CSE keduanya jadi satu muatan). Yang menentukan adalah
+apakah ekspresi `list[idx]` muncul lagi di ekspresi BESAR berikutnya, bukan
+berapa kali ia ditulis di pernyataan penugasan.
+
+⚠ Menulis `list[idx + 1]` sebagai `(list + idx)[1]` untuk "memaksa" CSE-nya
+justru MENGHAPUS 19 byte — kompiler lalu benar-benar berbagi alamatnya. Yang
+dibutuhkan biner asli adalah temp yang di-spill lalu TIDAK dipakai.

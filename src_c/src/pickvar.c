@@ -140,8 +140,15 @@ int  n, idx, flag;
            Bentuk struct di sisi kanan memaksa recbase dimuat lebih awal ke DX
            lalu di-spill ke bingkai (+6 byte). Dengan dua-duanya penunjuk,
            recbase memang dimuat DUA KALI (DI lalu SI) seperti aslinya. */
+        /* ⭐ Sisi kanan `list[idx] * 0xc`, BUKAN `k * 0xc` -- walau nilainya
+           sama. Dengan `list[idx]` kompiler meng-CSE pemuatannya: nilainya
+           tetap di CX (`mov ax,cx`) dan alamat `&list[idx]` jadi temp yang
+           di-spill ke [bp+2]. Itu menggeser SELURUH penomoran temp sesudahnya
+           ke [bp+4]/[bp+6] seperti aslinya, DAN membebaskan CX sehingga uji
+           `idx + 1 < n` memakai DX. Dengan `k`, ketiganya meleset sekaligus.
+           Diukur di wilayah sejajar 0x42ca..0x44fd: 528/563 -> 562/563. */
         if ((0xc * list[idx + 1] + recbase)[1] - 100 ==
-                (k * 0xc + recbase)[1]) {
+                (list[idx] * 0xc + recbase)[1]) {
             /* Pola drawpair: char di MS C 1.04 itu unsigned, jadi tandanya
                dipulihkan lewat TERNARY dengan nilai-apa-adanya di posisi
                FALSE (cabang yang MEMUAT ULANG dari slot). */
@@ -352,6 +359,23 @@ inner:
  * bedanya cuma displacement karena kode di depannya lebih pendek. Jadi
  * geseran +4 @0x495A itu AKUMULASI, bukan cacat tersendiri -- yang benar-benar
  * salah tinggal DUA titik, bukan tiga.
+ *
+ * ⏳ SISA SATU SITUS: 0x4515, -2 byte (geseran 0x4515:-2, 0x495a:+1).
+ *   asli : mov [bp+0ch],bx / mov bx,[bp+0ah] / cmp bx,ax ... add ax,141h / cmp ax,bx
+ *   kita : cmp ax,[bp+0ah]        ... mov [bp+0ch],bx ... cmp ax,[bp+0ah]
+ *   Asli meng-COMMIT simpanan tertunda `dy3` (slot 0Ch, hasil ternary yang
+ *   masih di BX) SEBELUM perbandingan, sehingga BX bebas dan `q` masuk
+ *   register lalu DIPAKAI ULANG di uji kedua. Kita menahan BX dan memakai
+ *   operan memori dua kali. Kelas yang SAMA dengan loadcon 0x5115.
+ *   Diukur di prefiks sejajar 0x42ca..0x4600: semua varian di bawah IDENTIK
+ *   (806/822), jadi tak satu pun menyentuh situsnya.
+ *   DICOBA & GAGAL (2026-07-31, 32 varian lewat sweep.py --cmp):
+ *     uji-1  : idx==q | q==idx | idx-q==0 | !(idx!=q) | `if (idx!=q) goto`
+ *     uji-2  : idx+141h!=q | q!=idx+141h | q-idx!=141h | idx-q+141h!=0 |
+ *              q!=141h+idx | 141h+idx!=q
+ *     ternary dy3 : bentuk `if`, arah dibalik
+ *     urutan x1/y1/x2/y2 (4 permutasi), urutan ww/hh
+ *   Sasaran berikutnya harus PENJADWALAN SIMPANAN, bukan bentuk uji.
  *
  * ⚠ SUDAH DICOBA & GAGAL untuk perbandingan `idx == q` (5 bentuk):
  *   idx==q | q==idx | idx-q==0 | q-idx==0 | !(idx!=q)
