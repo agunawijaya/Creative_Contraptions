@@ -177,7 +177,9 @@ again:
     /* `q == idx` SELALU salah (q = idx + 141h). Blok yang dilewati karenanya
        TIDAK PERNAH TERCAPAI di biner asli -- tapi byte-nya ada, jadi tetap
        harus ditulis. Jangan "diperbaiki". */
-    if (q == idx)
+    /* `idx == q`, BUKAN `q == idx`: aslinya memuat idx ke AX lebih dulu dan
+       memakainya ULANG di perbandingan berikutnya (add ax,141h). */
+    if (idx == q)
         goto part2;
     /* BLOK MATI: `idx + 141h != q` selalu salah karena q diset = idx + 141h.
        Byte-nya ada di biner (0x451A..0x45DC) jadi tetap ditulis apa adanya. */

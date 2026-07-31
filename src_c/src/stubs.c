@@ -24,8 +24,6 @@
  * Stub-nya wajib ada, kalau tidak MC.LIB(_MAIN) melaporkan "unresolved". */
 main() { return 0; }
 
-pickvar() { return 0; }    /* @0x42ca, 1.730 byte -- belum direkonstruksi */
-
 /* Simbol DATA yang tidak bisa lewat gdata.c:
  *   sndbuf -- alamat aslinya 0x670e, DI LUAR DGROUP (itu segmen kode).
  *             Di sini cuma penampung supaya link jalan.

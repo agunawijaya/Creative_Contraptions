@@ -49,6 +49,7 @@ setsel   3769    177
 blend    5ea6    234
 load     53ff    262   art=134
 place    4e3e    503
+pickvar  42ca   1730
 nvar     4094    566
 runmenu  34cc    547
 review   3c4f    704

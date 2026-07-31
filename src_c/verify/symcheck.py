@@ -58,6 +58,22 @@ def symbol_map(man):
     sym = {}
     for name, (addr, _) in man.items():
         sym[name] = ("code", addr)
+    # ⚠ Nama BERKAS != nama SIMBOL. Satu modul assembly bisa memuat beberapa
+    # fungsi, dan yang bernama sama dengan berkasnya belum tentu ada di offset
+    # 0 (mis. modul `text` mulai 0x644a tapi simbol `text` ada di 0x6453 --
+    # 0x644a itu pembungkus INT 10h yang lain). Kalau ini dilewatkan, symcheck
+    # melaporkan 18 BEDA palsu. Alamat sebenarnya diambil dari PUBDEF .OBJ.
+    for name, (addr, _) in man.items():
+        p = os.path.join(OUT, name + ".OBJ")
+        if not os.path.exists(p):
+            continue
+        for pub, off in read_pubdefs(p):
+            # MASM 1.27 memancarkan nama publik dalam HURUF BESAR; berkas .c
+            # memakai huruf kecil. LINK memadankannya tanpa peduli besar-kecil,
+            # jadi symcheck harus begitu juga -- kalau tidak, entri manifest
+            # yang salah tetap menang dan BEDA palsunya bertahan.
+            sym[pub] = ("code", addr + off)
+            sym[pub.lower()] = ("code", addr + off)
     pat_fn = re.compile(r"(\w+)\(\)\s*=\s*(?:FUN_1000_)?0?x?([0-9a-fA-F]{4})\b")
     pat_var = re.compile(
         r"extern\s+[\w\s*]*?(\w+)\s*(?:\[\s*\])?\s*;[^\n]*?@0x([0-9a-fA-F]{2,4})")
@@ -68,6 +84,31 @@ def symbol_map(man):
         for m in pat_var.finditer(s):
             sym.setdefault(m.group(1), ("data", int(m.group(2), 16)))
     return sym
+
+
+def read_pubdefs(path):
+    """[(nama_publik, offset_dalam_segmen)] dari rekaman PUBDEF (0x90)."""
+    b = io.open(path, "rb").read()
+    out, i = [], 0
+    while i + 3 <= len(b):
+        rlen = struct.unpack_from("<H", b, i + 1)[0]
+        if b[i] == 0x90:
+            body = b[i + 3:i + 3 + rlen - 1]
+            j, gi = _idx(body, 0)
+            j, si = _idx(body, j)
+            if gi == 0 and si == 0:         # BASE FRAME hadir hanya bila keduanya 0
+                j += 2
+            while j + 3 <= len(body):
+                n = body[j]
+                nm = body[j + 1:j + 1 + n].decode("ascii", "replace")
+                j += 1 + n
+                if j + 2 > len(body):
+                    break
+                out.append((nm, struct.unpack_from("<H", body, j)[0]))
+                j += 2
+                j, _ = _idx(body, j)
+        i += 3 + rlen
+    return out
 
 
 def _idx(body, j):
