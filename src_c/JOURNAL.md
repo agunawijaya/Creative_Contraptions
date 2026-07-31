@@ -2612,3 +2612,44 @@ GEJALA, bukan sebab — dan gejala yang sama ternyata punya pengungkit sumber.
 ⚠ Disapukan ke `place` (satu-satunya fungsi sisa dengan bentuk serupa) dan
 DITOLAK: `while (j < n) { i = flag[j]; if (i < 0) break; ... }` diubah jadi
 `while (j < n && (i = flag[j]) >= 0)` memberi 501 -> 473. Per-tempat lagi.
+
+
+## Sapuan pengungkit BENTUK PENJAGA: sasarannya ternyata cuma satu
+
+Aturan yang menyelesaikan `f498c` langsung disapukan. Hasilnya menutup
+harapan bahwa ia akan membayar berkali-kali:
+
+* `pickvar` dan `loadcon` TIDAK PUNYA `continue` sama sekali — pengungkit ini
+  tidak bisa diterapkan di sana. (Diperiksa dengan grep, bukan diasumsikan.)
+* `main_` punya enam `continue`, tapi tak satu pun bertepatan dengan celah.
+* `place`: bentuk setara sudah ditolak (-28).
+
+Jadi `f498c` adalah satu-satunya tempat pengungkit ini berlaku. Itu tetap
+berharga — ia MENGOREKSI vonis "murni pilihan register" — tapi jangan berharap
+ia menutup situs lain.
+
+## `main_`: tiga situs sisa dibedah, tiga hasil negatif
+
+Dasar 4.201/4.219. Semua diukur, semua ditolak atau tanpa efek:
+
+1. **0x05f1/0x05f9 — dua `cmp` TERTUKAR** (kita uji 3 lalu 2, asli 2 lalu 3).
+   Sumbernya `switch (mode) { case 3: ... case 2: ... }` di baris 414.
+   Menukar urutan `case` memberi **4.201 -> 4.199**. DITOLAK — komentar lama
+   ("badan 0x566 = case 3 lebih dulu, jadi case 3 duluan") ternyata BENAR.
+   Rantai perbandingan dipancarkan SESUDAH badan dan urutannya TIDAK mengikuti
+   urutan `case` di sumber; belum ketemu apa yang menentukannya.
+
+2. **0x0c83 — `mov bx,[recbase]` vs `mov si,...`**, persis kelas `f498c`
+   (SI mati lalu dipakai ulang oleh asli, kita ambil BX). Gelungnya
+   `for (j = 0; j < cnt2; j++) { if (...) break; }` di baris 667.
+   Memindahkan syarat ke dalam `for` memberi angka IDENTIK (4.201) — tidak
+   berpengaruh sama sekali.
+
+3. **0x0b41 dan 0x0e01 — sasaran `jmp` berbeda** (0x450 vs 0xbf6; 0xd31 vs
+   0xd15). Ukuran instruksi SAMA; kita meruntuhkan rantai lompatan, asli tidak.
+   Tetap DIPARKIR — belum ada pengungkit sumber untuk melarang peruntuhan.
+
+⭐ Yang layak dicatat dari nomor 1: ini kelas beda BARU yang belum pernah
+dirumuskan — **urutan rantai perbandingan `switch` bisa berbeda dari urutan
+`case` di sumber**, dan keduanya tidak bergerak bersama. Kalau nanti ada
+pemahaman soal itu, ia menutup 2 byte di sini.
