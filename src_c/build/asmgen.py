@@ -31,7 +31,7 @@ ASM = os.path.join(ROOT, "src_c", "asm")
 NAMES = {
     0x5a5b: "rnd",      0x5a7f: "sndsave", 0x5ac9: "sndrest",
     0x5cbb: "line",     0x5d98: "vbwait",  0x5da1: "vbend",
-    0x5dce: "shftl",    0x6453: "text",    0x6524: "putmsk",
+    0x5dce: "shftl",    0x644a: "bios10", 0x6453: "text",    0x6524: "putmsk",
     0x657c: "draw",     0x65e0: "put",     0x6600: "shftr",
     0x672f: "blit",     0x6869: "fillrect", 0x6939: "prep",
     0x2b11: "waitn",  0x5b73: "tone3",  0x5a74: "sndoff",

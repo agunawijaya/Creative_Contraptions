@@ -149,9 +149,11 @@ char idtab[194] = {
 
 int nmech = 0x0000;
 
-char pad3[4] = {
-    0x00, 0x00, 0x04, 0x00
+char pad3[2] = {
+    0x00, 0x00
 };
+
+int scrmode = 0x0004;
 
 int sub = 0x0000;
 
@@ -377,9 +379,11 @@ int tinit = 0x0000;
 
 int mflag = 0x0000;
 
-int zsel[3] = {
-    0x0000, 0x0000, 0x0000
+int zsel[2] = {
+    0x0000, 0x0000
 };
+
+int g83a = 0x0000;
 
 int sndflag = 0x0001;
 

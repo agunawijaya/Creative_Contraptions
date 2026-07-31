@@ -22,7 +22,11 @@
 
 /* main @0x0082, 4.219 byte — fungsi TERBESAR dan belum direkonstruksi.
  * Stub-nya wajib ada, kalau tidak MC.LIB(_MAIN) melaporkan "unresolved". */
-main() { return 0; }
+/* main() kini ada di main_.c (draf 126 byte dari 4.219). */
+
+/* Fungsi yang DIPANGGIL main tapi belum direkonstruksi -- stub supaya LINK
+   jalan. Hapus satu per satu saat fungsinya ditulis. */
+setup() { return 0; }      /* @0x5f90 */
 
 /* Simbol DATA yang tidak bisa lewat gdata.c:
  *   sndbuf -- alamat aslinya 0x670e, DI LUAR DGROUP (itu segmen kode).

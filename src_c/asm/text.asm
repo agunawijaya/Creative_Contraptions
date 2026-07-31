@@ -14,10 +14,10 @@ DATA    ENDS
 PROG    SEGMENT BYTE PUBLIC 'PROG'
         ASSUME  CS:PGROUP, DS:DGROUP
 
-        PUBLIC  F644A, text
+        PUBLIC  bios10, text
         EXTRN   fillrect:NEAR
 
-F644A:  MOV	BX, SP                  ; 644A  8b dc
+bios10:  MOV	BX, SP                  ; 644A  8b dc
         MOV	AX, WORD PTR SS:[BX+2]  ; 644C  36 8b 47 02
         INT	10H                     ; 6450  cd 10
         RET                         ; 6452  c3
