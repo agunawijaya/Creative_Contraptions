@@ -646,6 +646,10 @@ main()
             pass = 0;
             loadarc(fh, recbase, 0, recC, nzany, mark);
             loadarc(seed, base, 0, recB, nmechc, markf);
+            j = loadarc(objfh, objtab, 0, recC, nzany, mark);
+            loadarc(objfh, objtab + j * 0xc, 0, recB, nmechc, markf);
+            pickpart(4, recbase, fh, big, buf0d54, nzany, e30, e58, recC,
+                     buf6f22, e08, e80);
             break;
         }
     }
