@@ -561,3 +561,96 @@ keluarkan — di kemunculan KEDUA spill yang sama sudah keluar, jadi bedanya
 tekanan register), `+1 @0x4515`, `+4 @0x495A`. Daftar "sudah dicoba & gagal"
 lengkap ada di ujung `src_c/src/pickvar.c`, kini diukur dengan metrik
 penjajaran (angka lama berbasis posisi dibuang karena tidak sebanding).
+
+---
+
+## Sesi 2026-07-31 (lanjutan semalaman, otonom)
+
+Kelanjutan sesi sebelumnya. Semua angka bisa diaudit dari `git log --oneline`.
+
+### Hasil terukur
+
+| | awal sesi | akhir sesi |
+|---|---|---|
+| fungsi COCOK byte-per-byte | 68/72 | **72/79** |
+| byte terverifikasi | 14.149 | **14.412** |
+| TOTAL | 64,5% | **65,2%** |
+| DATA (DGROUP) | 100% | 100% (tak tersentuh) |
+| stub tersisa | 2 | **1** (`animvm`) |
+
+`main` (4.219 B) selesai DITULIS seluruhnya — dari stub kosong jadi 4.182 byte
+dengan TERJAJAR 2.682. **Belum byte-exact**, jadi tidak dihitung COCOK.
+`pickvar` 1.726/1.730 byte, TERJAJAR 1.616, cacat nyata tinggal DUA.
+
+Empat fungsi baru COCOK penuh: `f2fde` (66 B), `f171f` (114 B), `f15d0` (80 B),
+`setup` (3 B). Tiga draf: `f498c` 162/165, `f278e` 141/149, `f2714` 62%.
+
+### Alat baru
+
+- **`aligncmp.py`** — metrik PENJAJARAN. Menghitung "byte cocok per POSISI"
+  menyesatkan begitu panjang draf bergeser: satu perubahan menurunkan angka
+  posisi 392→386 tapi menaikkan penjajaran 684→704, dan yang kedua yang benar.
+- **`fixorder.py`** — verifikasi identitas simbol untuk fungsi yang **belum**
+  byte-exact, sesuatu yang `symcheck` tidak bisa. Hasil pertama: `pickvar`
+  49 slot cocok / 0 beda (sebelumnya nol terverifikasi).
+
+### ⚠ Lubang verifikasi yang ditemukan (dan sebagian ditutup)
+
+**Metrik penjajaran BUTA terhadap identitas simbol** — slot relokasi adalah
+wildcard, jadi `mov [a],ax` dan `mov [b],ax` bytenya identik. Dibuktikan
+dengan membalik urutan enam penugasan: byte SAMA PERSIS, simbol berbeda
+total. `symcheck` melewati fungsi yang belum eksak, jadi `main`/`pickvar`/
+`place`/`nvar`/`loadcon` **belum terverifikasi identitas simbolnya** sampai
+`fixorder.py` dibuat.
+
+### ⚠ Dua temuan AKUNTANSI (angka lama terbantah)
+
+1. **1.200 byte NOL di 0x5F93..0x6442** — bukan kode. Target rekonstruksi mana
+   pun yang menghitung seluruh wilayah `<0x69d7` sebagai kode game **terlalu
+   besar 1.200 byte**. Persentase sebenarnya lebih tinggi dari yang dilaporkan.
+2. **Wilayah 0x2714..0x29B0 (668 byte, ≥3 fungsi) baru ditemukan** lewat sisir
+   sasaran `call` — sebelumnya tidak ada di peta mana pun.
+
+### Aturan kompiler baru (semua sudah di `src_c/README.md`)
+
+1. **Fungsi tanpa prolog `push bp` tidak mungkin dari C** — tulis `.asm`.
+   `setup` aslinya 3 byte; C memberi 7.
+2. **Ukuran fungsi jangan ditebak dari jarak ke entri manifest berikutnya.**
+   `setup` diperkirakan ≤1.210 byte, nyatanya 3.
+3. **Bingkai:** kompilasi DULU tanpa pengganjal → kurang: tambah pengganjal
+   supaya slot TERLIHAT jatuh benar; lebih: ekspresi menuntut temp berlebih.
+4. **Tipe deklarasi menentukan bentuk pengalamatan**, bukan cuma ukuran:
+   `int arr[20]` → indeks langsung; `char arr[40]`+cast → hitung penunjuk.
+5. **Akses record — DIPERBAIKI**: sekali pakai → penunjuk-char; penunjuk yang
+   DISIMPAN dan dipakai berkali-kali → **bentuk struct**. Sebelumnya saya
+   menyamaratakan keduanya, dan itu membuat `f278e` meleset dari 94,6% ke 14%.
+6. **Urutan `case` di sumber = urutan ALAMAT badan case** — berlaku di KETIGA
+   bentuk switch termasuk RANTAI (menaikkan penjajaran 47 byte di `main`).
+7. **Ambang tanda adalah sifat FIELD, bukan fungsi** — dalam satu fungsi bisa
+   ada byte tanpa pemulihan tanda DAN byte dengan ambang 0xC8 (bukan 0x80).
+8. **`char x[2]` tak terpakai DIBUANG** kompiler; `char x[3]`/`[4]` dialokasikan.
+9. **Post-increment TIDAK bisa digeneralisasi**: `f278e` butuh satu-ekspresi
+   `*(char*)p++`, `f2714` justru butuh dua-pernyataan dengan muat-ulang.
+   Lihat apakah biner menaikkan MEMORI atau REGISTER.
+
+### Jebakan alat
+
+- `buildall.ps1` hanya mengompilasi modul di `manifest.txt` — `gdata.c` dan
+  `stubs.c` harus dikompilasi manual.
+- `link.ps1` menautkan SEMUA `.OBJ` di `out/`, bukan hanya yang di manifest.
+- `symcheck` memetakan nama dari NAMA BERKAS; satu modul asm bisa memuat
+  beberapa fungsi (18 BEDA palsu sampai dibetulkan lewat PUBDEF).
+- `aligncmp` versi pertama mencoba geseran dari −24, jadi condong ke geseran
+  besar pada kode berulang (198 vs 376 byte terjajar).
+
+### Yang TIDAK selesai / menunggu keputusan user
+
+1. **Bug `gendata.py`**: penyaring `START <= a` dengan `START = 4` membuang
+   alamat DGROUP 0..3, memblokir 13 byte di `main`. Memperbaikinya menyentuh
+   DGROUP yang sekarang 100% — **butuh izin**.
+2. **Dua global bernama menyesatkan**: `mode_` (0x846) dan `seed` (0x72a)
+   sebenarnya PEGANGAN BERKAS. Ganti nama atau biarkan?
+3. **Alokasi register belum bisa dikendalikan** — near-miss `f498c` (3 byte,
+   SI vs BX) dan `place` (2 byte, SI vs DI). Bentuk ekspresi tidak berpengaruh.
+4. **Selisih 2 byte temp di `main`** — semua lokal 2 byte lebih rendah;
+   pemicunya belum ketemu (tidak ada rujukan slot temp sama sekali di biner).
