@@ -23,20 +23,31 @@ jangan dipakai sebagai sumber status. Path lengkapnya ada di `src_c/JOURNAL.md`.
 
 **Pekerjaan berikutnya (per 2026-07-31 pagi, sesudah sesi semalaman):**
 
-⚠ **Cara mengukur:** pakai `python src_c/verify/aligncmp.py <nama> <addr> <ukuran>`
-(metrik TERJAJAR), bukan "byte cocok per posisi" — yang kedua menyesatkan
-begitu panjang draf bergeser. Untuk identitas simbol pada fungsi yang BELUM
-eksak, pakai `python src_c/verify/fixorder.py <nama> <addr> <ukuran>`.
+⚠ **Cara mengukur:** metrik **GLOBAL** yang memutuskan.
+`python src_c/verify/gapprof.py --semua` untuk PANJANG (profil celah),
+`python src_c/verify/shapediff.py <nama> <addr> <ukuran>` untuk BENTUK.
+Jangan pakai "byte cocok per posisi" maupun metrik serakah — keduanya
+menyesatkan begitu panjang draf bergeser.
 
-1. **Wilayah 0x2714..0x29B0** (668 B) — baru ditemukan, paling produktif.
-   `f2714` 62%, `f278e` 94,6%, dan **0x2823 (397 B, interpolator parabola)
-   belum disentuh sama sekali**.
-2. **`animvm` @0x18db (3.040 B)** — satu-satunya stub tersisa.
-3. Near-miss: `f498c` (3 byte), `place` (2 byte), `pickvar` (2 cacat),
-   `nvar`, `loadcon`. Semua tersendat di ALOKASI REGISTER yang belum bisa
-   dikendalikan — jangan buang waktu ke sana sebelum ada pemahaman baru.
-4. **`main`** 4.182/4.219 byte tertulis, TERJAJAR 2.682. Semua lokalnya 2 byte
-   lebih rendah dari asli (soal ruang temp); pemicunya belum ketemu.
+⭐ **URUTAN KERJA yang terbukti** (menaikkan `main` 80,1% → 99,6%):
+   1. Perbaiki **PANJANG** dulu — lacak di mana offset (KITA−ASLI) BERUBAH.
+      Selama panjang masih bergeser, metrik apa pun akan MENGHUKUM bentuk yang
+      BENAR dan memberi HADIAH pada bentuk yang kebetulan menambal geseran.
+   2. Sesudah panjang lurus, **UJI ULANG SEMUA PENOLAKAN LAMA**. Dua perbaikan
+      terbesar `main` adalah hal yang sebelumnya sudah ditolak (satu bahkan dua
+      kali). Daftar "dicoba & gagal" KEDALUWARSA — begitu pula "dicoba &
+      berhasil": satu perbaikan lama di `animvm` ternyata cuma menambal geseran.
+   3. Baru garap BENTUK lokal.
+
+**Sisa pekerjaan — SELURUHNYA kelas alokasi register**, tidak ada lagi struktur
+yang belum ditulis dan tidak ada stub:
+1. `main` 4.201/4.219 (99,6%) — 18 byte, gugusan terbesar 8 byte di 0x0126.
+2. `pickvar` 1.654/1.730 — panjang −3; asli menumpahkan `si` ke `[bp+2]`.
+3. `loadcon` 687/739 — dua situs (0x5115, 0x527e).
+4. `place` (2 byte) + `f498c` (3 byte) — murni pilihan register SI vs BX/DI.
+⭐ Sasaran paling berharga: memahami apa yang menentukan **WAKTU SIMPANAN ke
+memori**. Itu satu sebab yang sama di EMPAT situs berbeda; kalau ketemu, ia
+menutup keempatnya sekaligus.
 
 **TIGA KEPUTUSAN MENUNGGU USER:**
 - `gendata.py` membuang alamat DGROUP 0..3 (penyaring `START <= a`, START=4),
@@ -140,10 +151,14 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
 
 - **LINK berhasil**: 61 `.OBJ` + `MC.LIB` → `src_c/out/CONTRAP.EXE`, tanpa error.
 - **Segmen DATA 9.556/9.556 byte, 0 beda** vs biner asli (diukur dari .EXE hasil link).
-- **Kode C+ASM: 75/80 fungsi COCOK byte-per-byte, 15.080 byte**; TOTAL 67,0%.
-  Stub tersisa **1**: `animvm` (0x18db, 3.040 B).
-  Belum byte-exact tapi sudah punya sumber nyata: `main` (4.182/4.219 B tertulis),
-  `pickvar` (1.616/1.730 sejajar), `f498c` (162/165).
+- **Kode C+ASM: 77/81 fungsi COCOK byte-per-byte, 18.686 byte**; TOTAL 76,8%,
+  kode C game 71,9%. **TIDAK ADA stub tersisa** — `animvm` (3.040 B) SELESAI
+  2026-07-31, dan `nvar` (566 B) juga.
+  Empat fungsi belum byte-exact tapi sudah sangat dekat (metrik GLOBAL):
+  `main` 4.201/4.219 (99,6%), `place` 501/503, `f498c` 162/165,
+  `loadcon` 687/739 (93,0%), `pickvar` 1.654/1.730 (95,6%).
+  ⚠ Sisanya SELURUHNYA kelas alokasi register — bingkai semua fungsi sudah cocok
+  dan tidak ada lagi struktur yang belum ditulis.
 - TIGA fungsi selesai 2026-07-31 lewat DUA aturan baru (keduanya di `src_c/README.md`):
   - `f2823` (397 B, interpolator parabola) — `probes/probe19.c`: slot bingkai berisi
     konstanta `long` menandakan VARIABEL, dan cor `(long)` yang mubazir secara
@@ -153,13 +168,22 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
     rujukan; bentuk cor lewat AX dan ditahan di register. Aman untuk DGROUP:
     gendata.py memancarkan simbol bukan-larik sebagai `int` apa pun tipe externnya.
 - ✅ Tabrakan nama `put()` sudah dibereskan: `put`=0x65e0, `putmsk`=0x6524.
-- Dua near-miss: `place` (503 byte tepat, 2 byte beda = register SI/DI) dan
-  `nvar` (551/566, 2 temp kelebihan). Peta slot & daftar gagal ada di berkasnya.
+- `nvar` SELESAI: dua `if` bersarang harus digabung `&&` — bentuk bersarang
+  memaksa CSE bertahan melintasi cabang sehingga bingkai membesar 2 kata.
+- `animvm` SELESAI: gelung yang keluar lewat JATUH-TEMBUS harus ditulis dengan
+  dua `goto` ke satu label, bukan `for`/`do-while`.
+- `place` tinggal 2 byte (register SI vs BX/DI murni).
 - Batas keras pertama ditemukan: 1 byte di `load` (0x53ff+134) adalah artefak
   kompiler yang bergantung NAMA BERKAS, bukan sumber C — lihat `src_c/README.md`.
 - Batas wilayah pustaka MC.LIB TERBUKTI di 0x69d7 (`src_c/verify/libmatch.py`),
   jadi target rekonstruksi = 27.095 byte kode game, bukan 36.976.
-- ⚠ `.EXE` itu **belum bisa dijalankan** — `main` + 21 fungsi lain masih stub kosong.
+- ⚠ `.EXE` itu **belum tentu bisa dijalankan** — tidak ada stub lagi, tapi empat
+  fungsi belum byte-exact sehingga perilakunya belum terverifikasi.
+- ⭐ URUTAN KERJA yang terbukti (lihat `src_c/README.md`): perbaiki PANJANG dulu,
+  lalu UJI ULANG semua penolakan lama, baru garap bentuk lokal. Selama panjang
+  masih bergeser, metrik apa pun akan menghukum bentuk yang BENAR. Disiplin ini
+  menaikkan `main` dari 80,1% ke 99,6% — dua perbaikan terbesarnya adalah hal
+  yang sebelumnya sudah DITOLAK.
 - Aturan & jebakan lengkap: **`src_c/README.md`** (baca sebelum menyentuh `src_c/`).
 
 ## Status port (per 2026-07-21)
