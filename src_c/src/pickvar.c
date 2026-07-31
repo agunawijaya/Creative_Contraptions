@@ -157,8 +157,11 @@ int  n, idx, flag;
 again:
     /* Puncak loop LUAR (0x4474): tiap ganti varian, geometri dihitung ulang. */
     if (k2 < 0 || k2 > 0x78) {
+        /* Jalur ini melompat ke 0x475F (blok kotak), BUKAN ke return.
+           Fungsi aslinya TIDAK punya epilog di ujung -- semua keluar lewat
+           salah satu return di dalam switch. */
         printf(0x1de8, k2);
-        goto done;
+        goto tail;
     }
     rp2 = rb + k2 * 0xc;
     dx3 = ((char *)rp2)[4];
@@ -311,8 +314,10 @@ inner:
         /* mundur satu varian; baris > 100 berarti potongan lanjutan, lewati */
         if (idx > 0 && (list[idx - 1] * 0xc + recbase)[1] > 100)
             idx--;
-        idx--;
-        if (idx < 0) {
+        /* `if (--idx < 0)` -- BUKAN `idx--; if (idx < 0)`. Yang kedua
+           memakai ulang flag dari DEC (jge, 2 byte lebih pendek); aslinya
+           memancarkan `test ax,ax` eksplisit lalu `jns`. */
+        if (--idx < 0) {
             idx = n - 1;
             if ((list[idx] * 0xc + recbase)[1] > 100)
                 idx--;
@@ -327,8 +332,6 @@ inner:
         return -1;
     }
     goto inner;
-done:
-    return idx;
 }
 
 /* ⏳ DRAF — 543 byte ditulis, 256 cocok. Divergensi pertama +231.
