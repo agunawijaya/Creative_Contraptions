@@ -50,6 +50,9 @@ extern int  zcnt;               /* @0x7e6 */
 extern int  g7e8;               /* @0x7e8 */
 extern char msgmech[];          /* @0x9dd */
 extern char msgzany[];          /* @0xa01 */
+extern int  mflag;              /* @0x834 */
+extern int  cur2;               /* @0x7f8 */
+extern int  tx;                 /* @0x7ee */
 
 /* ⚠ `sclo` di gdata.c bertipe `int` (@0x730) dan `schi` menyusul (@0x732).
    Di SINI ia dipakai sebagai satu `long` 32-bit: biner memakai
@@ -93,7 +96,8 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
     int  u14, u16;              /* 0x14, 0x16 */
     char ch18[4];               /* 0x18 — diakses per-BYTE */
     int  u1c, u1e, u20, u22, u24, u26, u28, u2a;
-    int  snd[11];               /* 0x2c — penyangga BUNYI (lea -> sndptr) */
+    int  snd[3];                /* 0x2c — penyangga BUNYI (lea -> sndptr) */
+    int  u32, u34, u36, u38, u3a, u3c, u3e, u40;
     int  u42, u44, u46, u48, u4a, u4c, u4e;
     int  u50, u52, u54, u56, u58, u5a, u5c, u5e;
     char ch60[10];              /* 0x60/0x61 diakses per-BYTE */
@@ -239,9 +243,106 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 goto quit;
             }
             switch (*scrptr++) {
-            /* ⏳ 17 badan case menyusul; urutannya WAJIB menurut alamat badan
-               di biner (lihat JOURNAL). `case 0xff` ditulis lebih dulu karena
-               badannya memang PALING BELAKANG di biner (0x23d1) dan kosong. */
+            /* ⚠ URUTAN CASE = urutan ALAMAT BADAN di biner, bukan urutan nilai
+               (README aturan 13). Peta lengkap di JOURNAL §Pengintaian animvm. */
+
+            case 0x10:          /* 0x1d09 — akhir goal: bonus + skor + hint */
+                if (mode == 4 && lvl == 2 && mflag == 1) {
+                    for (u40 = 0; u40 < goal; u40++) {
+                        prevx = 0x140;
+                        prevtop = 0x140;
+                        setball(0, u40 * 10 + 2);
+                    }
+                    goal++;
+                }
+                prompts();
+                u42 = 1;
+                if (mode != 4)
+                    break;
+                switch (zcnt) {
+                case 0:
+                    sclo += 10000;
+                    break;
+                case 1:
+                    sclo += 5000;
+                    break;
+                default:
+                    sclo += 2500;
+                    break;
+                }
+                showsc(sclo, 2);
+                if (lvl == 2) {
+                    sclo += cur2 * 1000;
+                    showsc(sclo, 2);
+                }
+                if (sub == 6) {
+                    sclo += (goal - 1) * 2500;
+                    fillrect(0, 0, 0x46, 7, 3);
+                    goal = 1;
+                    showsc(sclo, 3);
+                    if (lvl == 2) {
+                        sclo += tx * 100;
+                        tx = 0;
+                        timedrw();
+                        showsc(sclo, 3);
+                    }
+                }
+                if ((lvl == 2 && goal <= 1) || (sub == 6 && failed == 0))
+                    showhint();
+                break;
+
+            case 0x11:          /* 0x1e85 — tulis teks berparameter dari skrip */
+                bounce(0x9c5);
+                u32 = *(int *)scrptr;
+                scrptr += 2;
+                u34 = *(int *)scrptr;
+                scrptr += 2;
+                u36 = *scrptr++;
+                u38 = *scrptr++;
+                u3a = *scrptr++;
+                u3c = *scrptr++;
+                u3e = (int)scrptr;
+                scrptr += u3c;
+                text(u3e, u34, u32, u38, u36, u3a);
+                break;
+
+            case 0x00:          /* 0x1f11 — aliran titik jalur bola sampai 0xFF */
+                while (*scrptr != 0xff)
+                    f2714(u22, u24);
+                scrptr++;
+                break;
+
+            /* ⚠ 0x0a JATUH TEMBUS ke 0x08 (dan 0x07 ke 0x09): di biner badan
+               0x0a berakhir tepat di awal badan 0x08 tanpa lompatan. */
+            case 0x0a:          /* 0x1f32 */
+                prevx = 0x140;
+                prevtop = 0x140;
+            case 0x08:          /* 0x1f3b */
+                f2714(u22, u24);
+                break;
+
+            case 0x01:          /* 0x1f49 — aliran bingkai sprite sampai 0xFF */
+                while (*scrptr != 0xff)
+                    f278e(u22, u24, u20, u4a);
+                scrptr++;
+                break;
+
+            case 0x07:          /* 0x1f70 */
+                prevx = 0x140;
+                prevtop = 0x140;
+            case 0x09:          /* 0x1f79 */
+                f278e(u22, u24, u20, u4a);
+                break;
+
+            case 0x02:          /* 0x1f8d — jeda */
+                u2a = *scrptr++;
+                if (u2a < 0)
+                    break;
+                delay(u2a);
+                break;
+
+            /* ⏳ 9 badan case menyusul; `case 0xff` (0x23d1, kosong) WAJIB
+               tetap paling akhir karena badannya paling belakang di biner. */
             case 0xff:
                 break;
             }

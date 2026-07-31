@@ -987,3 +987,42 @@ Yang di 0x1b28 sudah terlokalisasi: `fail[c1]++` kita memancarkan
 Terkait juga pilihan register di 0x1b11: aslinya `cmp ax,[di]` (dua penunjuk
 hidup bersamaan), punya kita `cmp ax,[bx]`.
 ⚠ Ini BARU TERLOKALISASI, BELUM TERDIAGNOSIS — jangan tebak sebabnya.
+
+---
+
+## `animvm` tahap 3: 8 badan case (758 → 1.418, 24,9% → 46,6%)
+
+| | sebelum | sesudah |
+|---|---|---|
+| `animvm` TERJAJAR | 758 / 3.040 | **1.418 / 3.040 (46,6%)** |
+| byte tertulis | 1.208 | 1.950 |
+| bingkai | 0x6a | 0x6a (tetap) |
+| DATA / symcheck CURIGA | 100% / 0 | 100% / 0 |
+
+Ditulis: `0x10` (akhir goal: bonus + skor + hint, 380 B), `0x11` (teks
+berparameter), lalu `0x00`, `0x0a`, `0x08`, `0x01`, `0x07`, `0x09`, `0x02`.
+Tersisa 9: `0x03`(1fac), `0x0c`(21e1), `0x04`(2280), `0x05`, `0x06`, `0x0d`,
+`0x0e`, `0x0f` — dan `0xff` yang sudah ada.
+
+### ⚠ KOREKSI tata letak bingkai: `snd[]` cuma 3 kata, bukan 11
+
+Draf tahap 1 menebak penyangga bunyi di 0x2c berukuran 11 kata karena slot
+0x2c..0x41 semuanya dirujuk per-kata. Salah: prolog cuma mengisi TIGA kata
+(0x2c/0x2e/0x30), dan 0x32..0x41 ternyata **delapan variabel terpisah** yang
+baru kelihatan begitu badan `case 0x11` dibaca — ia memakai 0x32, 0x34, 0x36,
+0x38, 0x3a, 0x3c, 0x3e sebagai parameter teks, dan `case 0x10` memakai 0x40
+sebagai pencacah gelung.
+
+Totalnya tetap 92 byte, jadi bingkai tidak berubah — tapi kalau dibiarkan,
+`case 0x10` akan menulis ke `snd[10]` dan tidak akan pernah cocok. Pelajaran:
+**slot yang berdekatan dan sama lebar BUKAN bukti satu larik.** Bukti larik
+adalah `lea` atau indeks variabel; di sini `lea [bp+2Ch]` cuma menjangkau tiga
+kata pertama.
+
+### JATUH TEMBUS antar-case
+
+`0x0a` jatuh tembus ke `0x08`, dan `0x07` ke `0x09` — di biner badan yang
+pertama berakhir tepat di awal badan berikutnya TANPA lompatan. Keduanya
+"reset posisi bola lalu lakukan sekali", jadi memang disengaja penulisnya.
+Ini juga menegaskan lagi aturan urutan case: 0x0a ditulis SEBELUM 0x08 karena
+alamat badannya lebih kecil, bukan karena nilainya.
