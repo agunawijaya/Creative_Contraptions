@@ -152,6 +152,8 @@ int  n, idx, flag;
             blit(buf, x + dx2, y + dy2, ((char *)rp2)[2], ((char *)rp2)[3]);
         }
     }
+again:
+    /* Puncak loop LUAR (0x4474): tiap ganti varian, geometri dihitung ulang. */
     if (k2 < 0 || k2 > 0x78) {
         printf(0x1de8, k2);
         goto done;
@@ -247,6 +249,8 @@ tail:
     }
     /* 0x47D2 -- kedipkan kotak gabungan dua kali; tiap kedip menunggu 12 kali
        retrace kecuali ditekan tombol. `timebar` hanya jalan kalau tb habis. */
+inner:
+    /* Puncak loop DALAM (0x47D2). */
     tb = ta;
     /* Kedipnya BUKAN sekali jalan: seluruhnya badan do-while yang berputar
        sampai ada tombol atau `ok` padam (lompatan 0x485C balik ke 0x47D8). */
@@ -280,6 +284,41 @@ tail:
     k = k2;
     ox = dx3;
     oy = dy3;
+    /* SWITCH JARANG (tabel nilai/label di 0x4959..0x4974, pemindai di 0x4975).
+       ⭐ Tabelnya disusun KEBALIKAN urutan sumber: entri terakhir di tabel
+       diuji lebih dulu. Urutan case di sumber = urutan alamat badannya. */
+    switch (c) {
+    case 0x36:
+    case 0x14d:
+        /* maju satu varian */
+        if (sel != -1)
+            idx++;
+        idx++;
+        if (idx >= n)
+            idx = 0;
+        k2 = list[idx];
+        goto again;
+    case 0x34:
+    case 0x14b:
+        /* mundur satu varian; baris > 100 berarti potongan lanjutan, lewati */
+        if (idx > 0 && ((struct rec *)recbase)[list[idx - 1]].row > 100)
+            idx--;
+        idx--;
+        if (idx < 0) {
+            idx = n - 1;
+            if (((struct rec *)recbase)[list[idx]].row > 100)
+                idx--;
+        }
+        k2 = list[idx];
+        goto again;
+    case 0xd:
+        return idx;
+    case 0x20:
+        return idx | 0x8000;
+    case 0x1b:
+        return -1;
+    }
+    goto inner;
 done:
     return idx;
 }
