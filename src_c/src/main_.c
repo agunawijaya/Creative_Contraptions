@@ -80,6 +80,11 @@ extern int  lvl;                /* @0x734 */
 extern int  nmax;               /* @0x3b4 */
 extern int  nzany;              /* @0x4b4 */
 extern int  nmechc;             /* @0x41c */
+extern int  recB[];             /* @0x41e */
+extern int  recC[];             /* @0x4b6 */
+/* postab bertipe `struct pos` di berkas lain; di sini isinya tidak dipakai,
+   cuma alamatnya yang dioper, jadi cukup dideklarasikan sebagai char[]. */
+extern char postab[];           /* @0x3b6 */
 extern int  scrmode;            /* @0x3b0 */
 extern int  g83a;               /* @0x83a  belum dianalisa maknanya */
 
@@ -178,8 +183,14 @@ main()
         printf(0x957);
         return;
     }
-    f171f(2, 0x8ca, 0, nmax, 0x3b6);
-    loadarc(fh, recbase, 0, 0x4b6, nzany, 0x742);
+    f171f(2, 0x8ca, 0, nmax, postab);
+    /* Pakai NAMA array, bukan alamat harfiah: yang benar memancarkan referensi
+       ter-relokasi (slot wildcard), sedangkan angka harfiah memancarkan
+       konstanta biasa -- kebetulan bytenya sama, tapi itu bukan rekonstruksi. */
+    loadarc(fh, recbase, 0, recC, nzany, mark);
+    loadarc(seed, base, 0, recB, nmechc, markf);
+    j = loadarc(objfh, objtab, 0, recC, nzany, mark);
+    loadarc(objfh, objtab + j * 0xc, 0, recB, nmechc, markf);
 }
 
 /* ⏳ BELUM DITULIS: 0x0101 ke atas (4.100 byte).
