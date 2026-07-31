@@ -15,10 +15,18 @@
  * berbanding 0x120/0x148/0x250/0x82C/0xBB0/0xD54/0x10A6/0x1C5E/0x62AE/0x6DF2.
  * Penyebabnya BUKAN deklarasi lokal (semua ukurannya sudah pas dan saling
  * terkunci oleh offset yang terlihat di biner), melainkan TEMP: aslinya
- * memesan 8 byte temp (bp+00..07), kita cuma 6. Artinya ada SATU ekspresi di
- * sumber asli yang butuh slot temp KEEMPAT, dan bentuk yang kita tulis lebih
- * sederhana. Selama itu belum ketemu, hampir semua geseran yang tersisa
- * adalah akibat ikutan -- bukan kesalahan blok per blok.
+ * memesan 8 byte temp (bp+00..07), kita 6.
+ *
+ * ⚠ KOREKSI dugaan pertama. Saya sempat menyimpulkan "ada satu ekspresi yang
+ * butuh slot temp KEEMPAT". Itu KELIRU. Dihitung langsung: di SELURUH 4.219
+ * byte biner asli TIDAK ADA SATU PUN rujukan ke slot temp ([bp], [bp+2],
+ * [bp+4], [bp+6]) -- satu-satunya rujukan bp rendah adalah `lea [bp+8]`
+ * (alamat e08), dua kali. Punya kita sama persis, hanya `lea [bp+6]`.
+ * Jadi kedua versi memesan ruang temp yang TIDAK PERNAH DIPAKAI; aslinya
+ * memesan 4 kata, kita 3. Pemicunya bukan pemakaian temp, melainkan
+ * kedalaman ekspresi yang DIHITUNG kompiler saat memesan bingkai.
+ * Mencarinya harus lewat perbandingan bentuk ekspresi, bukan lewat mencari
+ * instruksi yang menyentuh slot temp -- karena tidak ada.
  *
  * ⚠ JANGAN "memperbaiki"-nya dengan membesarkan salah satu penyangga.
  * Percobaan: menambah 2 byte ke lvlbuf menaikkan TERJAJAR 2.682 -> 3.470 dan
