@@ -49,9 +49,15 @@
  * DALAM `if` itu; di sumber kita blok yang sama berjalan TANPA SYARAT.
  * (Kompiler memakai `je`+`jmp` justru KARENA jaraknya > 127 byte; `jne` pendek
  * kita muat karena badannya kependekan.)
- * Kode di 0x0C43 dan sesudahnya sudah cocok instruksi-per-instruksi, jadi yang
- * salah murni LETAK KURUNG TUTUP-nya. Perbaikannya butuh menelusuri sampai
- * 0x0D15 untuk menemukan di mana `if` itu seharusnya berakhir.
+ * Kode di 0x0C43 dan sesudahnya sudah cocok instruksi-per-instruksi.
+ * ⚠ SUDAH DICOBA: memindah kurung tutup ke SESUDAH `fillans(...)` (yang jelas
+ * benar -- `je 0C1Bh`+`jmp 0D17h` lalu jadi COCOK PERSIS dengan aslinya, dan
+ * ujung `if`-nya mendarat tepat). TAPI wilayah 0x0C00..0x0D40 justru MEMBURUK
+ * 291 -> 275 byte cocok, dan GLOBAL 3.378 -> 3.276. Sebabnya: memasukkan
+ * `fillans(...)` ke dalam `if` mengubah tekanan register SE-BLOK, jadi kode
+ * panggilan itu sendiri berubah. Jadi letak kurungnya memang salah, tapi
+ * MEMPERBAIKINYA SENDIRIAN merugikan -- ada penyesuaian lain di blok yang
+ * sama yang harus dilakukan BERSAMAAN. Dibatalkan sampai itu ketemu.
  *
  * ⚠ JANGAN "memperbaiki"-nya dengan membesarkan salah satu penyangga.
  * Percobaan: menambah 2 byte ke lvlbuf menaikkan TERJAJAR 2.682 -> 3.470 dan

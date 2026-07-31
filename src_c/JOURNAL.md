@@ -1861,3 +1861,45 @@ Memindah kelompok penugasan nol ke DEPAN `sclo = 0` (mengikuti `xor ax,ax`
 yang muncul lebih dulu di biner): GLOBAL **3.378 → 3.270**, walau geseran
 turun 4 → 2 dan TERJAJAR naik 3.999 → 4.062. Contoh ketiga bahwa daftar
 geseran yang lebih pendek TIDAK berarti lebih baik. Dibatalkan dan dicatat.
+
+---
+
+## `main`: kurung tutup memang salah — tapi memperbaikinya SENDIRIAN merugikan
+
+GLOBAL tetap **3.378/4.219 (80,1%)**. Tidak ada kemajuan angka.
+
+### Diagnosis tahap sebelumnya TERKONFIRMASI
+
+`if (p1 == 1)` di `case 3` memang ditutup terlalu awal: di biner ia menutup
+baru SESUDAH `fillans(...)` (0x0D14). Setelah kurungnya dipindah, pasangan
+cabangnya **cocok persis**:
+
+| | kita (sesudah) | asli |
+|---|---|---|
+| | `je 0C1Bh` / `jmp 0D17h` | `je 0C19h` / `jmp 0D15h` |
+| ujung `if` | 0x0D17 | 0x0D15 |
+
+Panjang fungsi juga bergerak persis seperti diramalkan: −1 → +2 (tepat +3,
+selisih `je`+`jmp` vs `jne`).
+
+### ⚠ Tapi hasilnya MEMBURUK — dan itu diukur, bukan dikira
+
+| | sebelum | sesudah |
+|---|---|---|
+| wilayah 0x0C00..0x0D40 | **291 / 320** | 275 / 320 |
+| GLOBAL seluruh fungsi | **3.378** | 3.276 |
+
+Sebabnya sudah dipahami: memasukkan `fillans(...)` ke dalam `if` mengubah
+TEKANAN REGISTER se-blok (aturan tahap 8), jadi kode panggilan itu sendiri
+ikut berubah dan kehilangan lebih banyak daripada yang didapat cabangnya.
+
+Jadi: **letak kurungnya memang salah, tapi memperbaikinya SENDIRIAN merugikan.**
+Ada penyesuaian lain di blok yang sama yang harus dilakukan BERSAMAAN.
+Dibatalkan, dan alasannya lengkap dengan angkanya ditulis di `main_.c`.
+
+### Pelajaran cara kerja
+
+Ketika bukti LOKAL (pasangan cabang cocok persis) bertabrakan dengan angka
+AGREGAT, ukur WILAYAHNYA — bukan pilih salah satu berdasarkan firasat.
+Pengukuran wilayah 0x0C00..0x0D40 yang menyelesaikan perdebatan ini dalam satu
+langkah, dan hasilnya kebetulan berlawanan dengan dugaan awal.
