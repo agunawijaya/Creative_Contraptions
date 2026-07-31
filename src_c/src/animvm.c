@@ -153,7 +153,7 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
     sndoff();
     /* ⚠ `sndptr` DULU walau simpanannya belakangan: aslinya memuat
        `mov ax,<tune>` SEBELUM simpanan-immediate `sndmode`, lalu menunda
-       simpanan `sndptr`-nya. Muatan register mengikuti urutan SUMBER;
+       simpanan `sndptr`-nya. Muatan register mengikuti urutan SUMBER,
        simpanannya yang ditata ulang kompiler. */
     sndptr = 0x978;
     sndmode = 2;

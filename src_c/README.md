@@ -1860,3 +1860,114 @@ cara tercepat memastikan sebuah "stub" sebenarnya rutin pustaka.
 
 **Aturan baru:** jangan percaya `size=` di `functions.txt`. Selalu cek di mana epilog
 (`add sp,N; pop bp; ret`) yang cocok dengan `sub sp,N` di prolog.
+
+## ⭐⭐ ORACLE BATCH: satu peluncuran DOSBox = puluhan kompilasi
+
+`src_c/verify/sweep.py <dir> [--pola REGEX]` menyalin tiap `*.c` di `<dir>` ke
+folder DOS, menyusun SATU `[autoexec]` berisi `MC1 x` + `MC2 x` untuk semuanya,
+menjalankan DOSBox SEKALI, lalu membongkar tiap `.OBJ` dan melaporkan panjang
+kode + baris disassembly yang cocok `--pola`.
+
+Sebelum ini tiap varian = satu peluncuran (~8 detik + overhead), jadi probe 5
+varian menghabiskan satu iterasi penuh. Sekarang 16 varian selesai dalam satu
+langkah — dan itulah yang membuka `main_`, `loadcon`, dan aturan-aturan di
+bawah. **Kalau sebuah situs bertahan setelah 3-4 varian, jangan menambah varian
+satu per satu; tulis 12-16 sekaligus di sumbu yang BERBEDA.**
+
+⚠ **MC1 punya batas panjang BARIS.** Badan fungsi yang ditulis satu baris
+memberi `Error 4: invalid lexical token` berulang-ulang — bukan sintaks yang
+salah. Tulis varian dengan baris pendek seperti sumber biasa.
+
+## ⭐ Kompilernya DUA FASE — dan alokasi register SELURUHNYA di MC2
+
+`MC.BAT` menjalankan `MC1 %1` lalu `MC2 %1`. MC1 memancarkan **berkas QUAD**
+`<nama>.Q` (kuadrupel, representasi antara bebas-mesin); MC2 membacanya,
+menghasilkan `.OBJ`, lalu **MENGHAPUS** `.Q`-nya. String di `MC2.EXE`
+mengkonfirmasi: `Can't open quad file`, `Invalid intermediate file`.
+
+Konsekuensinya penting: **register tidak ada di quad.** Pilihan BX vs SI vs DI
+adalah fungsi MURNI dari urutan quad. Jadi dua bentuk sumber yang menghasilkan
+quad identik TIDAK MUNGKIN memberi kode berbeda — itu penjelasan mekanis untuk
+pelajaran (t) ("kalau semua varian probe sama, pertanyaannya salah tingkat").
+
+Untuk melihat quad-nya, jalankan MC1 SENDIRIAN (tanpa MC2) — berkasnya tersisa.
+MC2.EXE sendiri dikompilasi dengan Lattice C 1.02 (string di offset 0x200).
+
+## ⭐⭐ `while (A && B && C)` vs badan + `break`: PENJADWALAN SIMPANAN
+
+Bentuk ini yang menutup `loadcon` (687/739 → 739/739):
+
+```c
+do { pick = rnd(cnt) + first;                     /* ASLI */
+} while (lastgoal == sub && cnt >= 2 && pick == lastvar);
+
+do { pick = rnd(cnt) + first;                     /* KITA — 1 byte lebih besar */
+     if (lastgoal != sub) break;
+     if (cnt < 2) break;
+} while (pick == lastvar);
+```
+
+Maknanya identik, tapi dengan `break` di badan kompiler **MENUNDA** simpanan
+`pick` melewati pemuatan `lastgoal`. Akibatnya AX masih terpakai, globalnya
+masuk **BX** (`8b 1e` = 4 byte) dan bukan **AX** (`a1` = 3 byte):
+
+```
+ASLI  mov [bp+f0],ax / mov ax,[lastgoal] / cmp ax,[sub]      11 byte
+KITA  mov bx,[lastgoal] / cmp bx,[sub] / mov [bp+f0],ax      12 byte
+```
+
+Dengan badan gelung KOSONG dan semua syarat di `&&`, simpanan ter-commit lebih
+dulu dan AX bebas. Ini pelengkap aturan "WAKTU SIMPANAN = TEKANAN REGISTER":
+bawaannya menunda, dan **badan yang kosong itulah yang membatalkan penundaan**.
+
+⚠ Selisihnya cuma 1 byte, tapi ia MENGGESER seluruh sisa fungsi — di `loadcon`
+1 byte ini mengunci 52 byte.
+
+## ⭐⭐ URUTAN OPERAN `+` memilih siapa yang di-CSE
+
+Situs kedua `loadcon`, di `expect = ... + (nzany + nmech) * 2;` dengan
+`nmechb = nmech;` beberapa baris di bawahnya:
+
+```
+ASLI  mov ax,[nzany] / add ax,[nmech] / shl ax,1 / add cx,ax   ... mov ax,[nmech]
+KITA  mov ax,[nmech] / mov dx,[nzany] / add dx,ax / shl dx,1 / add cx,dx
+```
+
+Kompiler memuat lebih dulu operan yang **dipakai lagi nanti** (di sini `nmech`,
+untuk `nmechb = nmech`), menahannya di AX, dan terpaksa memakai DX untuk yang
+lain. Tulis operan yang di-CSE itu **DULUAN di sumber** (`(nmech + nzany)`) dan
+kompiler malah memuat yang lain lebih dulu lalu MEMUAT ULANG yang di-CSE —
+persis bentuk asli. Empat byte, dan bentuknya cocok 100%.
+
+## ⭐⭐ `extern char *p` BUKAN kasus khusus f278e/f2714 — ia menutup `main_` juga
+
+Aturan "`extern char *p` ≠ `extern int p` + cor `(char *)p`" sudah tercatat dari
+`f2714`/`f278e`. Ternyata ia juga yang menutup situs `main_` 0x0c83 yang selama
+berminggu-minggu dianggap "kelas alokator yang tak terkendali":
+
+```c
+extern int   recbase;  ... (buf[j] * 0xc + (char *)recbase)[1]   /* mov bx,[recbase] */
+extern char *recbase;  ... (buf[j] * 0xc + recbase)[1]           /* mov si,[recbase] */
+```
+
+`main_` langsung 4216/4219 → **4219/4219**. Ubah juga penugasannya jadi
+`recbase = (char *)recs;`. Aman untuk DGROUP: `gendata.py` memancarkan simbol
+bukan-larik sebagai `int` apa pun tipe externnya.
+
+⚠ **PELAJARAN META:** situs itu sudah divonis "alokator" berdasar probe 5 varian
+yang semuanya memberi BX. Vonis itu SALAH — kelima varian mengubah BENTUK
+PERNYATAAN, tak satu pun mengubah **TIPE**. Sebelum memarkir sesuatu sebagai
+"tak terkendali", periksa apakah sumbu TIPE sudah benar-benar disapu.
+
+## ⚠ DUA KESALAHAN di satu fungsi bisa SALING MENUTUP di PANJANG
+
+`loadcon` melaporkan `geseran 0x5120:-1, 0x5298:+0`: kesalahan register (−1) dan
+kesalahan CSE (+1) saling meniadakan, sehingga panjang totalnya PAS 739 dan
+kedua-duanya tak terlihat dari angka panjang. Memperbaiki SATU saja membuat
+GLOBAL **turun** (687 → 682) karena geseran −1 lalu merambat sampai ekor.
+
+Jadi: **kalau `shapediff` melaporkan >1 situs, perbaiki semuanya sebelum menilai
+dengan GLOBAL.** GLOBAL yang turun sesudah satu perbaikan yang bentuknya TERBUKTI
+benar adalah bingkai tercemar, bukan bantahan. `shapediff` (yang menormalkan
+literal) adalah wasit yang benar dalam keadaan ini, dan TERJAJAR yang naik
+(701 → 724) mengkonfirmasi arah.

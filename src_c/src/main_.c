@@ -104,7 +104,8 @@ extern int  curopt;             /* @0x522 */
 extern int  ctx;                /* @0x524 */
 extern int  objtab;             /* @0x73e */
 extern int  base;               /* @0x73a */
-extern int  recbase;            /* @0x73c */
+extern char *recbase;           /* @0x73c -- char* : biner memuatnya LANGSUNG
+                                   ke SI, bukan lewat AX (lihat README) */
 /* Dua alamat ini BELUM pernah dinamai di berkas lain; keduanya juga bukan
    awal simbol yang sudah ada, jadi aman diberi nama (lihat aturan gendata). */
 extern int  mark[];             /* @0x742 */
@@ -237,7 +238,7 @@ main()
     ytop_ = (int)ytop;
     g83a = _TOP;
     base = (int)basebuf;
-    recbase = (int)recs;
+    recbase = (char *)recs;
     objtab = (int)objs;
     level_ = (int)lvlbuf;
     for (i = 0; i < 0x14; i++)
@@ -347,7 +348,7 @@ main()
         if (mode == -1)
             goto quit;
         /* ⭐ SWITCH PADAT (beda dengan bentuk JARANG di pickvar): kompiler
-           memancarkan `si = mode - 1; if (si >= 4) default; shl si,1;
+           memancarkan `si = mode - 1` lalu `if (si >= 4) default` lalu `shl si,1`
            jmp cs:[si+tabel]` dengan tabel 4 entri di 0x0480. Bentuk ini
            dipilih kalau nilai case-nya rapat; yang jarang memakai tabel
            pasangan nilai/label yang dipindai mundur.
@@ -679,9 +680,7 @@ main()
                (aturan: satu alamat satu nama). */
             cnt2 = nvar(recC[i * 3 + 2], buf6f22);
             for (j = 0; j < cnt2; j++) {
-                /* recbase di berkas ini bertipe int (main mengisinya dengan alamat),
-                   jadi butuh cast; urutan operan tetap bentuk PENUNJUK. */
-                if ((buf6f22[j] * 0xc + (char *)recbase)[1] == sub)
+                if ((buf6f22[j] * 0xc + recbase)[1] == sub)
                     break;
             }
             e08[i] = j;

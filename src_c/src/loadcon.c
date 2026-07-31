@@ -114,17 +114,17 @@ int want;
         want = -1;
     }
     if (want == -1) {
+        /* SATU pernyataan, bukan dua ("call rnd / add ax,[first] /
+           mov [pick],ax" -- satu store).
+           ⭐ Ketiga syaratnya ada di SATU `while (&& &&)`, BUKAN dua `break`
+           di dalam badan. Bentuk `break` membuat kompiler MENUNDA simpanan
+           `pick` melewati pemuatan `lastgoal`, sehingga globalnya masuk BX
+           (8b 1e, 4 byte) dan bukan AX (a1, 3 byte) -- selisih 1 byte yang
+           menggeser seluruh sisa fungsi. Dengan `&&` badan gelungnya kosong,
+           simpanan ter-commit lebih dulu dan AX bebas. */
         do {
-            /* SATU pernyataan, bukan dua. Aturan 8 ("hasil panggilan ditampung
-               variabel tersendiri") TIDAK berlaku di sini: biner memancarkan
-               "call rnd / add ax,[first] / mov [pick],ax" -- satu store, bukan
-               dua, dan AX tetap bebas untuk uji berikutnya. */
             pick = rnd(cnt) + first;
-            if (lastgoal != sub)
-                break;
-            if (cnt < 2)
-                break;
-        } while (pick == lastvar);
+        } while (lastgoal == sub && cnt >= 2 && pick == lastvar);
         lastgoal = sub;
         lastvar = pick;
     }
@@ -154,7 +154,7 @@ int want;
        pertama jadi "add cx,4" lalu memancarkan yang ketiga sebagai
        "inc cx; inc cx" -- jadi urutannya terbaca langsung dari biner. */
     expect = 2 + nmax * 4 + 2 + nmech * 3 * 2 + 2 + nzany * 3 * 2 +
-             (nzany + nmech) * 2;
+             (nmech + nzany) * 2;
     /* ⚠ SUDAH DICOBA & GAGAL: menukar jadi `(nmech + nzany) * 2` karena
        fixorder melaporkan beda simbol di +587 (kita nmech, asli nzany).
        Hasilnya GLOBAL 687 -> 682 dan BEDA simbol malah 1 -> 2. Jadi laporan
