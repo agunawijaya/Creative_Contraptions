@@ -13,15 +13,15 @@
  *
  *   drawball()=26ae
  *
- * ⏳ DRAF: 366 byte vs 397, TERJAJAR 118/397 (30%). Bingkai 0x20 vs 0x28 --
- * KURANG 8 byte, artinya aslinya punya DUA long lagi yang belum kita tulis.
- * Slot yang terlihat di biner: [14h/16h] long (xbase), [18h/1Ah] long (na),
- * [1Ch/1Eh] long berisi 100, [24h] i, [26h] dy, dan temp di [00h/02h/04h].
- * Slot [1Ch/1Eh] yang berisi KONSTANTA 100 sebagai long itu petunjuk kuat:
- * pembaginya kemungkinan variabel long, bukan literal `100`.
+ * Bingkai asli 0x28: temp [00..13], lalu lokal MENAIK sesuai urutan deklarasi —
+ * xbase@14, lna@18, hun@1c, li@20, i@24, dy@26.
  *
- * KEMAJUAN: menyimpan `na` sebagai LONG dan menghitung `ty - fy` SEKALI
- * sebelum gelung menaikkan penjajaran 100 -> 118.
+ * `hun` BUKAN literal: probe19 membuktikan `x / 100` dan `x / 100L` sama-sama
+ * memancarkan `xor cx,cx / mov dx,64h` langsung di tempat pembagian, sedangkan
+ * hanya VARIABEL long yang memberi slot bingkai berisi 100 yang diisi sekali
+ * lalu dibaca dua kali — persis seperti aslinya. Probe yang sama juga
+ * menunjukkan `(tx - fx)` TIDAK boleh dicor `(long)`: aslinya menyimpan hasil
+ * int-nya dulu dan baru memperluas tandanya di titik penjumlahan.
  */
 
 extern int ballx;               /* @0x260 */
@@ -37,26 +37,27 @@ int a, fx, fy, tx, ty, n, flag;
 {
     long xbase;
     long lna;
+    long hun;
+    long li;
     int  i;
     int  dy;
 
-    /* `na` disimpan sebagai LONG (aslinya diperluas tandanya ke [bp+18h]
-       lalu dipakai berulang), dan `ty - fy` dihitung SEKALI sebelum gelung
-       (aslinya di [bp+26h]). */
     lna = -a;
-    xbase = (long)(tx - fx) + lna * n * n / 100;
+    hun = 100;
+    xbase = (tx - fx) + lna * n * n / hun;
     dy = ty - fy;
     for (i = 1; i < n; i++) {
-        ballx = fx + (int)(xbase * i / n - lna * i * i / 100);
-        bally = fy + (int)((long)dy * i / n);
+        li = i;
+        ballx = fx + xbase * i / n - lna * i * i / hun;
         balltop = 0xc7 - ballx;
+        bally = fy + dy * li / n;
         ballrow = bally / 4;
         drawball(flag);
     }
     ballx = tx;
+    balltop = 0xc7 - ballx;
     bally = ty;
-    balltop = 0xc7 - tx;
-    ballrow = ty / 4;
+    ballrow = bally / 4;
     drawball(flag);
     sndptr = sndnull;
     sndmode = 0;

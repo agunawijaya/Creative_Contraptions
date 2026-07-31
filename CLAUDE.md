@@ -140,10 +140,13 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
 
 - **LINK berhasil**: 61 `.OBJ` + `MC.LIB` → `src_c/out/CONTRAP.EXE`, tanpa error.
 - **Segmen DATA 9.556/9.556 byte, 0 beda** vs biner asli (diukur dari .EXE hasil link).
-- **Kode C+ASM: 72/79 fungsi COCOK byte-per-byte, 14.412 byte**; TOTAL 65,2%.
+- **Kode C+ASM: 73/80 fungsi COCOK byte-per-byte, 14.809 byte**; TOTAL 66,3%.
   Stub tersisa **1**: `animvm` (0x18db, 3.040 B).
   Belum byte-exact tapi sudah punya sumber nyata: `main` (4.182/4.219 B tertulis),
   `pickvar` (1.616/1.730 sejajar), `f498c` (162/165), `f278e` (141/149), `f2714`.
+- `f2823` (397 B, interpolator parabola) COCOK — dituntaskan lewat `probes/probe19.c`:
+  slot bingkai berisi konstanta `long` menandakan VARIABEL, dan cor `(long)` yang
+  mubazir secara semantik tetap mengubah kode. Lihat `src_c/README.md`.
 - ✅ Tabrakan nama `put()` sudah dibereskan: `put`=0x65e0, `putmsk`=0x6524.
 - Dua near-miss: `place` (503 byte tepat, 2 byte beda = register SI/DI) dan
   `nvar` (551/566, 2 temp kelebihan). Peta slot & daftar gagal ada di berkasnya.

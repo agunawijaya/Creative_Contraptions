@@ -1032,6 +1032,33 @@ penjajaran **sama sekali**; setelah diubah ke `int[20]` langsung naik.
 `mov word ptr [bp+si+off]` → larik `int`. `mov byte ptr [bp+si+off]` → larik
 `char`. Jangan menebak dari ukuran penyangga saja.
 
+## ⭐ SLOT BINGKAI berisi KONSTANTA `long` = VARIABEL, bukan literal (probe19)
+
+Kalau di disassembly ada slot bingkai yang diisi sebuah konstanta `long`
+**sekali di awal fungsi** lalu dibaca berkali-kali, itu **variabel `long` yang
+memang ditulis programmernya** — bukan literal yang "dipromosikan" kompiler.
+
+`probe19.c` menguji tiga bentuk pembagi dengan ekspresi yang identik:
+
+| sumber | pancaran di titik pembagian | slot bingkai |
+|---|---|---|
+| `... / 100` | `xor cx,cx` / `mov dx,64h` | tidak ada |
+| `... / 100L` | `xor cx,cx` / `mov dx,64h` (IDENTIK) | tidak ada |
+| `long hun; hun = 100; ... / hun` | `mov cx,[bp+16h]` / `mov dx,[bp+14h]` | ADA |
+
+Dua yang pertama **tidak bisa dibedakan** — akhiran `L` tidak mengubah apa pun.
+Hanya varian ketiga yang memberi slot, dan ia juga memancarkan `xor cx,cx /
+mov dx,64h` **di awal fungsi** (bukan di titik pembagian), terjalin dengan
+pernyataan sebelumnya. Itulah tanda pengenalnya.
+
+Probe yang sama menjawab pertanyaan kedua: **jangan mengecor `(long)` pada
+subekspresi `int`.** `(long)(tx - fx) + <long>` memperluas tanda SEGERA dan
+menyimpan dua kata ke temp; `(tx - fx) + <long>` menyimpan hasil `int`-nya saja
+lalu memperluas tanda di titik penjumlahan — dan yang kedua itu yang dipakai
+aslinya. Cor eksplisit yang secara semantik mubazir tetap MENGUBAH kode.
+
+Ini yang menuntaskan `f2823` (397 byte) dari 118/397 langsung ke **397/397**.
+
 ## ⭐ RUANG BINGKAI TAK TERRUJUK: ukur dari SLOT YANG TERLIHAT, bukan dari temp
 
 Kalau sebuah fungsi memesan bingkai lebih besar daripada lokal yang benar-benar

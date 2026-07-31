@@ -654,3 +654,50 @@ total. `symcheck` melewati fungsi yang belum eksak, jadi `main`/`pickvar`/
    SI vs BX) dan `place` (2 byte, SI vs DI). Bentuk ekspresi tidak berpengaruh.
 4. **Selisih 2 byte temp di `main`** — semua lokal 2 byte lebih rendah;
    pemicunya belum ketemu (tidak ada rujukan slot temp sama sekali di biner).
+
+---
+
+## Sesi 2026-07-31 (lanjutan) — `f2823` tuntas lewat probe
+
+| | sebelum | sesudah |
+|---|---|---|
+| fungsi COCOK byte-per-byte | 72/79 | **73/80** |
+| byte terverifikasi | 14.412 | **14.809** |
+| TOTAL | 65,2% | **66,3%** |
+| DATA (DGROUP) | 100% | 100% (tak tersentuh) |
+
+`f2823` (0x2823, 397 B) — interpolator parabola gerak bola — dari TERJAJAR
+118/397 langsung ke **397/397**, sekali kompilasi. Yang membuatnya cepat:
+semantiknya TIDAK perlu diturunkan dari disassembly karena jalur port sudah
+membedah dan memvalidasinya vs emulator (`interp_2823` di `port/cc/animvm.py`).
+Yang tersisa cuma soal BENTUK, dan itu dijawab satu probe.
+
+### `probes/probe19.c` — dua jawaban sekaligus
+
+Pertanyaannya: dari mana slot bingkai `[bp+1Ch]` yang berisi konstanta 100
+sebagai `long`? Tiga varian dengan ekspresi identik:
+
+- `x / 100` dan `x / 100L` → **pancarannya IDENTIK**, `xor cx,cx / mov dx,64h`
+  di titik pembagian, tanpa slot bingkai. Akhiran `L` tidak mengubah apa pun.
+- `long hun; hun = 100; x / hun` → slot bingkai ADA, diisi sekali di AWAL fungsi
+  (terjalin dengan pernyataan sebelumnya), dibaca dua kali. Persis aslinya.
+
+Kesimpulan: **slot bingkai berisi konstanta `long` = variabel yang memang
+ditulis programmernya.** Sudah masuk `README.md`.
+
+Probe yang sama menjawab pertanyaan kedua yang tidak sengaja terjawab: draf
+lama menulis `(long)(tx - fx) + ...`. Cor itu **mubazir secara semantik** —
+hasilnya sama karena operan lain sudah `long` — tapi TETAP mengubah kode: ia
+memperluas tanda segera dan menyimpan dua kata ke temp, sedangkan aslinya
+menyimpan hasil `int`-nya saja lalu memperluas tanda di titik penjumlahan.
+
+### Pelajaran metodologis
+
+Sesi sebelumnya sudah membuktikan probe mengalahkan tebak-kompilasi untuk soal
+register. Ini pembuktian kedua di ranah berbeda (aritmetika `long`), dan kali
+ini ongkosnya satu kompilasi lawan puluhan. **Probe dulu, bukan iterasi fungsi
+penuh** sekarang berlaku umum, bukan cuma untuk register.
+
+Catatan arah: kedua produk saling membayar. Port Python menyumbang semantik
+tervalidasi ke rekonstruksi C. Untuk `animvm` (0x18db, 3.040 B, stub terakhir)
+jalur yang sama tersedia — `port/cc/animvm.py` sudah memparsi 17 opcode-nya.
