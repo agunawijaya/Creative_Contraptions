@@ -514,15 +514,17 @@ main()
                             e80);
             cursel = waitkey();
             /* Switch RANTAI atas hasil waitkey (0x0BE6). */
+            /* Urutan case mengikuti urutan ALAMAT badannya: badan `case -1`
+               (jmp 0x450) ada di 0x0B7A, SEBELUM badan `case 0` di 0x0B7D. */
             switch (cursel) {
+            case -1:
+                continue;
             case 0:
                 if (lvl == 1)
                     autofill(0x1a8, base, seed, buf62ae, buf6df2, nmechc, ed0,
                              ef8, recB, idtab, ea8, e120, ytop, lvl);
                 f171f(2, 0x922, sub, nmax, postab);
                 break;
-            case -1:
-                continue;
             default:
                 goto restart;
             }
@@ -578,12 +580,13 @@ main()
             cursel = waitkey();
             /* Struktur ekor SAMA PERSIS dengan case 2, hanya argumen pertama
                f171f yang beda (3, bukan 2). */
+            /* Sama seperti case 2: badan `case -1` (0x0DC8) SEBELUM `case 0`. */
             switch (cursel) {
+            case -1:
+                continue;
             case 0:
                 f171f(3, 0x922, sub, nmax, postab);
                 break;
-            case -1:
-                continue;
             default:
                 goto restart;
             }
