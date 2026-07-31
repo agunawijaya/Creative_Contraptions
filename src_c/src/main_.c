@@ -115,10 +115,9 @@ extern char pbufA[];            /* buffer halaman @0x26c */
 extern char pbufB[];            /* buffer halaman @0x284 */
 extern int  page;               /* @0x2e0 */
 extern int  page2;              /* @0x2e2 */
-/* ⚠ 0x846 sudah bernama `miscfh` di berkas lain, tapi di sini jelas ia
-   PEGANGAN BERKAS: diisi hasil open() lalu diteruskan ke loadarc sebagai
-   argumen pertama. Namanya menyesatkan; JANGAN diganti (aturan: satu alamat
-   satu nama), cukup dicatat. */
+/* 0x846 = `miscfh`: diisi hasil open() lalu diteruskan sebagai argumen
+   PERTAMA ke loadarc()/load(). Namanya sudah tepat -- catatan lama yang
+   menyebutnya "mode permainan" (dan nama lama `mode_`) sudah dikoreksi. */
 extern int  miscfh;              /* @0x846 */
 extern int  mechfh;             /* @0x72a  arsip "mechs" */
 extern int  fh;                 /* @0x72c  arsip "graph" */

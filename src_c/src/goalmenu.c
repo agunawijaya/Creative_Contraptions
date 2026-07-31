@@ -10,7 +10,8 @@
  * di mana tiap baris berada.
  *
  * Alamat global (DGROUP) di biner asli:
- *   0x846 = miscfh    (mode permainan yang dipilih)
+ *   0x846 = miscfh    (PEGANGAN BERKAS arsip MISC -- argumen pertama load();
+ *                     bukan "mode permainan", catatan lama itu keliru)
  *   0x740 = level_   (Apprentice / Master Builder)
  *   0x84a = ytop_    (Y baris pertama)
  *   0x1c28 = menu[]  (tabel entri menu, stride 24 byte, field Y di offset 22)

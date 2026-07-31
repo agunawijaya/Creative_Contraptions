@@ -29,6 +29,11 @@ OUTC = os.path.join(SRC, "gdata.c")
 # oleh C.OBJ (crt0) yang selalu di-link paling depan; kalau gdata.c ikut
 # memancarkannya, seluruh DGROUP bergeser 4 byte dan tiap alamat jadi salah.
 # Terbukti dari peta link: DATA+0x0004 = DGROUP+0x0000 biner asli.
+#
+# ⚠ Ini FAKTA STRUKTURAL, bukan penyaring yang boleh dipilih. Angka 4 tidak
+#   boleh diturunkan. Yang DULU tidak rapi: dua tempat di main() membuang
+#   simbol DIAM-DIAM (alamat < START, dan simbol yang tumpang tindih dengan
+#   simbol sebelumnya). Sekarang keduanya MELAPOR -- lihat lapor_buang().
 START = 4
 
 # Alamat DGROUP dipanen dari komentar di ujung deklarasi extern. Komentarnya
@@ -66,11 +71,35 @@ def emit_list(fh, items, per):
                  ("," if i + per < len(items) else "") + "\n")
 
 
+def lapor_buang(judul, daftar, prefiks="PERINGATAN"):
+    """Simbol yang tidak ikut dipancarkan HARUS terlihat di log build.
+
+    Sebelumnya dua kasus ini dilewati dengan `continue` tanpa jejak, jadi
+    sebuah alamat yang salah didokumentasikan akan hilang tanpa gejala dan
+    baru ketahuan sebagai selisih byte di tempat lain."""
+    if not daftar:
+        return
+    # ASCII saja: stdout Windows (cp1252) tidak bisa mengkodekan U+26A0.
+    print("%s: %s (%d):" % (prefiks, judul, len(daftar)))
+    for a, n in sorted(daftar):
+        print("   0x%04x  %s" % (a, n))
+
+
 def main():
     d = dgroup()
     limit = int(sys.argv[1], 0) if len(sys.argv) > 1 else len(d)
-    syms = sorted((a, n, t, arr) for n, (a, t, arr) in harvest().items()
+    semua = harvest()
+    syms = sorted((a, n, t, arr) for n, (a, t, arr) in semua.items()
                   if START <= a < limit)
+    lapor_buang("simbol di bawah START=%d -- 4 byte itu milik C.OBJ, "
+                "jadi alamatnya pasti salah" % START,
+                [(a, n) for n, (a, _, _) in semua.items() if a < START])
+    # Di luar segmen DATA belum tentu salah: simbol BSS (mis. sndbuf @0x670e)
+    # memang berada di sana. Dilaporkan sebagai CATATAN supaya tetap terlihat
+    # tanpa terbaca sebagai kesalahan.
+    lapor_buang("simbol di luar segmen DATA (0x%04x) -- sah kalau itu BSS" % limit,
+                [(a, n) for n, (a, _, _) in semua.items() if a >= limit],
+                prefiks="CATATAN")
 
     fh = io.open(OUTC, "w", encoding="utf-8", newline="")
     fh.write("/* gdata.c — DIBANGKITKAN oleh src_c/build/gendata.py. JANGAN disunting tangan.\n"
@@ -87,9 +116,13 @@ def main():
 
     pos = START
     pad = 0
+    tindih = []
     for k, (a, name, typ, arr) in enumerate(syms):
         if a < pos:
-            continue                                    # tumpang tindih: lewati
+            # Tumpang tindih dengan simbol sebelumnya. Dilewati (yang lebih
+            # dulu menang), TAPI dicatat -- dulu ini hilang tanpa jejak.
+            tindih.append((a, "%s (tertutup simbol sebelum 0x%04x)" % (name, pos)))
+            continue
         if a > pos:
             n = a - pos
             pad += 1
@@ -124,8 +157,9 @@ def main():
         emit_list(fh, bytes_(d, pos, n), 12)
         fh.write("};\n")
     fh.close()
+    lapor_buang("simbol TUMPANG TINDIH, tidak dipancarkan", tindih)
     print("gdata.c dibangkitkan: %d simbol bernama, %d blok pengisi, sampai offset 0x%04x"
-          % (len(syms), pad, limit))
+          % (len(syms) - len(tindih), pad, limit))
     return 0
 
 

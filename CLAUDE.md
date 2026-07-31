@@ -56,12 +56,19 @@ badan gelung dan memindahkan semua syarat ke `while (A && B && C)`. Cari analog
 kontrol-alirnya di kedua situs ini. Sudah dicoba dan GAGAL: 48 varian di
 `pickvar`, 24 di `place` — daftarnya di kepala masing-masing berkas.
 
-**DUA KEPUTUSAN MENUNGGU USER:**
-- `gendata.py` membuang alamat DGROUP 0..3 (penyaring `START <= a`, START=4).
-  Sudah TIDAK memblokir apa pun sekarang (`main_` 100%), jadi mungkin bisa
-  dibiarkan selamanya — tapi keputusannya di user.
-- `mode_` (0x846) dan `seed` (0x72a) namanya menyesatkan — keduanya PEGANGAN
-  BERKAS. Ganti nama atau biarkan?
+**Keputusan yang sudah diambil user (2026-08-01):**
+- `gendata.py` **DIRAPIKAN**. `START = 4` TETAP — itu fakta struktural (4 byte
+  pertama DGROUP disumbang `C.OBJ`/crt0), bukan penyaring yang boleh dipilih.
+  Yang diperbaiki: dua tempat yang membuang simbol DIAM-DIAM (alamat < START,
+  dan simbol tumpang tindih) sekarang MELAPOR ke log build. Langsung berguna —
+  laporannya menemukan `sndbuf` @0x670e di luar segmen DATA (itu BSS, sah).
+  `gdata.c` tidak berubah sebyte pun, DGROUP tetap 100%.
+- Penggantian nama `mode_`/`seed` ternyata **SUDAH dilakukan** sebelumnya:
+  0x846 = `miscfh`, 0x72a = `mechfh`, dan kedua nama lama sudah tidak ada di
+  mana pun. Yang tersisa cuma komentar basi — `goalmenu.c` masih menyebut 0x846
+  "mode permainan yang dipilih" (keliru; ia argumen PERTAMA `load()`), dan
+  `main_.c` masih melarang penggantian nama yang sudah terjadi. Dua-duanya
+  dikoreksi.
 
 ## Proyek ini apa
 
