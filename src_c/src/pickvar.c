@@ -201,7 +201,7 @@ again:
     sel = -1;
     if (idx + 1 < n) {
         if ((0xc * list[idx + 1] + recbase)[1] - 100 ==
-                ((struct rec *)recbase)[list[idx]].row) {
+                (list[idx] * 0xc + recbase)[1]) {
             /* Blok load/blit IDENTIK dengan yang di 0x43F6 -- bentuk yang
                sudah terbukti dipakai ulang tanpa perubahan. */
             sel = list[idx + 1];
@@ -314,7 +314,7 @@ inner:
         idx--;
         if (idx < 0) {
             idx = n - 1;
-            if (((struct rec *)recbase)[list[idx]].row > 100)
+            if ((list[idx] * 0xc + recbase)[1] > 100)
                 idx--;
         }
         k2 = list[idx];
