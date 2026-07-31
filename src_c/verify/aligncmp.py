@@ -50,7 +50,12 @@ def aligned(m, slots, orig):
                 j += k
                 continue
         best = None
-        for d in range(-24, 25):
+        # ⚠ Urutan pencarian HARUS dari |d| terkecil. Versi pertama memakai
+        # range(-24, 25) sehingga d = -24 dicoba DULUAN; pada kode berulang
+        # (mis. enam panggilan load() beruntun di main) geseran besar tetap
+        # memberi lari cocok panjang, jadi alat memilihnya dan melaporkan
+        # penjajaran jauh lebih buruk dari yang sebenarnya.
+        for d in sorted(range(-24, 25), key=lambda v: (abs(v), v)):
             for a in range(1, 64):
                 if i + a < len(m) and 0 <= j + a + d < len(orig):
                     k = 0

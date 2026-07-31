@@ -70,6 +70,11 @@ extern int  page2;              /* @0x2e2 */
    argumen pertama. Namanya menyesatkan; JANGAN diganti (aturan: satu alamat
    satu nama), cukup dicatat. */
 extern int  mode_;              /* @0x846 */
+extern int  seed;               /* @0x72a  ⚠ juga pegangan berkas di sini */
+extern int  fh;                 /* @0x72c */
+extern int  objfh;              /* @0x72e */
+extern int  mode;               /* @0x792 */
+extern int  sub;                /* @0x3b2 */
 extern int  scrmode;            /* @0x3b0 */
 extern int  g83a;               /* @0x83a  belum dianalisa maknanya */
 
@@ -138,6 +143,28 @@ main()
     load(mode_, level_, 3, 0x586);
     load(mode_, level_, 4, 0x5e6);
     load(mode_, level_, 0x13, 0x646);
+    /* Tiga arsip lagi dibuka, masing-masing dengan penanganan galat yang
+       SAMA PERSIS (34 byte tiap blok). ⚠ 0x72a bernama `seed` di berkas lain
+       padahal di sini jelas pegangan berkas -- nama menyesatkan, tidak
+       diganti (aturan satu alamat satu nama). */
+    seed = open(0x963, 0x8004);
+    if (seed == -1) {
+        printf(0x957);
+        return;
+    }
+    fh = open(0x969, 0x8004);
+    if (fh == -1) {
+        printf(0x957);
+        return;
+    }
+    objfh = open(0x96f, 0x8004);
+    if (objfh == -1) {
+        printf(0x957);
+        return;
+    }
+    setfont();
+    mode = 0;
+    sub = 0x80;
 }
 
 /* ⏳ BELUM DITULIS: 0x0101 ke atas (4.100 byte).
