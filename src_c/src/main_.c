@@ -367,6 +367,16 @@ main()
                 continue;
         reset:
             /* 0x0668 -- juga sasaran `goto` dari hasil runplay == 0FEh. */
+            /* ⚠ SUDAH DICOBA & GAGAL (3 pendekatan, 9 bentuk): membuat
+               schi/sclo dipancarkan sebagai KONSTANTA LANGSUNG seperti asli
+               (`mov [mem],0`, 6 byte) alih-alih lewat AX (3 byte). Diuji:
+               (a) 5 urutan pernyataan berbeda, (b) `schi = sclo = 0`,
+               (c) rantai enam nol `a = b = ... = 0` dua arah, (d) menulis 0x0.
+               SEMUANYA memberi byte IDENTIK. MS C 1.04 rupanya memakai AX
+               untuk SEMUA penugasan nol dalam satu kelompok begitu AX=0
+               dimaterialisasi, dan rantai dikompilasi sama persis dengan
+               pernyataan terpisah. Selisihnya 6 byte; pemicunya kemungkinan
+               di luar bentuk penugasan itu sendiri. */
             schi = 0;
             sclo = 0;
             ta = 5;
