@@ -2416,3 +2416,31 @@ Jadi bentuk ini benar; yang tersisa cuma 4 byte LOKAL @0x0132
 ⭐ Pelajaran tambahan: kecurigaan "ini cuma tambalan" HARUS diuji, bukan
 diasumsikan — sama seperti kecurigaan sebaliknya. Dua kali kecurigaan diuji
 iterasi ini, satu terbukti (animvm `default:`) dan satu terbantah (ini).
+
+
+## `main_` 4.169 -> 4.175 (99,0%) — dua ekskursi offset terakhir hilang
+
+Panjang tetap TEPAT 4.219 dan kini **tidak ada geseran offset sama sekali**.
+Celah tinggal 44 byte dalam 22 celah, terbesar 4 B.
+
+Kedua ekskursi -2 yang tersisa (0x0780 dan 0x0e0e) ternyata GEJALA YANG SAMA,
+dan cocok digarap berpasangan (pelajaran g):
+
+```
+ASLI  xor ax,ax  lalu  mov [p1],1        KITA  mov [p1],1  lalu  xor ax,ax
+```
+
+Nolnya bukan cuma satu penugasan — ia dipakai BERKALI-KALI: di 0x0e0c untuk
+`goal`, `pass`, DAN dua argumen `f171f`; di 0x077e untuk `slot` DAN argumen
+`loadarc`. Karena dipakai lebih dari sekali ia masuk register (aturan 6), dan
+asli memancarkan `xor ax,ax` di PUNCAK blok. Memindah SATU penugasan nol ke
+depan `p1 = 1` memulihkan urutannya: +4 lalu +2.
+
+⚠ Situs KETIGA dengan bentuk yang mirip (baris 737, `f171f` lalu `p1 = 1` lalu
+`pass = 0`) DITOLAK: memindah `pass = 0` ke depan memberi 4.175 -> 4.169.
+Urutan di sana memang sudah benar. Tiga situs, bentuk sumber nyaris identik,
+dua perlu dipindah dan satu tidak — pelajaran (b) lagi.
+
+Sisa `main_` (22 celah): 0x0132=4B (asli `mov cx,284h`), 0x0a36=4B, 0x0bfe=4B,
+0x0e01=4B, 0x0256=3B, 0x04e2=3B, sisanya <= 2 B. Semuanya BENTUK lokal;
+tidak ada lagi masalah panjang untuk disingkirkan lebih dulu.

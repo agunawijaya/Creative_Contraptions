@@ -520,10 +520,13 @@ main()
                 }
                 setmark(nzany + nmechc, state, lvl, markf, mark);
                 f171f(2, 0x922, sub, nmax, postab);
+                /* ⭐ `slot = 0` DIPINDAH KE DEPAN `p1 = 1`: nolnya juga jadi
+                   ARGUMEN panggilan berikutnya, dan asli memancarkan
+                   `xor ax,ax` di PUNCAK blok. GLOBAL 4.173 -> 4.175. */
+                slot = 0;
                 p1 = 1;
                 /* Tiga nol di-hoist dari satu `xor ax,ax` yang juga jadi
                    argumen; pancarannya kebalikan urutan sumber. */
-                slot = 0;
                 curz = 0;
                 pass = 0;
                 j = loadarc(fh, recbase, 0, recC, nzany, mark);
@@ -703,9 +706,12 @@ main()
         case 1:
             cur = -1;
         again1:
+            /* ⭐ `goal = 0` DULU: nolnya dipakai EMPAT kali (goal, pass, dan
+               dua argumen f171f), dan asli memancarkan `xor ax,ax` di PUNCAK
+               blok — sebelum `p1 = 1`. GLOBAL 4.169 -> 4.173. */
+            goal = 0;
             p1 = 1;
             mode = 2;
-            goal = 0;
             pass = 0;
             f171f(mode, 0x922, 0, 0, postab);
             mode = 1;
