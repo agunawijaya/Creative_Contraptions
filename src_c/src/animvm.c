@@ -265,8 +265,16 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
             u22 = rec2[c2 * 3];
             u24 = rec2[c2 * 3 + 1];
         }
-        /* Bonus hanya di langkah TERAKHIR, hanya mode 4, hanya kalau lolos. */
-        if (i == n1 + n2 - 1 && mode == 4 && failed == 0) {
+        /* Bonus: hanya mode 4, hanya kalau lolos, dan BUKAN di langkah
+           i == n1+n2-1 (lihat catatan di bawah — dulu dibaca terbalik). */
+        /* ⚠ SYARATNYA `!=`, BUKAN `==` — dikoreksi 2026-07-31 dari BINER.
+           Di 0x1c72 asli memancarkan `je 0x1cd2` (lompat KELUAR saat sama),
+           kita dulu `jne`. Dugaan lama "bonus hanya di langkah TERAKHIR" itu
+           TEBAKAN dari nama, bukan dari kode. Membalikkannya menaikkan GLOBAL
+           2.900 -> 2.901 dan membuat opcode-nya cocok. Dua syarat berikutnya
+           memancarkan `jne` di KEDUA bacaan, jadi hanya yang pertama yang
+           membedakan. */
+        if (i != n1 + n2 - 1 && mode == 4 && failed == 0) {
             if (u5e >= 0) {
                 switch (zcnt) {
                 case 0:

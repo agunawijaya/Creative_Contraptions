@@ -2223,3 +2223,50 @@ diukur, karena `nvar` dan `pickvar` 207 nyaris sama tapi jawabannya BERLAWANAN.
 
 Alat pemecah menolak sendiri lima dari enam kandidat `pickvar` (karena `while`,
 atau tak berkurung) — menolak lebih baik daripada diam-diam mengubah semantik.
+
+
+## `animvm`: satu syarat dibaca TERBALIK — koreksi dari biner, bukan dari nama
+
+`animvm` 2.900 -> 2.901/3.040. Angkanya cuma +1 byte, tapi yang diperbaiki
+adalah SEMANTIK, bukan sekadar byte.
+
+Di 0x1c72 biner asli memancarkan `je 0x1cd2` — melompat KELUAR blok saat
+`i == n1 + n2 - 1`. Sumber kita memancarkan `jne`. Jadi badan bonus itu berjalan
+saat `i != n1 + n2 - 1`, bukan saat sama. Komentar lama di berkas ("Bonus hanya
+di langkah TERAKHIR") adalah TEBAKAN yang berangkat dari nama variabel, bukan
+bacaan kode — persis kesalahan yang aturan kerja no. 1 larang. Sudah dikoreksi
+di sumber DAN di komentarnya.
+
+Kenapa cuma satu dari tiga syarat yang membedakan: `mode == 4` yang salah dan
+`mode != 4` yang benar sama-sama memancarkan `jne` ke sasaran lewat. Hanya
+syarat PERTAMA yang arahnya terbaca dari opcode. Pelajaran umum: dalam rantai
+`&&`, hanya syarat pertama yang arahnya bisa diverifikasi dari satu opcode;
+sisanya ambigu dan harus diperiksa lewat sasaran lompatannya.
+
+## Diff instruksi KASAR (mnemonic + register saja) — cara membaca fungsi besar
+
+Dua percobaan pertama gagal: normalisasi yang tidak simetris melaporkan 49
+"beda" pada `call` saja, dan capstone ikut membaca tabel data di 0x23d4
+sehingga jumlah instruksi meleset (1.124 vs 1.039).
+
+Yang berhasil: batasi rentang SEBELUM tabel data, lalu ganti SEMUA literal heksa
+di kedua sisi dengan satu penanda. Hasilnya `animvm` 1.020/1.037 instruksi cocok
+(98,4%) dengan hanya TUJUH situs beda — dan salah satunya langsung menunjuk
+`je`/`jne` di atas. Bandingkan dengan profil celah byte yang melaporkan 114
+celah: diff kasar memisahkan "beda BENTUK" dari "beda ALAMAT" yang bukan soal.
+
+## `loadcon`: bentuk ekspresi `expect` digugurkan (tiga varian)
+
+Dasar GLOBAL 687/739. `expect` dipecah jadi dua pernyataan -> 665; `2 * (nzany +
+nmech)` -> 687 (sama); dijabarkan `nzany * 2 + nmech * 2` -> 669. Tidak ada yang
+menyentuh situs 0x527e.
+
+Menguatkan kesimpulan sebelumnya: bentuk sumber di sana BUKAN pemicunya —
+`(nzany + nmech) * 2` yang SAMA persis di baris 151 sudah memancarkan bentuk
+yang BENAR (`mov ax / add ax`) di 0x5239.
+
+⚠ JEBAKAN HARNESS yang hampir lolos: sapuan pertama tiga varian ini melaporkan
+687 untuk KETIGANYA. Sebabnya salah indeks argumen — ketiganya menulis literal
+`"x"` ke berkas, kompilasi gagal, dan `.OBJ` LAMA yang terukur. Sejak itu tiap
+pengukur menghapus `.OBJ` dulu dan menolak melapor kalau kompilasi gagal. Ini
+kejadian KEDUA dari kelas yang sama (yang pertama: `cp` ke `/tmp` yang tidak ada).
