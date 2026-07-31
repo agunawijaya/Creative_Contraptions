@@ -147,6 +147,20 @@ int  *flag;
 
 /* ⏳ BELUM COCOK — panjang SUDAH TEPAT 503, tinggal 2 byte di +407/+410.
  *
+ * ⚠ DICOBA & GAGAL (2026-07-31, lewat sweep.py 16 varian):
+ *   Situs 0x4fd4 (`mov di` vs `mov si` untuk `dp`) TERBUKTI soal LIVE-RANGE,
+ *   bukan preferensi register: dalam reproduksi mini, memindahkan pemakaian
+ *   terakhir `sp` ke SEBELUM simpanan `dp->spr2` langsung membebaskan SI.
+ *   Tapi kedua bentuk yang mencapainya merusak byte lain:
+ *     - `t2 = sp->spr;` sebelum simpanan  -> `sp->spr` tak lagi dimuat DUA kali
+ *       sesudah panggilan seperti di biner
+ *     - dua `if (...) goto next` menggantikan `if (A && B)` -> SI benar, TAPI
+ *       kompiler MEMUAT ULANG `sp` di antara kedua `if` (+3 byte, 0x4fc7);
+ *       GLOBAL 501 -> 490. Byte cabangnya sendiri identik.
+ *   Juga tidak berpengaruh: `register` pada `sp` atau `dp`, urutan deklarasi
+ *   `sp`/`dp`, tukar operan syarat, `(*dp).spr2`, `dp[0].spr2`, `for` dengan
+ *   koma, `found = 1` dipindah ke atas.
+ *
  * SUDAH TERBUKTI & JANGAN DIUBAH:
  *   - bingkai 26h: 3 temp (bp+0,2,4) + 16 lokal (bp+6..24h) dalam urutan
  *     dt, dp, sp, k, i, cnt, di, sidx, p, q, t1, id, row, found, j, t2

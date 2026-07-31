@@ -21,7 +21,7 @@ Arsip percakapan mentah ada di folder memory Claude Code (`*.jsonl`, 9,3 MB).
 Pakai HANYA kalau perlu menelusuri satu detail spesifik; jangan dibaca utuh dan
 jangan dipakai sebagai sumber status. Path lengkapnya ada di `src_c/JOURNAL.md`.
 
-**Pekerjaan berikutnya (per 2026-07-31 pagi, sesudah sesi semalaman):**
+**Pekerjaan berikutnya (per 2026-07-31 sore):**
 
 ⚠ **Cara mengukur:** metrik **GLOBAL** yang memutuskan.
 `python src_c/verify/gapprof.py --semua` untuk PANJANG (profil celah),
@@ -29,33 +29,32 @@ jangan dipakai sebagai sumber status. Path lengkapnya ada di `src_c/JOURNAL.md`.
 Jangan pakai "byte cocok per posisi" maupun metrik serakah — keduanya
 menyesatkan begitu panjang draf bergeser.
 
-⭐ **URUTAN KERJA yang terbukti** (menaikkan `main` 80,1% → 99,6%):
-   1. Perbaiki **PANJANG** dulu — lacak di mana offset (KITA−ASLI) BERUBAH.
-      Selama panjang masih bergeser, metrik apa pun akan MENGHUKUM bentuk yang
-      BENAR dan memberi HADIAH pada bentuk yang kebetulan menambal geseran.
-   2. Sesudah panjang lurus, **UJI ULANG SEMUA PENOLAKAN LAMA**. Dua perbaikan
-      terbesar `main` adalah hal yang sebelumnya sudah ditolak (satu bahkan dua
-      kali). Daftar "dicoba & gagal" KEDALUWARSA — begitu pula "dicoba &
-      berhasil": satu perbaikan lama di `animvm` ternyata cuma menambal geseran.
-   3. Baru garap BENTUK lokal.
+⭐⭐ **PAKAI ORACLE BATCH.** `python src_c/verify/sweep.py <dir-varian> --pola RX`
+menjalankan puluhan pasang MC1+MC2 dalam SATU peluncuran DOSBox. Kalau sebuah
+situs bertahan sesudah 3-4 varian, jangan menambah satu per satu — tulis 12-16
+sekaligus di sumbu yang BERBEDA. Inilah yang menutup `main_` dan `loadcon`.
+⚠ MC1 punya batas panjang BARIS: badan fungsi satu baris memberi
+`Error 4: invalid lexical token` (bukan sintaks yang salah).
 
-**Sisa pekerjaan — SELURUHNYA kelas alokasi register**, tidak ada lagi struktur
-yang belum ditulis dan tidak ada stub:
-1. `main` 4.201/4.219 (99,6%) — 18 byte, gugusan terbesar 8 byte di 0x0126.
-2. `pickvar` 1.654/1.730 — panjang −3; asli menumpahkan `si` ke `[bp+2]`.
-3. `loadcon` 687/739 — dua situs (0x5115, 0x527e).
-4. `place` (2 byte) + `f498c` (3 byte) — murni pilihan register SI vs BX/DI.
-⭐ Sasaran paling berharga: memahami apa yang menentukan **WAKTU SIMPANAN ke
-memori**. Itu satu sebab yang sama di EMPAT situs berbeda; kalau ketemu, ia
-menutup keempatnya sekaligus.
+**Sisa pekerjaan — DUA fungsi, 70 byte:**
+1. `pickvar` 1.662/1.730 (68 byte). Situs utama 0x43a5..0x4515: URUTAN
+   PEMANCARAN SIMPANAN (asli membuang `dx` dulu lalu memakai DX sebagai
+   scratch; kita membuang `cx` dulu) dan satu simpanan `si` ke `[bp+2]` yang
+   belum kita punya (−3 byte).
+2. `place` 501/503 (2 byte). Situs 0x4fd4 TERBUKTI soal LIVE-RANGE penunjuk;
+   dua bentuk yang membebaskan SI sudah dicoba dan merusak byte lain — daftar
+   lengkapnya di kepala `place.c`.
 
-**TIGA KEPUTUSAN MENUNGGU USER:**
-- `gendata.py` membuang alamat DGROUP 0..3 (penyaring `START <= a`, START=4),
-  memblokir 13 byte di `main`. Perbaikannya menyentuh DGROUP yang kini 100%.
+⭐ Sasaran paling berharga sekarang: **URUTAN PEMANCARAN SIMPANAN yang tertunda**
+(register mana yang di-flush lebih dulu ketika beberapa nilai menunggu).
+Itu sebab yang sama di kedua fungsi sisa.
+
+**DUA KEPUTUSAN MENUNGGU USER:**
+- `gendata.py` membuang alamat DGROUP 0..3 (penyaring `START <= a`, START=4).
+  Sudah TIDAK memblokir apa pun sekarang (`main_` 100%), jadi mungkin bisa
+  dibiarkan selamanya — tapi keputusannya di user.
 - `mode_` (0x846) dan `seed` (0x72a) namanya menyesatkan — keduanya PEGANGAN
   BERKAS. Ganti nama atau biarkan?
-- **Angka target perlu dikoreksi**: 1.200 byte di 0x5F93..0x6442 ternyata NOL,
-  bukan kode. Semua persentase "kode game" selama ini terlalu kecil.
 
 ## Proyek ini apa
 
@@ -147,84 +146,26 @@ python src_c/verify/verifyall.py   # tabel status per fungsi + segmen DATA
 python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
 ```
 
-## Status decompile→source (per 2026-07-31 pagi)
+## Status decompile→source (per 2026-07-31 sore)
 
 - **LINK berhasil**: 61 `.OBJ` + `MC.LIB` → `src_c/out/CONTRAP.EXE`, tanpa error.
 - **Segmen DATA 9.556/9.556 byte, 0 beda** vs biner asli (diukur dari .EXE hasil link).
-- **Kode C+ASM: 78/82 fungsi COCOK byte-per-byte, 19.881 byte**; TOTAL 83,4%,
-  kode C game 77,2% (dari 25.758 byte KODE NYATA).
-- ⭐⭐ **`.EXE` hasil link BERJALAN** di emulator Unicorn — menelusuri kode game
-  sungguhan (drawball/pickpart/drawslot/animvm) sampai mode atraksi. Cocok
-  **98,3%** atas seluruh muatan; geseran di wilayah kode tinggal ±3 byte.
-  Sebelum sesi ini: 6,7% dan keluar seketika.
-  ⚠ Angka lama "78/81 & 18.851" MENGGELEMBUNG: `drawtab` dan `setsel` ternyata
-  FUNGSI YANG SAMA di 0x3769 (177 byte dihitung dua kali, dan di-LINK dua kali).
-  Pembagi lama juga salah dua kali — memuat 1.207 byte NOL dan menghitung
-  modul assembly dua kali. Semua sudah dikoreksi di `verifyall.py`. **TIDAK ADA stub tersisa** — `animvm` (3.040 B) SELESAI
-  2026-07-31, dan `nvar` (566 B) juga.
-  Empat fungsi belum byte-exact tapi sudah sangat dekat (metrik GLOBAL):
-  `main` 4.216/4.219 (99,9%), `place` 501/503, `loadcon` 687/739 (93,0%),
-  `pickvar` 1.654/1.730 (95,6%). `f498c` SELESAI 2026-07-31.
-  ⚠ Sisanya SELURUHNYA kelas alokasi register — bingkai semua fungsi sudah cocok
-  dan tidak ada lagi struktur yang belum ditulis.
-  ⚠⚠ Dari 71 byte sisa, **~60 byte TERBUKTI di luar jangkauan alat sekarang**:
-  pilihan register yang diwarisi SE-FUNGSI, bukan dari bentuk sumber lokal
-  (dibuktikan `src_c/probes/probeC.c` — lima varian semuanya memberi hasil
-  sama). `loadcon` 52 byte seluruhnya kaskade dari SATU keputusan di 0x5115.
-  ✅ SASARAN .EXE SELESAI: lubang 1.207 byte di 0x5F93 ditutup (`asm/mode4.asm`),
-  urutan LINK diperbaiki (dulu ABJAD -> sekarang ALAMAT), dan DUA relokasi yang
-  hilang dipulihkan (`snd2`/`keyio` memakai literal `907H`, seharusnya
-  `MOV AX,DGROUP`).
-  ✅ SEBAB `.EXE` tak jalan SUDAH DIPERBAIKI — dan ternyata BUKAN `gendata`.
-  Penyebabnya PANJANG SEGMEN PROG: kurang satu fungsi kosong 5 byte di 0x5318,
-  sehingga DATA tidak jatuh di batas paragraf dan `crt0` menulis ke [0x0C].
-  Ditulis sebagai `f5318.c` -> DATA offset 0, dan .EXE langsung berjalan.
-  ✅ SEMUA kesalahan tata letak lain juga ditutup:
-     - `prep` 113 byte terlalu panjang — ekornya modul MC.LIB `CXM33`; dipotong
-       ke 158 B. (Batas wilayah kode TETAP 0x69D7; "koreksi" ke 0x6A48 keliru,
-       aritmetikanya tertutup karena dua kesalahan saling menutupi.)
-     - `menu` diduplikasi di `stubs.c` padahal ia @0x1c28 di dalam DGROUP —
-       `goalmenu` menulis ke larik yang SALAH. Kini dipanen `gendata`.
-  Hasil: **GLOBAL .EXE 98,4%**, geseran -3 byte KONSTAN (= sisa kelas alokator),
-  dan JEJAK EKSEKUSI COCOK dengan asli untuk 8 fungsi pertama
-  (5035 6869 672f 26ae 131a 498c 3f0f 18db).
-  ⚠ Uji perilaku HARUS menggeser alamat hook emulator -3, kalau tidak hook untuk
-  fungsi >=0x4959 tidak menyala dan hasilnya menyesatkan.
-  (catatan lama, masih berlaku:)
-  wilayah 0x5F93..0x6442 berisi **1.207 byte NOL di biner asli yang TIDAK ADA
-  di build kita** — manifest lompat dari `setup` (0x5f90) ke `text` (0x644a).
-  Cari modul apa yang menempatinya. Sesudah urutan LINK diperbaiki (dulu
-  ABJAD, seharusnya ALAMAT), .EXE kita cocok 43,0% per posisi dan geserannya
-  tinggal ±8 byte sampai 0x6449 — sisanya persis lubang 1.207 byte itu.
-  ⚠⚠ Selain itu: **tidak ada sasaran di luar kelas alokator.**
-  Keempat sisa (main 3 B, loadcon 52 B, pickvar 3 B, place 2 B = 60 B)
-  semuanya pilihan register se-fungsi. Melanjutkan butuh pemahaman BARU
-  soal alokator MS C 1.04, bukan iterasi tambahan dengan alat yang ada.
-- TIGA fungsi selesai 2026-07-31 lewat DUA aturan baru (keduanya di `src_c/README.md`):
-  - `f2823` (397 B, interpolator parabola) — `probes/probe19.c`: slot bingkai berisi
-    konstanta `long` menandakan VARIABEL, dan cor `(long)` yang mubazir secara
-    semantik tetap mengubah kode.
-  - `f278e` (149 B) + `f2714` (122 B) — **`extern char *p` ≠ `extern int p` + cor
-    `*(char *)p`**. Tipe penunjuk asli dimuat langsung ke SI dan DIMUAT ULANG tiap
-    rujukan; bentuk cor lewat AX dan ditahan di register. Aman untuk DGROUP:
-    gendata.py memancarkan simbol bukan-larik sebagai `int` apa pun tipe externnya.
-- ✅ Tabrakan nama `put()` sudah dibereskan: `put`=0x65e0, `putmsk`=0x6524.
-- `nvar` SELESAI: dua `if` bersarang harus digabung `&&` — bentuk bersarang
-  memaksa CSE bertahan melintasi cabang sehingga bingkai membesar 2 kata.
-- `animvm` SELESAI: gelung yang keluar lewat JATUH-TEMBUS harus ditulis dengan
-  dua `goto` ke satu label, bukan `for`/`do-while`.
-- `place` tinggal 2 byte (register SI vs BX/DI murni).
-- Batas keras pertama ditemukan: 1 byte di `load` (0x53ff+134) adalah artefak
-  kompiler yang bergantung NAMA BERKAS, bukan sumber C — lihat `src_c/README.md`.
+- **COCOK byte-per-byte 81/83 fungsi, 24.731 byte. Kode C game 96,0%; TOTAL 97,1%.**
+  Tidak ada stub tersisa.
+- Sisa yang belum eksak tinggal DUA: `place` 501/503 (2 byte) dan
+  `pickvar` 1.662/1.730 (68 byte). Keduanya soal LIVE-RANGE penunjuk / penjadwalan
+  simpanan, bukan bentuk pernyataan — lihat `src_c/README.md`.
+- ⭐ **Alat penentu: `src_c/verify/sweep.py` (ORACLE BATCH).** Satu peluncuran
+  DOSBox memuat puluhan pasang MC1+MC2, jadi 16 varian selesai sekali langkah
+  alih-alih 16 iterasi. Ini yang membuka `main_` dan `loadcon`.
+- ⭐ **Kompilernya DUA FASE**: MC1 → berkas QUAD `<nama>.Q` → MC2 → `.OBJ`
+  (MC2 menghapus `.Q`-nya). Register TIDAK ADA di quad, jadi pilihan BX/SI/DI
+  adalah fungsi murni dari urutan quad. Jalankan MC1 sendirian untuk melihatnya.
 - Batas wilayah pustaka MC.LIB TERBUKTI di 0x69d7 (`src_c/verify/libmatch.py`),
-  jadi target rekonstruksi = 27.095 byte kode game, bukan 36.976.
-- ⚠ `.EXE` itu **belum tentu bisa dijalankan** — tidak ada stub lagi, tapi empat
-  fungsi belum byte-exact sehingga perilakunya belum terverifikasi.
-- ⭐ URUTAN KERJA yang terbukti (lihat `src_c/README.md`): perbaiki PANJANG dulu,
-  lalu UJI ULANG semua penolakan lama, baru garap bentuk lokal. Selama panjang
-  masih bergeser, metrik apa pun akan menghukum bentuk yang BENAR. Disiplin ini
-  menaikkan `main` dari 80,1% ke 99,6% — dua perbaikan terbesarnya adalah hal
-  yang sebelumnya sudah DITOLAK.
+  jadi target rekonstruksi = 25.758 byte kode game nyata (26.965 byte wilayah
+  0x0082..0x69d7 DIKURANGI 1.207 byte NOL di 0x5F93..0x6442).
+- Batas keras: 1 byte di `load` (0x53ff+134) adalah artefak kompiler yang
+  bergantung NAMA BERKAS, bukan sumber C — lihat `src_c/README.md`.
 - Aturan & jebakan lengkap: **`src_c/README.md`** (baca sebelum menyentuh `src_c/`).
 
 ## Status port (per 2026-07-21)

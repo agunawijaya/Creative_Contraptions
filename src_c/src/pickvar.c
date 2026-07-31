@@ -88,15 +88,16 @@ int  n, idx, flag;
     int  ya;            /* 3Eh */
     int  y2;            /* 40h  = y1 + hh */
     int  yb;            /* 42h */
-    int  rb;            /* 44h  salinan recbase */
-    int  rp2;           /* 46h  penunjuk record ke-2 (dari salinan rb) */
+    char *rb;           /* 44h  salinan recbase -- char* (bukan int + cor):
+                           bentuk penunjuk asli dimuat LANGSUNG ke SI */
+    char *rp2;          /* 46h  penunjuk record ke-2 (dari salinan rb) */
     int  cnt;           /* 48h  pencacah percobaan acak */
     int  dv;            /* 4Ah  selisih baris y1-ya, sebelum di-abs */
     struct rec *rp;     /* 4Ch */
     char f7[2];         /* 4Eh */
     int  ok;            /* 50h  boleh dipilih? */
 
-    rb = (int)recbase;
+    rb = recbase;
     if (lvl == 2)
         tw = 9;
     else
@@ -146,12 +147,12 @@ int  n, idx, flag;
                FALSE (cabang yang MEMUAT ULANG dari slot). */
             sel = list[idx + 1];
             rp2 = rb + sel * 0xc;
-            dx2 = ((char *)rp2)[4];
+            dx2 = rp2[4];
             dx2 = (dx2 >= 0x80) ? dx2 - 0x100 : dx2;
-            dy2 = ((char *)rp2)[5];
+            dy2 = rp2[5];
             dy2 = (dy2 >= 0x80) ? dy2 - 0x100 : dy2;
             load(fh, recbase, sel, buf);
-            blit(buf, x + dx2, y + dy2, ((char *)rp2)[2], ((char *)rp2)[3]);
+            blit(buf, x + dx2, y + dy2, rp2[2], rp2[3]);
         }
     }
 again:
@@ -164,12 +165,12 @@ again:
         goto tail;
     }
     rp2 = rb + k2 * 0xc;
-    dx3 = ((char *)rp2)[4];
+    dx3 = rp2[4];
     dx3 = (dx3 >= 0x80) ? dx3 - 0x100 : dx3;
-    dy3 = ((char *)rp2)[5];
+    dy3 = rp2[5];
     dy3 = (dy3 >= 0x80) ? dy3 - 0x100 : dy3;
-    ww = ((char *)rp2)[2];
-    hh = ((char *)rp2)[3];
+    ww = rp2[2];
+    hh = rp2[3];
     x1 = x + dx3;
     y1 = y + dy3;
     x2 = x1 + ww;
@@ -193,12 +194,12 @@ again:
                  x + ox + (k * 0xc + recbase)[2] - 1, 1);
         if (sel != -1) {
             rp2 = rb + sel * 0xc;
-            dx2 = ((char *)rp2)[4];
+            dx2 = rp2[4];
             dx2 = (dx2 >= 0x80) ? dx2 - 0x100 : dx2;
-            dy2 = ((char *)rp2)[5];
+            dy2 = rp2[5];
             dy2 = (dy2 >= 0x80) ? dy2 - 0x100 : dy2;
-            fillrect(y + dy2, x + dx2, y + dy2 + ((char *)rp2)[3] - 1,
-                     x + dx2 + ((char *)rp2)[2] - 1, 1);
+            fillrect(y + dy2, x + dx2, y + dy2 + rp2[3] - 1,
+                     x + dx2 + rp2[2] - 1, 1);
         }
     }
     /* Pola yang SAMA berulang di 0x45DD, tapi `q = idx` (bukan idx+141h). */
@@ -211,18 +212,18 @@ again:
                sudah terbukti dipakai ulang tanpa perubahan. */
             sel = list[idx + 1];
             rp2 = rb + sel * 0xc;
-            dx2 = ((char *)rp2)[4];
+            dx2 = rp2[4];
             dx2 = (dx2 >= 0x80) ? dx2 - 0x100 : dx2;
-            dy2 = ((char *)rp2)[5];
+            dy2 = rp2[5];
             dy2 = (dy2 >= 0x80) ? dy2 - 0x100 : dy2;
             load(fh, recbase, sel, buf);
             /* BEDA dengan kembarannya di 0x4455: yang ini MENYIMPAN keempat
                sudutnya ke slot 34/38/3c/40 sebelum memanggil blit. */
             x1 = x + dx2;
             y1 = y + dy2;
-            x2 = x1 + ((char *)rp2)[2];
-            y2 = y1 + ((char *)rp2)[3];
-            blit(buf, x1, y1, ((char *)rp2)[2], ((char *)rp2)[3]);
+            x2 = x1 + rp2[2];
+            y2 = y1 + rp2[3];
+            blit(buf, x1, y1, rp2[2], rp2[3]);
         }
     }
     /* 0x46CD -- di LUAR kedua if; kedua kegagalan syarat melompat ke sini. */

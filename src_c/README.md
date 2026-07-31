@@ -1971,3 +1971,34 @@ dengan GLOBAL.** GLOBAL yang turun sesudah satu perbaikan yang bentuknya TERBUKT
 benar adalah bingkai tercemar, bukan bantahan. `shapediff` (yang menormalkan
 literal) adalah wasit yang benar dalam keadaan ini, dan TERJAJAR yang naik
 (701 → 724) mengkonfirmasi arah.
+
+## ⭐ SI vs DI untuk PENUNJUK ditentukan LIVE-RANGE, bukan selera alokator
+
+Situs `place` 0x4fd4 (`dp` masuk DI pada kita, SI pada asli) selama ini dibaca
+sebagai "alokator tak terkendali". Reproduksi mini + `sweep.py` membuktikan
+sebabnya mekanis: **SI dipakai ulang untuk penunjuk berikutnya kalau pemakaian
+terakhir penunjuk sebelumnya ada SEBELUM titik itu.** Geser satu pemakaian ke
+atas dan DI hilang sama sekali:
+
+```c
+if (sp->id == id && sp->row == row) {
+    dp->spr2 = q;               /* sp masih dipakai NANTI -> dp ke DI  */
+    ...  if (t2 != sp->spr) ...
+}
+```
+```c
+if (sp->id == id && sp->row == row) {
+    t2 = sp->spr;               /* pemakaian terakhir sp DI SINI      */
+    dp->spr2 = q;               /* -> dp ke SI                        */
+}
+```
+
+Ini juga menjelaskan `main_` 0x0c83 dan `pickvar`: yang menentukan bukan bentuk
+pernyataan, melainkan sampai mana nilai sebelumnya masih dibutuhkan.
+
+⚠ Tapi di `place` ia BELUM bisa dipakai: kedua bentuk yang membebaskan SI
+merusak byte lain (lihat daftar "DICOBA & GAGAL" di `place.c`). Khususnya
+mengganti `if (A && B)` dengan dua `if (...) goto next` memberi SI yang benar
+dan byte cabang yang identik, tapi kompiler MEMUAT ULANG penunjuknya di antara
+kedua `if` (+3 byte). Jadi `&&` dan `goto` beda BUKAN di cabangnya, melainkan di
+apakah penunjuk dipertahankan di register melintasi uji kedua.
