@@ -2562,3 +2562,31 @@ TEKANAN REGISTER: membuat nilai lain tetap hidup melintasi blok itu. Di
 
 ⚠ CATATAN OPERASIONAL: `link.ps1` menautkan SEMUA `.OBJ` di `out/`, jadi probe
 WAJIB dihapus `.OBJ`-nya dan sumbernya dipindah ke `probes/` sesudah dipakai.
+
+
+## `pickvar`: sudut TEKANAN REGISTER diuji dan TERBANTAH
+
+Sesudah `probeA` menutup jalur "bentuk sumber", sudut yang tersisa adalah
+membuat `&list[idx]` tetap HIDUP melintasi blok — meniru asli yang menahannya
+di SI lalu menumpahkannya ke `[bp+2]` (3 byte yang kita kurang).
+
+Diuji dengan mengubah pengganjal `char f1[2]` (slot 0x14, tak terpakai) menjadi
+`int *lp`, lalu memakai `lp` untuk `list[idx]`, `lp[1]` dua kali:
+
+```
+GLOBAL 1.654 -> 1.557 (-97)      panjang -3 -> -10
+```
+
+⚠ Pengukurannya SAH: bingkai tetap `sub sp=0x52`, jadi hasil buruk itu BUKAN
+efek samping bingkai yang berubah. Menahan penunjuk di lokal justru membuat
+kompiler memancarkan LEBIH SEDIKIT kode (panjang makin jauh dari asli), yaitu
+arah yang BERLAWANAN dengan yang dicari. Hipotesis terbantah.
+
+⭐ KOREKSI ATURAN BINGKAI: `char f1[2]` di posisi ini TERNYATA MENEMPATI SLOT —
+menggantinya dengan `int *` menjaga bingkai tetap 0x52. Catatan lama
+"`char x[2]` DIBUANG" karena itu TIDAK berlaku umum; ia bergantung posisi/konteks.
+Jangan memakai catatan itu untuk memperkirakan ukuran bingkai tanpa mengukur.
+
+Sisa jalan untuk `pickvar` -3 byte: belum ada. Yang sudah gugur di situs ini:
+tiga permutasi urutan pernyataan, bentuk `goto`, `&&` baris 207, dan kini
+penunjuk-lokal. `probeA` sudah membuktikan bentuk sumber bukan pengungkitnya.
