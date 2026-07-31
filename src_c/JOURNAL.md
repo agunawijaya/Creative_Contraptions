@@ -2769,3 +2769,38 @@ tapi TETAP TERULANG karena harness-nya ditulis ulang dari nol tiap kali.
 ⭐ Perbaikannya: tulis skrip pengganti sebagai BERKAS di scratchpad
 (`mrep.py`) dengan argumen eksplisit, lalu panggil berkas itu — jangan menaruh
 heredoc di dalam fungsi shell yang argumennya diteruskan berlapis.
+
+
+## `probeC`: kelas BX-vs-SI TIDAK bisa dijawab probe — batas teknik ditemukan
+
+Sesuai disiplin (situs gagal 3x -> berhenti menebak, bikin probe), kelas
+BX-vs-SI diprobe dengan lima varian. HASILNYA SERAGAM: kelimanya memakai BX.
+Rinciannya di README.
+
+Ini hasil negatif yang PALING informatif dari beberapa iterasi terakhir, karena
+ia menutup teknik-nya, bukan cuma satu hipotesis:
+* bentuk sumber lokal TIDAK menentukan pilihan BX vs SI di situs ini;
+* probe kecil TIDAK bisa mereproduksi keadaan alokator se-fungsi;
+* jadi `main_` 0x0c83 dan `place` 0x4fd4 tidak akan terpecahkan dengan alat yang
+  ada sekarang.
+
+⭐ ATURAN PROSES BARU: kalau SEMUA varian probe memberi jawaban SAMA, itu tanda
+pertanyaannya SALAH TINGKAT. Naikkan cakupan pertanyaannya — jangan menambah
+varian di tingkat yang sama.
+
+⭐ HARNESS akhirnya disimpan sebagai berkas tetap (`rep.py` di scratchpad,
+argumen lewat BERKAS, ber-assert anchor unik). Bug argumen berlapis yang sudah
+dua kali menggigit tidak akan terulang lagi.
+
+## Keadaan pekerjaan: 71 byte tersisa, semuanya kelas tersulit
+
+Sesudah iterasi ini, sisa yang belum byte-exact:
+```
+main_    14 byte / 9 celah   (99,7%)
+pickvar   3 byte  (-3 panjang)
+loadcon  52 byte
+place     2 byte
+```
+Semuanya kelas alokasi register, dan untuk `main_` 0x0c83 + `place` baru saja
+TERBUKTI di luar jangkauan alat yang ada. `pickvar` sudah gagal EMPAT kali,
+`loadcon` sudah menggugurkan 13 varian. Kemajuan per iterasi kini 0-2 byte.

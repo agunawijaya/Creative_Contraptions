@@ -1212,6 +1212,34 @@ Semua fungsi lain, termasuk `main` yang angkanya paling rendah, sudah lengkap
 secara struktur. Persentase RENDAH tidak berarti "masih banyak yang belum
 ditulis" — itu keliru yang dipegang berminggu-minggu.
 
+## ⚠ BX vs SI: BAWAAN kompiler adalah BX — dan probe TIDAK bisa memaksanya
+
+`probes/probeC.c` (lima varian) menguji apa yang membuat MS C memakai ULANG
+register yang baru mati (SI) alih-alih mengambil BX. Semua variasi yang masuk
+akal dicoba:
+
+```
+C1 buf LOKAL (indeks [bp+si+K], persis main_)   -> mov bx
+C2 buf PARAMETER (penunjuk)                     -> mov bx
+C3 ada nilai lain HIDUP melintasi uji           -> mov bx
+C4 hasil indeks dipakai LAGI sesudah gelung     -> mov bx
+C5 penunjuk record dipakai DUA kali di syarat   -> mov bx (dua kali)
+```
+
+KELIMANYA memakai BX. Jadi bawaan MS C untuk bentuk ini memang BX, dan tak satu
+pun faktor tingkat-pernyataan mengubahnya.
+
+⭐ ARTINYA: pilihan SI di biner asli BUKAN akibat bentuk sumber lokal, melainkan
+keadaan alokator SE-FUNGSI yang tidak bisa direproduksi oleh probe kecil. Untuk
+situs seperti ini (`main_` 0x0c83, `place` 0x4fd4), probe TIDAK akan menjawab —
+yang dibutuhkan pemahaman tentang bagaimana MS C mewariskan keadaan register
+antar-blok, dan itu belum ada.
+
+⚠ Ini BATAS TEKNIK PROBE yang pertama ditemui. Probe menjawab pertanyaan
+"faktor apa di sekitar sini?", TAPI tidak menjawab "keadaan apa yang diwarisi
+dari jauh". Kalau semua varian probe memberi jawaban SAMA, itu tandanya
+pertanyaannya salah tingkat — naikkan cakupannya, jangan tambah varian.
+
 ## ⭐⭐ PEMETAAN LEWAT PENANDA — pastikan blok sumbernya SEBELUM mendiagnosis
 
 Cara: sisipkan pemanggilan unik tanpa argumen (`f2fde();`) di blok kandidat,
