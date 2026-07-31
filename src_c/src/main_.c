@@ -462,8 +462,20 @@ main()
                 do {
                     m = getkey();
                 } while (m != 0x20 && m != 0x1b);
+                if (m == 0x1b) {
+                    cursel = -1;
+                    goto done1;
+                }
+                if (lvl == 1)
+                    autofill(0x1a8, base, seed, buf62ae, buf6df2, nmechc, ed0,
+                             ef8, recB, idtab, ea8, e120, ytop, lvl);
             done1:
-                ;
+                /* Tanda-tangan autofill PERSIS sama dengan fillans (14 arg,
+                   urutan identik) -- keduanya mengisi papan, bedanya sumber
+                   jawabannya. */
+                if (lvl == 1)
+                    goal++;
+                goal--;
             }
             break;
         case 2:
