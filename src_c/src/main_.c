@@ -86,6 +86,7 @@ extern int  recC[];             /* @0x4b6 */
 /* postab bertipe `struct pos` di berkas lain; di sini isinya tidak dipakai,
    cuma alamatnya yang dioper, jadi cukup dideklarasikan sebagai char[]. */
 extern char postab[];           /* @0x3b6 */
+extern int  shufflg;            /* @0x794 */
 extern int  sndok;              /* @0x71a  hasil sndini(); belum pernah dinamai */
 extern int  state[];            /* @0x4f2 */
 extern char idtab[];            /* @0x2ea */
@@ -234,7 +235,33 @@ main()
        20 kali, bukan membunyikan apa pun. */
     for (i = 0; i < 0x14; i++)
         rnd(1);
-    k = 1;
+    /* 0x0450 -- gelung utama program. */
+    for (;;) {
+        k = 1;
+        mode = mainmenu();
+        if (mode == -1)
+            goto quit;
+        /* ⭐ SWITCH PADAT (beda dengan bentuk JARANG di pickvar): kompiler
+           memancarkan `si = mode - 1; if (si >= 4) default; shl si,1;
+           jmp cs:[si+tabel]` dengan tabel 4 entri di 0x0480. Bentuk ini
+           dipilih kalau nilai case-nya rapat; yang jarang memakai tabel
+           pasangan nilai/label yang dipindai mundur.
+           Urutan case di sumber = urutan ALAMAT badannya, sama seperti
+           bentuk jarang: badan 0x0467 (case 2,3,4) sebelum 0x0478 (case 1). */
+        switch (mode) {
+        case 2:
+        case 3:
+        case 4:
+            shufflg = 1;
+            lvl = lvlmenu();
+            if (lvl == -1)
+                continue;
+            break;
+        case 1:
+            shufflg = 0;
+            break;
+        }
+    }
 quit:
     ;
 }
