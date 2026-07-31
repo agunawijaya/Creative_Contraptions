@@ -1103,6 +1103,30 @@ TERNARY. Jangan menyeragamkan — ukur tiap tempat.
 Alur kendalinya IDENTIK; yang berbeda cuma apakah kompiler masih menganggap
 penunjuknya hidup di register. Sepola dengan aturan penugasan-di-dalam-syarat.
 
+## ⭐ NILAI YANG DIBUANG tetap memancarkan kode — dan itu bisa BUG ASLINYA
+
+Di `animvm` `case 0x0c` biner menghitung pemulihan tanda 0xC8 lalu **membuang
+hasilnya**: AX ditimpa `mov ax,si` tanpa pernah disimpan balik, dan fungsi di
+hilirnya menerima nilai MENTAH. Bentuk C-nya adalah pernyataan-ekspresi tanpa
+penugasan:
+
+```c
+u44 = *scrptr++;
+(u44 >= 0xc8) ? u44 - 0x100 : u44;      /* hasil DIBUANG */
+```
+
+Kelihatannya bug di gim aslinya (penulisnya lupa menugaskan balik), tapi
+rekonstruksi byte-identical harus menirunya. Penjajaran naik 2.700 → 2.748.
+
+⚠ **PER-CASE, bukan pola umum.** `case 0x03` beberapa baris di atasnya
+melakukan hal yang SAMA persis TAPI menyimpan hasilnya balik. Sudah diuji:
+membuangnya di sana justru menurunkan penjajaran 2.748 → 2.722 dan memunculkan
+geseran baru. Dua tempat, dua perilaku — jangan diseragamkan.
+
+Ini varian ketiga dari pola yang sama (lihat juga TERNARY vs `if/else`):
+**bentuk yang benar ditentukan per-TEMPAT dan harus diukur, bukan disimpulkan
+dari tempat lain di fungsi yang sama.**
+
 ## ⚠⚠ DIVERGENSI BISA JAUH DARI SEBABNYA — alokasi register itu se-BLOK
 
 Kasus paling mahal sesi ini, dan pelajarannya berlaku umum.

@@ -384,6 +384,10 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
             case 0x03:          /* 0x1fac — lempar bola ke part BERIKUTNYA */
                 ticks = 0;
                 u44 = *scrptr++;
+                /* ⚠ DI SINI hasilnya DISIMPAN BALIK -- kebalikan dari case 0x0c
+                   yang membuangnya. Sudah diuji: membuangnya di sini menurunkan
+                   penjajaran 2.748 -> 2.722 dan memunculkan geseran baru di
+                   0x1ff1. Dua case, dua perilaku; jangan diseragamkan. */
                 u44 = (u44 >= 0xc8) ? u44 - 0x100 : u44;
                 u46 = *scrptr++;
                 if (steps[i + 1] == -1) {
@@ -458,7 +462,12 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
 
             case 0x0c:          /* 0x21e1 — lempar bola ke koordinat RELATIF */
                 u44 = *scrptr++;
-                u44 = (u44 >= 0xc8) ? u44 - 0x100 : u44;
+                /* ⚠ HASILNYA SENGAJA DIBUANG, bukan salah tulis. Di biner, AX
+                   yang memuat nilai terpulihkan langsung ditimpa `mov ax,si`
+                   tanpa pernah disimpan balik ke [bp+44h], dan f2823 menerima
+                   nilai MENTAH-nya. Kelihatannya bug di gim aslinya; kita
+                   merekonstruksi apa adanya. */
+                (u44 >= 0xc8) ? u44 - 0x100 : u44;
                 u46 = *scrptr++;
                 u54 = scrptr;
                 u4c = *++u54;

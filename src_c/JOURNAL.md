@@ -1271,3 +1271,48 @@ ini lokalisasinya tepat sampai ke satu instruksi, dan tetap menyesatkan.
 `0x21bb:+3`, `0x2236:+5`, `0x22da:+6`, `0x23a0:+8`. Yang di 0x21bb sudah
 terlokalisasi: aslinya punya DUA `jmp 1cd2` berturut di 0x21b4/0x21b7 (yang
 kedua kode MATI), punya kita cuma satu.
+
+---
+
+## `animvm` tahap 9: nilai yang DIBUANG — 2.700 → 2.748 (90,4%)
+
+| | sebelum | sesudah |
+|---|---|---|
+| TERJAJAR | 2.700 / 3.040 (88,8%) | **2.748 / 3.040 (90,4%)** |
+| geseran | 4 | 4 (satu bergeser tempat) |
+| panjang | −8 | −10 |
+
+### ⭐ Pemulihan tanda yang hasilnya DIBUANG
+
+Di `case 0x0c` biner menghitung ternary pemulihan tanda 0xC8 lalu **membuang
+hasilnya** — AX ditimpa `mov ax,si` tanpa pernah disimpan balik ke `[bp+44h]`,
+dan `f2823` menerima nilai MENTAH-nya. Bentuk C-nya pernyataan-ekspresi tanpa
+penugasan:
+
+```c
+u44 = *scrptr++;
+(u44 >= 0xc8) ? u44 - 0x100 : u44;      /* hasil DIBUANG */
+```
+
+Kelihatannya **bug di gim aslinya** — penulisnya lupa menugaskan balik. Kita
+merekonstruksi apa adanya.
+
+⚠ **PER-CASE.** `case 0x03` beberapa baris di atas melakukan hal yang sama
+persis TAPI menyimpan hasilnya. Diuji: membuangnya di sana menurunkan
+penjajaran 2.748 → 2.722 dan memunculkan geseran baru di 0x1ff1. Perubahan itu
+langsung dibatalkan dan alasannya ditulis di berkasnya supaya tidak dicoba lagi.
+
+Ini varian KETIGA dari pola yang sama (setelah ternary-vs-if/else dan
+urutan-pernyataan): bentuk yang benar ditentukan per-TEMPAT dan harus DIUKUR.
+
+### Yang dicoba dan GAGAL iterasi ini
+
+Memecah `u4c = *++u54;` jadi `u54++; u4c = *u54++;` di `case 0x0c`:
+panjang melonjak +10 (3.042 vs 3.040) tanpa menaikkan penjajaran. Dibatalkan.
+Bentuk pra-increment satu-ekspresi tetap yang benar di sana.
+
+### Geseran tersisa (4)
+
+`0x21bb:+3`, `0x2219:+7`, `0x22da:+8`, `0x23a0:+10`.
+Yang di 0x21bb masih sama: aslinya punya DUA `jmp 1cd2` berturut di
+0x21b4/0x21b7 (yang kedua KODE MATI), punya kita cuma satu. Belum terpecahkan.
