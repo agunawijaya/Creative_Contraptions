@@ -373,6 +373,8 @@ main()
         case 4:
             if (menu12() == -1)
                 continue;
+        reset:
+            /* 0x0668 -- juga sasaran `goto` dari hasil runplay == 0FEh. */
             schi = 0;
             sclo = 0;
             ta = 5;
@@ -451,6 +453,17 @@ main()
                                  ed0, e120, ef8, buf62ae, buf6df2, nzany,
                                  e08, e30, e80, recC, e58, ytop, big,
                                  buf0d54);
+                if (cursel == 0xfe)
+                    goto reset;
+                if (cursel == -1)
+                    goto done1;
+                failed = animvm(state, nmechc, recB, ef8, e120, nzany, recC,
+                                e58, e80);
+                do {
+                    m = getkey();
+                } while (m != 0x20 && m != 0x1b);
+            done1:
+                ;
             }
             break;
         case 2:
