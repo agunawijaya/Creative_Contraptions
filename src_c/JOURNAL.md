@@ -2532,3 +2532,33 @@ yang jelas untuk melarang peruntuhan itu.
 
 Sisa `main_` (18 byte): gugusan 8 byte di 0x0126..0x0138 (blok `page`/`page2`),
 0x0b41=2B (rantai lompatan di atas), dan enam celah 1-byte.
+
+
+## `probeA`: waktu simpanan TERJAWAB — dan jawabannya menutup satu jalur penuh
+
+Sasaran "apa yang menentukan WAKTU SIMPANAN ke memori" akhirnya diuji dengan
+probe terkendali alih-alih ditebak. Lima varian sumber dari bentuk yang sama
+(`src_c/probes/probeA.c`), dikompilasi sekali, dibandingkan disassembly-nya.
+
+Empat dari lima memancarkan simpanan yang DITUNDA. Yang membedakan cuma satu:
+kalau UJI memakai variabel yang baru dihitung (`if (q + 1 < n)` alih-alih
+`if (idx + 1 < n)`), kompiler menyimpan SEGERA lalu memakai ulang registernya.
+
+Jadi simpanan-segera BUKAN pilihan bentuk sumber melainkan gejala kebutuhan
+register. Aturannya dicatat di README.
+
+⭐ NILAI TEMUAN INI ADA DI APA YANG DITUTUPNYA. Selama beberapa iterasi, empat
+situs terakhir digarap dengan asumsi "ada bentuk sumber yang benar dan belum
+ketemu". Probe membuktikan asumsi itu SALAH: untuk bentuk ini bawaan kompiler
+memang menunda, dan bentuk sumber apa pun tidak mengubahnya. Itu menjelaskan
+sekaligus kenapa tiga permutasi `pickvar`, sepuluh varian `loadcon`
+(probe11..13), dan beberapa varian `nvar` semuanya gagal — semuanya menyerang
+faktor yang tidak berpengaruh.
+
+Pengungkit yang tersisa untuk keempat situs bukan bentuk pernyataan melainkan
+TEKANAN REGISTER: membuat nilai lain tetap hidup melintasi blok itu. Di
+`pickvar` yang hidup di asli adalah `&list[idx]` (SI, lalu ditumpahkan ke
+`[bp+2]` — persis 3 byte yang kita kurang).
+
+⚠ CATATAN OPERASIONAL: `link.ps1` menautkan SEMUA `.OBJ` di `out/`, jadi probe
+WAJIB dihapus `.OBJ`-nya dan sumbernya dipindah ke `probes/` sesudah dipakai.

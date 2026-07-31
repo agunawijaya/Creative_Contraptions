@@ -1212,6 +1212,39 @@ Semua fungsi lain, termasuk `main` yang angkanya paling rendah, sudah lengkap
 secara struktur. Persentase RENDAH tidak berarti "masih banyak yang belum
 ditulis" — itu keliru yang dipegang berminggu-minggu.
 
+## ⭐⭐⭐ WAKTU SIMPANAN: bawaannya DITUNDA — simpanan SEGERA itu gejala
+## TEKANAN REGISTER, bukan bentuk sumber (probeA, 2026-07-31)
+
+Empat situs tersisa (`nvar` 0x41b2, `loadcon` 0x5115, `pickvar` 0x43a5,
+`main_` 0x0126) semuanya soal KAPAN sebuah nilai disimpan ke memori. `probeA.c`
+menguji lima varian sumber dari bentuk yang sama untuk mencari pemicunya.
+
+**Hasilnya menutup satu jalur penyelidikan penuh.** Untuk bentuk
+"hitung `q`, lalu uji `idx + 1 < n`", MS C **SELALU MENUNDA** simpanan `q`
+sampai sesudah uji — apa pun bentuk sumbernya:
+
+```
+pa1  q; sel = -1; if (idx+1<n)          -> DITUNDA
+pa2  q; if (idx+1<n) ... else ...       -> DITUNDA   (jarak ke uji: tidak berpengaruh)
+pa3  q dipakai LAGI di dalam badan       -> DITUNDA   (pemakaian ulang: tidak berpengaruh)
+pa5  q juga jadi nilai balik             -> DITUNDA
+pa4  uji memakai `q`: `if (q + 1 < n)`   -> SEGERA!   <- satu-satunya yang beda
+```
+
+`pa4` memancarkan `mov [bp+2],bx` lalu `inc bx / cmp bx,[n]` — menyimpan dulu
+supaya REGISTERNYA bisa dipakai ulang seketika.
+
+⭐ KESIMPULAN: simpanan-segera muncul kalau register itu DIBUTUHKAN SEGERA
+sesudahnya. Di biner asli `pickvar`, DX satu-satunya register bebas (AX/CX
+memegang `list[idx]`, SI memegang penunjuknya), jadi kompiler menyimpan `q`,
+memakai ulang DX untuk uji, lalu MEMUAT ULANG `idx` ke DX yang sama.
+
+⚠ ARTINYA: mencari "bentuk sumber yang benar" di keempat situs itu SIA-SIA —
+bentuknya sudah benar. Yang harus diubah adalah TEKANAN REGISTER di blok itu,
+yaitu membuat nilai LAIN tetap hidup. Ini juga menjelaskan kenapa tiga permutasi
+urutan pernyataan di `pickvar` dan sepuluh varian probe di `loadcon` semuanya
+gagal: semuanya menyerang faktor yang memang tidak berpengaruh.
+
 ## ⭐⭐ KONSTANTA yang dipakai >1 KALI dimaterialisasi di PUNCAK BLOK
 
 Berlaku untuk nilai APA PUN, bukan cuma nol. Empat kali membayar di `main_`
