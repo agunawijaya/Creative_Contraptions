@@ -408,6 +408,13 @@ main()
                 for (i = 0; i < 0x23; i++)
                     basebuf[i * 0xc] = 0;
                 sub++;
+                if (loadcon(-1) < 0) {
+                    printf(0x957);
+                    return;
+                }
+                setmark(nzany + nmechc, state, lvl, markf, mark);
+                f171f(2, 0x922, sub, nmax, postab);
+                p1 = 1;
             redo:
                 ;
             }
