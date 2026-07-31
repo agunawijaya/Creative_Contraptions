@@ -60,6 +60,16 @@ extern int  base;               /* @0x73a */
 extern int  recbase;            /* @0x73c */
 /* Dua alamat ini BELUM pernah dinamai di berkas lain; keduanya juga bukan
    awal simbol yang sudah ada, jadi aman diberi nama (lihat aturan gendata). */
+extern int  mark[];             /* @0x742 */
+extern int  prevx;              /* @0x266 */
+extern int  prevtop;            /* @0x262 */
+extern int  page;               /* @0x2e0 */
+extern int  page2;              /* @0x2e2 */
+/* ⚠ 0x846 sudah bernama `mode_` di berkas lain, tapi di sini jelas ia
+   PEGANGAN BERKAS: diisi hasil open() lalu diteruskan ke loadarc sebagai
+   argumen pertama. Namanya menyesatkan; JANGAN diganti (aturan: satu alamat
+   satu nama), cukup dicatat. */
+extern int  mode_;              /* @0x846 */
 extern int  scrmode;            /* @0x3b0 */
 extern int  g83a;               /* @0x83a  belum dianalisa maknanya */
 
@@ -97,10 +107,29 @@ main()
     level_ = (int)lvlbuf;
     base = (int)basebuf;
     recbase = (int)recs;
-    /* TODO 0x00B9 `mov bx,[0]` -> g83a = <var di DGROUP:0000>. MS C 1.04
-       menolak `*(int *)0` (Error 20), jadi butuh nama extern @0x00 dulu. */
+    /* ⚠ TERTUNDA: 0x00B9 `mov bx,[0]` = baca kata pertama DGROUP (offset 0).
+       Butuh simbol bernama di DGROUP:0000, TAPI gendata.py menyaring
+       `START <= a` dengan START=4 -- alamat DGROUP 0..3 DIBUANG diam-diam,
+       jadi namanya tidak pernah terbit dan LINK gagal (unresolved dg0).
+       Memperbaikinya menyentuh penataan DGROUP yang saat ini 100% cocok,
+       jadi TIDAK dikerjakan tanpa pengawasan. Biayanya 7 byte di sini. */
     for (i = 0; i < 0x14; i++)
         markf[i] = 1;
+    for (i = 0; i < 0x14; i++)
+        mark[i] = 1;
+    /* Empat penugasan konstanta ini dipancarkan dalam urutan TERBALIK
+       (aturan MS C 1.04 yang sudah dikenal), jadi urutan sumbernya
+       page, page2, prevtop, prevx -- bukan sebaliknya. */
+    page = 0x26c;
+    page2 = 0x284;
+    prevtop = 0x140;
+    prevx = 0x140;
+    mode_ = open(0x952, 0x8004);
+    if (mode_ == -1) {
+        printf(0x957);
+        return;
+    }
+    loadarc(mode_, level_, 1);
 }
 
 /* ⏳ BELUM DITULIS: 0x0101 ke atas (4.100 byte).
