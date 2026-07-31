@@ -303,8 +303,11 @@ inner:
     if (c == 0)
         c = getkey() + 0x100;
     k = k2;
-    ox = dx3;
+    /* `oy` DULU: aslinya memuat dy3 ([bp+0ch]) sebelum dx3 ([bp+0eh]).
+       Muatan mengikuti urutan SUMBER; simpanannya ditata ulang kompiler
+       (ox lebih dulu), jadi urutan sumber terbaca dari MUATANNYA. */
     oy = dy3;
+    ox = dx3;
     /* SWITCH JARANG (tabel nilai/label di 0x4959..0x4974, pemindai di 0x4975).
        ⭐ Tabelnya disusun KEBALIKAN urutan sumber: entri terakhir di tabel
        diuji lebih dulu. Urutan case di sumber = urutan alamat badannya. */
@@ -340,6 +343,14 @@ inner:
         return idx | 0x8000;
     case 0x1b:
         return -1;
+    /* ⭐ `default:` EKSPLISIT walau tak ada case yang `break`. Tanpa ini
+       kompiler MENGHAPUS sasaran "keluar switch"; aslinya memancarkannya
+       sebagai `jmp inner` di 0x4956 -- 3 byte tepat SESUDAH badan case
+       terakhir, sebelum tabel switch. Tak terjangkau, tapi ada di biner.
+       Diukur dengan pembandingan ekor berkompensasi geseran (0x4515..akhir):
+       104/1143 -> 1137/1143 byte cocok. */
+    default:
+        break;
     }
     goto inner;
 }

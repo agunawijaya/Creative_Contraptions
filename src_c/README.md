@@ -2049,3 +2049,41 @@ berapa kali ia ditulis di pernyataan penugasan.
 ⚠ Menulis `list[idx + 1]` sebagai `(list + idx)[1]` untuk "memaksa" CSE-nya
 justru MENGHAPUS 19 byte — kompiler lalu benar-benar berbagi alamatnya. Yang
 dibutuhkan biner asli adalah temp yang di-spill lalu TIDAK dipakai.
+
+## ⭐⭐ `default:` EKSPLISIT walau TIDAK ADA case yang `break`
+
+`pickvar` berakhir dengan `switch` yang SEMUA case-nya `return` atau `goto` —
+tak satu pun `break`. Kompiler kita menyimpulkan sasaran "keluar switch" tak
+terjangkau dan MENGHAPUSNYA. Biner asli tetap memancarkannya: `jmp inner`
+3 byte di 0x4956, tepat sesudah badan case terakhir dan sebelum tabel switch.
+
+Menambahkan `default: break;` di ujung switch mengembalikannya. `default: ;` dan
+`default: goto inner;` memberi byte yang SAMA PERSIS — jadi yang menentukan
+adalah ADANYA label `default`, bukan isinya.
+
+Dampaknya besar walau cuma 3 byte: tanpa itu seluruh ekor fungsi bergeser.
+Diukur dengan `shiftcmp.py` (0x4515..akhir): **104/1143 → 1137/1143**.
+
+⚠ Ini melengkapi aturan lama "`default:` eksplisit memancarkan `jmp` — hanya
+SESUDAH label terakhir". Yang baru: berlakunya TIDAK bergantung pada ada
+tidaknya `break` di case mana pun.
+
+## ⭐ ALAT: `shiftcmp.py` — ukur di KEDUA sisi geseran yang tersisa
+
+```
+python src_c/verify/shiftcmp.py <nama> <addr> <ukuran> <titik-geser> <geseran>
+python src_c/verify/shiftcmp.py pickvar 42ca 1730 4515 +2
+```
+
+Memotong fungsi di titik geseran: prefiks dibandingkan apa adanya, ekor dengan
+kompensasi. Dua-duanya bersih, dan angka SETARA-nya jujur. Ini yang menunjukkan
+`pickvar` sebenarnya sudah 1.703/1.730 (98,4%) sementara GLOBAL melaporkan 1.632.
+
+⚠ Hanya sah kalau geserannya TUNGGAL. Kalau `aligncmp` melaporkan lebih dari
+satu titik, ekornya pun masih tercemar.
+
+⭐ Bonus: byte yang tersisa beda di ekor langsung menunjuk situs nyata. Di
+`pickvar` sisanya cuma 6 byte — empat di antaranya ternyata pasangan TERTUKAR
+(`[bp+0ch]`/`[bp+0eh]` dan `[bp+10h]`/`[bp+12h]`), yaitu `oy = dy3; ox = dx3;`
+yang tertulis terbalik. Dua sisanya displacement lompatan, artefak geseran.
+Urutan sumber terbaca dari MUATANNYA (loads), bukan dari simpanannya.
