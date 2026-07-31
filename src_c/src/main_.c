@@ -641,6 +641,11 @@ main()
                 printf(0x957);
                 return;
             }
+            f171f(mode, 0x8ca, cur + 1, nmax, postab);
+            p1 = 1;
+            pass = 0;
+            loadarc(fh, recbase, 0, recC, nzany, mark);
+            loadarc(seed, base, 0, recB, nmechc, markf);
             break;
         }
     }
