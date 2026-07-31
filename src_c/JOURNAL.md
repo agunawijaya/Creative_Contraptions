@@ -1695,3 +1695,46 @@ proyek mungkin sebenarnya berhasil. Sudah masuk README.
 Sebagai perbandingan, `animvm` dengan metrik baru: GLOBAL 2.900/3.040 (95,4%)
 vs serakah 2.941 — di sana yang serakah justru sedikit terlalu murah hati.
 Keduanya dekat, jadi kesimpulan `animvm` tidak berubah.
+
+---
+
+## `main`: perancah 2 byte membuka 363 byte — GLOBAL 2.852 → 3.215 (76,2%)
+
+| | sebelum | sesudah |
+|---|---|---|
+| GLOBAL | 2.852 / 4.219 (67,6%) | **3.215 / 4.219 (76,2%)** |
+| TERJAJAR (serakah) | 2.690 | 3.986 |
+| panjang | −25 | **−12** |
+| geseran | 16 | **4** |
+
+Catatan lama `main` sudah mendiagnosis dengan benar: aslinya memesan 4 kata
+temp, kita 3, dan selisih 2 byte itu menggeser SEMUA lokal ke bawah. Yang
+belum dicoba: ganjal di DEPAN.
+
+### `int` tak terpakai DIALOKASIKAN; `char x[2]` tak terpakai DIBUANG
+
+Catatan lama menemukan `char x[2]` yang tak dirujuk dibuang kompiler, dan
+`char x[3]`/`x[4]` jadi 4 byte — jadi tidak ada cara membuat ganjal 2 byte
+dengan larik char. Tapi **`int tpad;` yang tak terpakai TETAP dialokasikan.**
+Itu ganjal 2 byte yang dicari.
+
+### Kenapa ini sah sebagai perancah, sedangkan percobaan lama tidak
+
+Percobaan lama membesarkan `lvlbuf` 2 byte: angkanya naik, tapi lvlbuf dan
+recs jadi duduk di offset yang jelas SALAH menurut biner. Ganjal di DEPAN
+menggeser semuanya naik seragam **tanpa mengubah ukuran atau urutan penyangga
+mana pun** — semua offset lokal jadi cocok persis dengan biner.
+
+⚠ Tetap PERANCAH, bukan kebenaran: pemicu kedalaman ekspresi yang membuat
+kompiler asli memesan kata temp keempat masih belum ketemu. Sudah ditulis di
+kepala `main_.c` supaya `tpad` dibuang begitu pemicunya ketemu.
+
+Nilainya: 12 dari 16 geseran lunas sekaligus, jadi divergensi lain di `main`
+sekarang BISA DILIHAT dan digarap — sebelumnya semuanya tertutup pergeseran
+seragam ini.
+
+### Verifikasi
+
+LINK bersih, DATA 100%, symcheck CURIGA 0.
+`fixorder main_`: 455 slot cocok, 11 BEDA (naik dari 10 karena lebih banyak
+wilayah kini sejajar dan bisa diperiksa), 19 di luar lari sejajar.

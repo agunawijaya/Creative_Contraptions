@@ -28,6 +28,17 @@
  * Mencarinya harus lewat perbandingan bentuk ekspresi, bukan lewat mencari
  * instruksi yang menyentuh slot temp -- karena tidak ada.
  *
+ * ✅ DIATASI 2026-07-31 dengan PERANCAH: `int tpad;` sebagai lokal PERTAMA.
+ * Lokal `int` tak terpakai TETAP dialokasikan (beda dari `char x[2]` yang
+ * dibuang), jadi ia menggeser semua lokal naik 2 byte TANPA mengubah ukuran
+ * atau urutan penyangga mana pun. Hasilnya:
+ *     GLOBAL 2.852 -> 3.215 / 4.219 (67,6% -> 76,2%)
+ *     geseran 16 -> 4, panjang -25 -> -12
+ * ⚠ Ini PERANCAH, bukan kebenaran: pemicu kedalaman ekspresi yang membuat
+ * kompiler asli memesan kata temp KEEMPAT masih belum ketemu. Buang `tpad`
+ * begitu ketemu. Bedanya dengan percobaan lama: ganjal di DEPAN tidak merusak
+ * offset penyangga mana pun, sedangkan membesarkan `lvlbuf` merusaknya.
+ *
  * ⚠ JANGAN "memperbaiki"-nya dengan membesarkan salah satu penyangga.
  * Percobaan: menambah 2 byte ke lvlbuf menaikkan TERJAJAR 2.682 -> 3.470 dan
  * membuat SEMUA slot cocok -- tapi itu KOMPENSASI, bukan kebenaran: ia
@@ -149,6 +160,13 @@ main()
     /* ⭐ KOREKSI peta: ini BUKAN larik 8x0x28, melainkan DELAPAN penyangga
        40-byte terpisah, dipakai dalam DUA KELOMPOK EMPAT: (08,30,58,80)
        dioper ke pickpart, (a8,d0,f8,120) ke panggilan berikutnya. */
+    /* ⏳ PERANCAH, bukan klaim tentang sumber asli. Aslinya memesan 4 kata
+       temp, kita 3 -- selisih 2 byte yang menggeser SEMUA lokal ke bawah dan
+       menutupi divergensi lain di hilirnya. Ganjal di DEPAN ini menggeser
+       semuanya kembali TANPA mengubah ukuran atau urutan penyangga mana pun
+       (beda dari percobaan lama yang membesarkan `lvlbuf` dan justru merusak
+       offset lvlbuf/recs). BUANG kalau pemicu kedalaman ekspresi ketemu. */
+    int  tpad;                  /* 0006..0007 */
     int  e08[20];              /* 0008  larik INT */
     int  e30[20];              /* 0030  larik INT */
     int  e58[20];              /* 0058  larik INT */
