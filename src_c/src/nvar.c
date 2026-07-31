@@ -103,11 +103,15 @@ int *list;
             else
                 r = acc + b % a;
             out[cnt++] = list[r];
-            if (r > 0) {
-                if (recbase[list[r]].row - 100 == recbase[list[r - 1]].row) {
-                    out[cnt - 1] = list[r - 1];
-                    out[cnt++] = list[r];
-                }
+            /* ⭐ DUA `if` BERSARANG HARUS DIGABUNG DENGAN `&&`. Bentuk bersarang
+               memberi kompiler blok dasar terpisah sehingga ia meng-CSE
+               `list[r]`/`list[r-1]` melintasi syarat dan MENYIMPANNYA di dua
+               temp tambahan — bingkai jadi 3ch, bukan 38h. Dengan `&&`
+               semuanya satu blok, temp kembali 3 kata, dan SELURUH fungsi
+               cocok byte-per-byte. GLOBAL 411 -> 566 dari satu perubahan. */
+            if (r > 0 && recbase[list[r]].row - 100 == recbase[list[r - 1]].row) {
+                out[cnt - 1] = list[r - 1];
+                out[cnt++] = list[r];
             }
             else if (recbase[list[r + 1]].row - 100 == recbase[list[r]].row)
                 out[cnt++] = list[r + 1];

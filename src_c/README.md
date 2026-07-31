@@ -1212,6 +1212,36 @@ Semua fungsi lain, termasuk `main` yang angkanya paling rendah, sudah lengkap
 secara struktur. Persentase RENDAH tidak berarti "masih banyak yang belum
 ditulis" — itu keliru yang dipegang berminggu-minggu.
 
+## ⭐⭐⭐ `if (A) { if (B) ... }` vs `if (A && B)` — BUKAN sekadar gaya
+
+Ini menyelesaikan `nvar` SEKALIGUS: GLOBAL 411/566 -> **566/566 byte-per-byte**,
+dari satu perubahan. Aturan yang paling mahal-terlambat-ditemukan sejauh ini.
+
+Bentuk BERSARANG memberi kompiler dua blok dasar. Karena alokasi register MS C
+1.04 bekerja PER-BLOK-DASAR, ia lalu meng-CSE subekspresi yang dipakai di syarat
+DAN di badan (`list[r]`, `list[r-1]`) lalu MENYIMPANNYA di temp supaya bertahan
+melintasi cabang. Dua temp tambahan itu membesarkan bingkai 38h -> 3ch, dan
+karena SEMUA lokal ikut bergeser +4, tiap rujukan `[bp+N]` di SELURUH fungsi
+meleset satu byte.
+
+Bentuk `&&` menjadikannya satu blok: tidak ada nilai yang perlu bertahan
+melintasi cabang, temp kembali 3 kata, bingkai kembali 38h, dan seluruh fungsi
+langsung cocok.
+
+⚠ GEJALA YANG HARUS MEMICU KECURIGAAN — persis profil `nvar` sebelum diperbaiki:
+* bingkai KITA lebih besar 2 kata dari asli, DAN
+* deretan panjang celah SATU BYTE yang merata di seluruh fungsi (48 buah di
+  `nvar`, semuanya cuma displacement `[bp+N]` yang bergeser), DAN
+* satu gumpalan pekat di satu blok — di situlah `if` bersarangnya.
+
+⚠ JANGAN mendiagnosis dari instruksi pertama yang beda. Di `nvar` gejala yang
+paling menonjol adalah `cnt++` yang dipancarkan sebagai tumpahan temp alih-alih
+`inc word ptr [mem]` — dan itu SESAT. Biner asli memakai KEDUA bentuk: bentuk
+tumpahan di fase 1 (0x4100/0x4119) dan `inc word ptr` di fase 2 (0x41b2). Kita
+pun sudah memancarkan `inc word ptr` di 0x4223. Bentuk `cnt++` tidak pernah jadi
+soal; ia cuma AKIBAT dari tekanan temp yang disebabkan `if` bersarang. Empat
+probe dihabiskan ke arah yang salah sebelum diagnosis ini benar.
+
 ## ⚠ PERCOBAAN YANG GAGAL BISA BENAR — cek ulang sesudah perbaikan LAIN
 
 Memecah `u4c = *++u54;` jadi `u54++; u4c = *u54++;` di `animvm` `case 0x0c`

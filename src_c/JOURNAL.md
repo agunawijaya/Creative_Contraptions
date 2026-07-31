@@ -2135,3 +2135,36 @@ E5  if (r != 0) menggantikan if (r > 0)         -> 410  (-1)
 Tidak satu pun memicu bentuk `inc word ptr [cnt]`. Yang menentukan bukan bentuk
 ekspresi di sekitarnya melainkan kapan simpanan `cnt` boleh dilakukan; pengungkit
 untuk itu belum ketemu.
+
+
+## ✅ `nvar` SELESAI byte-per-byte — 411/566 -> 566/566 (2026-07-31)
+
+Fungsi ke-76 yang cocok. `verifyall`: COCOK 76/81, 15.646 byte (naik 566).
+Satu-satunya fungsi berprofil VOLUME kini habis; sisanya semua kelas register.
+
+Perubahannya SATU baris: dua `if` bersarang digabung jadi `if (A && B)`.
+Aturannya dicatat lengkap di README.
+
+Yang membuat ini layak diingat adalah bagaimana diagnosis SALAH bertahan lama.
+Gejala yang paling mencolok — `cnt++` kita jadi tumpahan temp sedangkan asli
+`inc word ptr [bp+0ah]` — dikejar lewat empat probe (ternary 401, arah syarat
+390, penunjuk 411 byte-identik, `r != 0` 410), semuanya gagal. Yang akhirnya
+membongkarnya adalah pertanyaan yang seharusnya ditanyakan LEBIH DULU:
+
+  "idiom yang sama dipakai di DUA tempat — apakah yang satu lagi cocok?"
+
+Fase 1 memakai `list[cnt++] = i;` dan biner asli di sana justru memancarkan
+bentuk TUMPAHAN yang sama dengan kita (0x4100 `mov ax,[bp+0ah]`, 0x4106 `inc ax`,
+0x4119 simpanan ditunda). Begitu itu terlihat, "bentuk `cnt++` salah" langsung
+gugur, dan perhatian pindah ke apa yang BEDA antara kedua tempat itu — yaitu
+`if` bersarang di fase 2.
+
+⭐ Teknik yang lahir dari sini dan layak dipakai lagi: **kalau sebuah idiom
+dicurigai salah, cari tempat LAIN di fungsi yang sama memakai idiom itu.** Kalau
+di sana cocok, idiomnya bukan sebabnya — dan itu satu pengukuran yang jauh lebih
+murah daripada menebak bentuk sumber.
+
+Petunjuk kedua yang terlewat: 48 celah SATU BYTE merata dari 0x4097 sampai
+0x41ae. Keseragaman itu tanda bingkai bergeser, bukan isi yang salah — dan
+seharusnya langsung mengarahkan ke "kenapa bingkai kita 2 kata lebih besar",
+bukan ke bentuk pernyataan.
