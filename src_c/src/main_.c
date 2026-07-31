@@ -774,7 +774,9 @@ main()
                     goto again1;
                 if (m == 0x20) {
                     goal = 1;
-                    f171f(mode, 0x8ca, cur + 1, nmax, postab);
+                    /* ⭐ literal 2, BUKAN `mode`: asli `mov bx,2 / push bx`,
+                       kita `push [mode]`. GLOBAL 4.199 -> 4.201. */
+                    f171f(2, 0x8ca, cur + 1, nmax, postab);
                     goto redraw1;
                 }
             }

@@ -2502,3 +2502,33 @@ berlaku untuk konstanta APA PUN, bukan cuma nol.
 soal LOKAL: asli menahan `0x26c` di BX dan `0x284` di CX dengan KEDUA simpanan
 ditunda; kita menyimpan `page` lebih awal lalu menghitung. Belum ketemu bentuk
 sumber yang memberi dua literal terpisah ke register.
+
+
+## `main_` 4.199 -> 4.201 (99,6%); DUA sapuan pola lagi TUNTAS
+
+Celah tinggal **18 byte dalam 12 celah**.
+
+**Sapuan aturan HOISTING KONSTANTA: BERSIH.** Pemindai mencari tempat di mana
+ASLI memancarkan `mov reg,imm` sementara KITA memancarkan `mov [glob],imm` di
+alamat yang sama. Hasilnya NOL di `pickvar`, `loadcon`, `place`, `f498c`, dan
+`main_`. Bersama sapuan arah-syarat iterasi lalu, DUA aturan besar kini habis
+sasarannya — sisa pekerjaan tidak bisa lagi ditemukan lewat pemindaian pola
+yang sudah dikenal.
+
+**Satu perbaikan:** `f171f(mode, 0x8ca, ...)` -> `f171f(2, ...)` di baris 777.
+Asli memancarkan `mov bx,2 / push bx`, kita `push [mode]`. +2.
+
+⚠ JEBAKAN yang hampir lolos: pola `f171f(mode, 0x8ca, cur + 1, nmax, postab)`
+muncul DUA kali (baris 750 dan 777) dan `replace()` mengenai yang PERTAMA.
+Hasilnya TURUN (4.199 -> 4.195), yang sempat terbaca sebagai "hipotesisnya
+salah". Ternyata cuma salah sasaran; yang kedua memberi +2. ⭐ Kalau sebuah
+anchor muncul lebih dari sekali, PILIH BARISNYA — jangan `replace()` buta.
+
+**Situs 0x0b40 dibedah dan DIPARKIR:** ours `jmp 0x450` (restart) vs asli
+`jmp 0xbf6` (uji ekor `endcase2`). Ukuran instruksinya SAMA; yang beda cuma
+SASARAN. Sebabnya peruntuhan rantai lompatan: kita meruntuhkan `goto endcase2`
+menjadi lompatan langsung ke `restart`, asli tidak. Tidak ada pengungkit sumber
+yang jelas untuk melarang peruntuhan itu.
+
+Sisa `main_` (18 byte): gugusan 8 byte di 0x0126..0x0138 (blok `page`/`page2`),
+0x0b41=2B (rantai lompatan di atas), dan enam celah 1-byte.
