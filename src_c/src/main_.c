@@ -573,6 +573,13 @@ main()
                 if ((buf6f22[j] * 0xc + (char *)recbase)[1] == sub)
                     break;
             }
+            e08[i] = j;
+            e30[i] = buf6f22[j];
+            e80[i] = recC[i * 3 + 2];
+            e58[i] = -1;
+            fillans(0x1a8, base, seed, buf62ae, buf6df2, nmechc, ed0, ef8,
+                    recB, idtab, ea8, e120, ytop, lvl);
+            drawslot(ytop, nmechc, recB, ed0, ef8);
             break;
         case 1:
             break;
