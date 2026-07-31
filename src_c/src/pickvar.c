@@ -346,6 +346,18 @@ inner:
  *     python src_c/verify/aligncmp.py pickvar
  *     python src_c/verify/aligncmp.py pickvar --sbs 43f1 44 -1   (berdampingan)
  *
+ * ⭐ EKOR SUDAH TERBUKTI IDENTIK. Tabel switch (7 entri, nilai 14Bh/34h/
+ * 14Dh/36h/0Dh/20h/1Bh) dan pemindainya cocok INSTRUKSI DEMI INSTRUKSI;
+ * bedanya cuma displacement karena kode di depannya lebih pendek. Jadi
+ * geseran +4 @0x495A itu AKUMULASI, bukan cacat tersendiri -- yang benar-benar
+ * salah tinggal DUA titik, bukan tiga.
+ *
+ * ⚠ SUDAH DICOBA & GAGAL untuk perbandingan `idx == q` (5 bentuk):
+ *   idx==q | q==idx | idx-q==0 | q-idx==0 | !(idx!=q)
+ * Semuanya memancarkan `cmp ax,[mem]` (4 byte), sedangkan aslinya
+ * `mov bx,[q]` + `cmp bx,ax` (6 byte). Bentuk ekspresi TIDAK bisa memaksa
+ * pemuatan ke register; itu keputusan alokasi register kompiler.
+ *
  * SISA GESERAN (tinggal tiga titik):
  *   +3 @0x43B8  aslinya memancarkan `mov [bp+2],si` (spill) yang tidak kita
  *               keluarkan. Di kemunculan KEDUA (0x4633) spill yang sama SUDAH
