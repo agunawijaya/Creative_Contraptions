@@ -252,7 +252,11 @@ main()
     /* ⭐ `page + 0x18`, BUKAN literal 0x284. Bentuk literal memancarkan
        simpanan-immediate `mov [page2],284h`; aslinya memuat keempat
        konstanta ke ax/bx/cx/dx dulu (termasuk argumen open()) baru
-       menyimpan. GLOBAL 3.378 -> 3.707. */
+       menyimpan. GLOBAL 3.378 -> 3.707.
+       ⚠ Sempat dicurigai cuma "menambal panjang". DIUJI ULANG sesudah panjang
+       fungsi lurus (4.219 = 4.219): bentuk literal memberi 3.305, bentuk ini
+       4.169. Jadi ini BUKAN tambalan. Sisa 4 byte @0x0132 soal LOKAL
+       (asli `mov cx,284h`, kita `mov [page],bx / add bx,18h`). */
     page2 = page + 0x18;
     miscfh = open(0x952, 0x8004);
     if (miscfh == -1) {
@@ -464,6 +468,17 @@ main()
                bernilai sama TIDAK memberi sinyal; biayanya murni karena nol
                menjadi HIDUP lebih awal sehingga 0x140 terusir dari BX ke AX.
                Pengungkitnya harus di luar penataan ulang sumber. */
+            /* ⭐ SATU nol dipindah KE DEPAN `sclo = 0` supaya nolnya HIDUP
+               lebih awal: asli memancarkan `xor ax,ax` di 0x0668 lalu
+               memakai AX untuk ENAM simpanan, sehingga 0x140 terusir ke BX.
+               Keenam nol memberi hasil BYTE-IDENTIK (SHA1 af9b4ad4637d0cf8),
+               jadi mana yang dipindah tidak penting.
+               ⚠ Perubahan ini dulu MENURUNKAN (3.378 -> 3.270) dan tercatat
+               sebagai gagal. Yang berubah: sesudah `page2` diperbaiki,
+               panjangnya tidak lagi bergeser -- dan bentuk yang sama kini
+               memberi 3.707 -> 3.910. Contoh paling jelas bahwa daftar
+               "dicoba & gagal" KEDALUWARSA. */
+            hintshown = 0;
             sclo = 0;
             /* Urutan DIBACA dari muatan: `mov bx,140h` DULU (jadi `tx`
                pernyataan pertama), lalu simpanan-immediate `ta`, lalu
@@ -472,7 +487,6 @@ main()
             ta = 5;
             range = tx - 0x14;
             count = 4;
-            hintshown = 0;
             g7e8 = 0;
             cursel = 0;
             failed = 0;
@@ -633,7 +647,6 @@ main()
                     e80[i] = -1;
                     e58[i] = -1;
                 }
-            }
             i = nzany - 1;
             /* 0x4BA itu recC + 2 kata, jadi recC[i*3+2] -- BUKAN simbol baru
                (aturan: satu alamat satu nama). */
@@ -650,6 +663,13 @@ main()
             e58[i] = -1;
             fillans(0x1a8, base, mechfh, buf62ae, buf6df2, nmechc, ed0, ef8,
                     recB, idtab, ea8, e120, ytop, lvl);
+            /* ⭐ KURUNG TUTUP DI SINI, bukan sebelum `i = nzany - 1`.
+               fillans() ADA DI DALAM blok. Ini DITOLAK DUA KALI sebelumnya
+               (3.378 -> 3.276 lewat GLOBAL, dan 291 -> 275 lewat metrik
+               wilayah) -- kedua pengukuran itu dilakukan saat panjang fungsi
+               masih bergeser, sehingga bentuk yang BENAR justru terukur buruk.
+               Pada dasar yang panjangnya sudah lurus: 3.910 -> 4.169. */
+            }
             drawslot(ytop, nmechc, recB, ed0, ef8);
         again3:
             f498c(ytop, nzany, recC, e08, e58);

@@ -2378,3 +2378,41 @@ tidak punya. Itu persis -3 kita.
 Diff instruksi KASAR dijadikan alat tetap (sudah dua kali membayar). Pasangan
 dari `gapprof.py`: gapprof menutup PANJANG, shapediff menutup BENTUK.
 Pakai `--stop <addr>` untuk berhenti sebelum tabel data.
+
+
+## `main_` 3.707 -> 4.169 (87,9% -> 98,8%) — PANJANG SUDAH TEPAT
+
+Dua perbaikan, KEDUANYA pernah DITOLAK sebelumnya. Ini iterasi yang paling
+jelas membuktikan pelajaran (c): daftar "dicoba & gagal" KEDALUWARSA.
+
+1. **Satu nol dipindah ke depan `sclo = 0`** — 3.707 -> 3.910 (+203).
+   Persis percobaan yang dulu tercatat sebagai GAGAL (3.378 -> 3.270). Yang
+   berubah bukan bentuknya melainkan DASARNYA: begitu `page2` diperbaiki,
+   panjang fungsi berhenti bergeser, dan bentuk yang benar berhenti terukur
+   buruk. Keenam nol tetap memberi hasil byte-identik.
+
+2. **Kurung tutup di 0x0C14 dipindah** (fillans ADA DI DALAM blok) —
+   3.910 -> 4.169 (+259). Ini DITOLAK DUA KALI: sekali lewat metrik wilayah
+   (291 -> 275) dan sekali lewat GLOBAL (3.378 -> 3.276). Kedua penolakan itu
+   diukur saat panjang masih bergeser.
+
+Sesudah keduanya: **panjang KITA = ASLI = 4.219 tepat.** Celah tinggal 50 byte
+dalam 25 celah, terbesar 4 B. Geseran offset tinggal DUA ekskursi lokal
+(0x0780 -2 pulih di 0x0786; 0x0e0e -2 pulih di 0x0e1a).
+
+⭐ POLA KERJA yang terbukti di sini dan layak jadi urutan baku:
+   PANJANG dulu -> lalu UJI ULANG semua penolakan lama -> baru BENTUK lokal.
+   Selama panjang masih bergeser, metrik apa pun akan menghukum bentuk yang
+   benar dan memberi hadiah pada bentuk yang kebetulan menambal geseran.
+
+## `page2 = page + 0x18` BUKAN tambalan — diuji ulang dan bertahan
+
+Iterasi lalu ini dicatat sebagai kemungkinan tambalan (angkanya naik, kodenya
+belum cocok). Diuji ulang sesudah panjang fungsi lurus: bentuk literal
+`page2 = 0x284;` memberi **3.305**, bentuk `page + 0x18` memberi **4.169**.
+Jadi bentuk ini benar; yang tersisa cuma 4 byte LOKAL @0x0132
+(asli `mov cx,284h`, kita `mov [page],bx / add bx,18h`).
+
+⭐ Pelajaran tambahan: kecurigaan "ini cuma tambalan" HARUS diuji, bukan
+diasumsikan — sama seperti kecurigaan sebaliknya. Dua kali kecurigaan diuji
+iterasi ini, satu terbukti (animvm `default:`) dan satu terbantah (ini).
