@@ -28,7 +28,7 @@ F66FD:  PUSH	BP                     ; 66FD  55
         RET                         ; 670D  c3
         PUSH	AX                     ; 670E  50
         PUSH	DS                     ; 670F  1e
-        MOV	AX, 907H                ; 6710  b8 07 09
+        MOV	AX, DGROUP                ; 6710  b8 07 09   <- SEG, bukan literal
         MOV	DS, AX                  ; 6713  8e d8
         DEC	WORD PTR DS:[2E4H]      ; 6715  ff 0e e4 02
         DEC	WORD PTR DS:[7EAH]      ; 6719  ff 0e ea 07

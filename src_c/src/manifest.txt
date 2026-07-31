@@ -72,6 +72,7 @@ snd1     5a5b     252
 line     5cbb     221
 shftl    5dce     109
 setup    5f90       3
+mode4    5f93    1207
 text     644a     218
 blitmsk  6524     326
 keyio    66fd      50

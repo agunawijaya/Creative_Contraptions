@@ -2973,3 +2973,55 @@ semua register. Jadi pilihan register di situ memang dibuat dari keadaan
 BERSIH — persis kondisi yang sudah diuji `probeC` (lima varian, semuanya BX).
 Mengubahnya berarti merestrukturisasi kode yang sudah cocok byte-per-byte,
 mempertaruhkan 4.216 byte demi 3. Tidak sepadan; tetap DIPARKIR.
+
+
+## SASARAN BARU DIKERJAKAN: lubang 1.207 byte DITUTUP, .EXE dari 6,7% -> 95,9%
+
+### Apa yang mengisi 0x5F93..0x6449
+Dipindai byte-per-byte atas seluruh `E8` (near call) di 0x0082..0x9062:
+**TIDAK ADA satu pun `call` yang menunjuk ke dalam 0x5F93..0x6442.** Wilayah itu
+1.200 byte NOL murni — bukan kode. Tepat sesudahnya, 0x6443..0x6449, ada tujuh
+byte yang juga tak pernah dipanggil: `mov al,4 / mov ah,0 / int 10h / ret`
+(set mode CGA 4).
+
+Dibuat `src_c/asm/mode4.asm` = 1.200 byte nol + proc 7 byte, didaftarkan
+`mode4 5f93 1207`. **COCOK byte-per-byte.**
+
+Akibatnya pada angka: kode game 72,5% -> **77,2%**, TOTAL 79,9% -> **83,4%**.
+Ini bukan perbaikan kosmetik — 1.207 byte itu memang bagian biner yang selama
+ini tidak pernah dihasilkan build kita.
+
+### Kualitas .EXE secara keseluruhan
+```
+GLOBAL seluruh muatan .EXE : 44.602 / 46.532  = 95,9%
+   kode game (<0x69d7)     : 25.402 / 26.965  = 94,2%
+   MC.LIB                  :  9.520 /  9.867  = 96,5%
+   DGROUP + ekor           :  9.570 /  9.570  = 100,0%
+```
+Geseran offset di wilayah kode game tinggal **±8 byte sampai 0x5343** — persis
+defisit per-fungsi yang sudah dikenal (place -2, pickvar -3, dst.).
+
+### DUA relokasi yang hilang — dan sebabnya
+Header asli punya 4 relokasi, kita cuma 2. Ketiga situs yang hilang ternyata
+`mov ax,907h` — itu NILAI SEGMEN DGROUP yang seharusnya ditulis `MOV AX,DGROUP`
+supaya LINK memancarkan fixup. `vbio.asm` sudah benar; `snd2.asm` dan
+`keyio.asm` memakai literal. Diperbaiki -> keempat relokasi muncul, dan kedua
+modul TETAP COCOK byte-per-byte (literal dan simbol memberi byte yang sama;
+yang beda cuma ADA/TIDAKNYA fixup).
+⭐ ATURAN: byte yang cocok TIDAK menjamin relokasi yang benar. Nilai segmen
+yang ditulis sebagai literal lolos semua pemeriksaan byte kita, tapi membuat
+.EXE tidak bisa dimuat di segmen mana pun. PERIKSA TABEL RELOKASI, bukan cuma byte.
+
+### Kenapa .EXE masih belum jalan — bukti untuk keputusan `gendata` DGROUP 0..3
+Dijalankan di emulator Unicorn: asli menelusuri normal, punya kita keluar
+seketika. Sebabnya ketemu di `crt0` (0x00..0x40 muatan):
+```
+ASLI  89 1e 00 00   mov [0000],bx      a3 02 00   mov [0002],ax
+KITA  89 1e 0c 00   mov [000c],bx      a3 0e 00   mov [000e],ax
+```
+Variabel `crt0` mendarat di DGROUP **+0x0C**, bukan 0x00 — DGROUP kita 12 byte
+lebih panjang DI DEPAN. Ini konsekuensi konkret dari `gendata.py` yang membuang
+alamat DGROUP 0..3 (`START = 4`).
+⚠ Selama ini isu itu cuma dicatat sebagai "memblokir 13 byte di `main`". Sekarang
+terbukti dampaknya jauh lebih besar: **ia yang membuat .EXE tidak bisa
+dijalankan.** Keputusan user diperlukan sebelum menyentuhnya.

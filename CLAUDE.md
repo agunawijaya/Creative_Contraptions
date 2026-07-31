@@ -151,8 +151,10 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
 
 - **LINK berhasil**: 61 `.OBJ` + `MC.LIB` → `src_c/out/CONTRAP.EXE`, tanpa error.
 - **Segmen DATA 9.556/9.556 byte, 0 beda** vs biner asli (diukur dari .EXE hasil link).
-- **Kode C+ASM: 77/81 fungsi COCOK byte-per-byte, 18.674 byte**; TOTAL 79,9%,
-  kode C game 72,5% (dari 25.758 byte KODE NYATA).
+- **Kode C+ASM: 78/82 fungsi COCOK byte-per-byte, 19.881 byte**; TOTAL 83,4%,
+  kode C game 77,2% (dari 25.758 byte KODE NYATA).
+- **`.EXE` hasil link kini cocok 95,9%** dengan biner asli (GLOBAL atas seluruh
+  muatan): kode game 94,2%, MC.LIB 96,5%, DGROUP 100%. Sebelum sesi ini: 6,7%.
   ⚠ Angka lama "78/81 & 18.851" MENGGELEMBUNG: `drawtab` dan `setsel` ternyata
   FUNGSI YANG SAMA di 0x3769 (177 byte dihitung dua kali, dan di-LINK dua kali).
   Pembagi lama juga salah dua kali — memuat 1.207 byte NOL dan menghitung
@@ -167,7 +169,16 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
   pilihan register yang diwarisi SE-FUNGSI, bukan dari bentuk sumber lokal
   (dibuktikan `src_c/probes/probeC.c` — lima varian semuanya memberi hasil
   sama). `loadcon` 52 byte seluruhnya kaskade dari SATU keputusan di 0x5115.
-  ⚠ SASARAN BARU DI TINGKAT .EXE (bukan kelas alokator, jadi MASIH TERBUKA):
+  ✅ SASARAN .EXE SELESAI: lubang 1.207 byte di 0x5F93 ditutup (`asm/mode4.asm`),
+  urutan LINK diperbaiki (dulu ABJAD -> sekarang ALAMAT), dan DUA relokasi yang
+  hilang dipulihkan (`snd2`/`keyio` memakai literal `907H`, seharusnya
+  `MOV AX,DGROUP`).
+  ⚠⚠ `.EXE` MASIH BELUM JALAN, dan sebabnya kini DIKETAHUI PASTI: `crt0`
+  menulis ke DGROUP +0x0C, bukan 0x00 — DGROUP kita 12 byte lebih panjang di
+  DEPAN akibat `gendata.py` membuang alamat 0..3 (`START = 4`). Itu BUKAN cuma
+  "13 byte di main" seperti dicatat dulu; itu yang memblokir eksekusi.
+  ⭐ KEPUTUSAN USER DIPERLUKAN sebelum menyentuhnya.
+  (catatan lama, masih berlaku:)
   wilayah 0x5F93..0x6442 berisi **1.207 byte NOL di biner asli yang TIDAK ADA
   di build kita** — manifest lompat dari `setup` (0x5f90) ke `text` (0x644a).
   Cari modul apa yang menempatinya. Sesudah urutan LINK diperbaiki (dulu

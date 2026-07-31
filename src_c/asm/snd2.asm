@@ -41,7 +41,7 @@ tone3:  PUSH	AX                     ; 5B73  50
         PUSH	DX                     ; 5B76  52
         MOV	AX, DS                  ; 5B77  8c d8
         PUSH	AX                     ; 5B79  50
-        MOV	AX, 907H                ; 5B7A  b8 07 09
+        MOV	AX, DGROUP                ; 5B7A  b8 07 09   <- SEG, bukan literal
         MOV	DS, AX                  ; 5B7D  8e d8
         MOV	DX, 0                   ; 5B7F  ba 00 00
         CMP	WORD PTR DS:[83CH], DX  ; 5B82  39 16 3c 08

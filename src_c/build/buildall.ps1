@@ -69,7 +69,7 @@ if ($errs) { "--- pesan kompiler ---"; $errs | ForEach-Object { "  " + $_.Line }
 # HANYA modul yang sudah TERVERIFIKASI byte-per-byte yang dirakit ke out/.
 # Draf yang belum cocok masih memakai EXTRN "X...." bikinan asmgen.py dan
 # akan membuat LINK gagal dengan "Unresolved Externals".
-$asmOk = @("snd1","snd2","line","vbio","shftl","text","blitmsk","keyio","blit","fillrec","prep")
+$asmOk = @("snd1","snd2","line","vbio","shftl","text","blitmsk","keyio","blit","fillrec","prep","setup","mode4")
 $asm = Get-ChildItem "$root/src_c/asm/*.asm" -ErrorAction SilentlyContinue |
         Where-Object { $asmOk -contains $_.BaseName }
 foreach ($a in $asm) {
