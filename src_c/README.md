@@ -916,6 +916,14 @@ berguna daripada satu angka total. Alur kerjanya: lihat geseran terbesar →
     | **padat** | `si = v - k` / `cmp si,n` / `jae default` / `shl si,1` / `jmp cs:[si+tab]`, tabel berisi LABEL saja | `main` 0x0488, 0x04FB |
     | **rantai** | tanpa tabel sama sekali: `cmp ax,2` / `jne` / `jmp badan`, berurutan | `main` 0x05F1 |
 
+    ⭐ Aturan urutan case berlaku di **ketiga** bentuk, termasuk RANTAI —
+    terbukti 2026-07-31 di `main`: badan `case -1` (`jmp` keluar) ada di
+    0x0B7A, **sebelum** badan `case 0` di 0x0B7D. Menukar urutannya di sumber
+    menaikkan penjajaran 47 byte dan menghapus dua titik geseran.
+    **Cara mendeteksinya:** `--sbs` di titik geseran memperlihatkan sebuah
+    `jmp` yang ada di biner asli tapi tidak di posisi yang sama pada kita —
+    itu badan case yang tertukar.
+
     Yang **sama di ketiganya**: blok ujinya diletakkan **SESUDAH** badan case
     dan dicapai lewat `jmp` ke depan — itulah yang membedakan `switch` dari
     rantai `if` biasa. Dan pada ketiganya, **urutan `case` di sumber = urutan
