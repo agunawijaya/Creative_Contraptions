@@ -36,18 +36,25 @@ sekaligus di sumbu yang BERBEDA. Inilah yang menutup `main_` dan `loadcon`.
 ⚠ MC1 punya batas panjang BARIS: badan fungsi satu baris memberi
 `Error 4: invalid lexical token` (bukan sintaks yang salah).
 
-**Sisa pekerjaan — DUA fungsi, 70 byte:**
-1. `pickvar` 1.662/1.730 (68 byte). Situs utama 0x43a5..0x4515: URUTAN
-   PEMANCARAN SIMPANAN (asli membuang `dx` dulu lalu memakai DX sebagai
-   scratch; kita membuang `cx` dulu) dan satu simpanan `si` ke `[bp+2]` yang
-   belum kita punya (−3 byte).
-2. `place` 501/503 (2 byte). Situs 0x4fd4 TERBUKTI soal LIVE-RANGE penunjuk;
-   dua bentuk yang membebaskan SI sudah dicoba dan merusak byte lain — daftar
-   lengkapnya di kepala `place.c`.
+⚠ **UKUR DENGAN `shiftcmp.py` selama masih ada geseran.** GLOBAL menghukum
+perbaikan yang BENAR begitu panjangnya bergeser (wildcard slot relokasi mendarat
+di byte yang salah). `python src_c/verify/shiftcmp.py pickvar 42ca 1730 4515 +2`
+membandingkan prefiks apa adanya dan ekor dengan kompensasi — dua-duanya bersih.
 
-⭐ Sasaran paling berharga sekarang: **URUTAN PEMANCARAN SIMPANAN yang tertunda**
-(register mana yang di-flush lebih dulu ketika beberapa nilai menunggu).
-Itu sebab yang sama di kedua fungsi sisa.
+**Sisa pekerjaan — DUA fungsi, DUA situs, 2 byte masing-masing:**
+1. `pickvar` 1.703/1.730. Situs 0x44fd: asli meng-commit simpanan tertunda
+   `dy3` SEBELUM perbandingan sehingga BX bebas, `q` masuk register dan dipakai
+   ULANG di uji kedua (`cmp bx,ax` lalu `cmp ax,bx`); kita menahan BX, memakai
+   operan memori dua kali, dan karena AX jadi operan KIRI ia dilepas di label
+   sehingga `idx` dimuat ulang (+3 byte).
+2. `place` 501/503. Situs 0x4fd4: `dp` ke DI, asli ke SI, karena `sp` masih
+   dianggap hidup melewati simpanan `dp->spr2`.
+
+⭐ Keduanya SATU sebab: **kapan simpanan tertunda di-COMMIT**. Yang sudah
+terbukti membalik keputusan itu sekali (`loadcon` 0x5115) adalah mengosongkan
+badan gelung dan memindahkan semua syarat ke `while (A && B && C)`. Cari analog
+kontrol-alirnya di kedua situs ini. Sudah dicoba dan GAGAL: 48 varian di
+`pickvar`, 24 di `place` — daftarnya di kepala masing-masing berkas.
 
 **DUA KEPUTUSAN MENUNGGU USER:**
 - `gendata.py` membuang alamat DGROUP 0..3 (penyaring `START <= a`, START=4).
@@ -152,9 +159,12 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
 - **Segmen DATA 9.556/9.556 byte, 0 beda** vs biner asli (diukur dari .EXE hasil link).
 - **COCOK byte-per-byte 81/83 fungsi, 24.731 byte. Kode C game 96,0%; TOTAL 97,1%.**
   Tidak ada stub tersisa.
-- Sisa yang belum eksak tinggal DUA: `place` 501/503 (2 byte) dan
-  `pickvar` 1.662/1.730 (68 byte). Keduanya soal LIVE-RANGE penunjuk / penjadwalan
-  simpanan, bukan bentuk pernyataan — lihat `src_c/README.md`.
+- Sisa yang belum eksak tinggal DUA, dan keduanya SATU SITUS 2 byte:
+  `place` 501/503 dan `pickvar` 1.703/1.730 (98,4%, diukur `shiftcmp.py`).
+  Dua-duanya kelas yang SAMA: kompiler asli meng-COMMIT simpanan tertunda
+  sebelum sebuah perbandingan sehingga register bebas dan nilainya dipakai
+  ulang; kita menunda simpanan dan memakai operan memori. Lihat
+  `src_c/README.md` dan kepala `pickvar.c`/`place.c`.
 - ⭐ **Alat penentu: `src_c/verify/sweep.py` (ORACLE BATCH).** Satu peluncuran
   DOSBox memuat puluhan pasang MC1+MC2, jadi 16 varian selesai sekali langkah
   alih-alih 16 iterasi. Ini yang membuka `main_` dan `loadcon`.
