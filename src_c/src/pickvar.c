@@ -190,6 +190,8 @@ again:
             dx2 = (dx2 >= 0x80) ? dx2 - 0x100 : dx2;
             dy2 = ((char *)rp2)[5];
             dy2 = (dy2 >= 0x80) ? dy2 - 0x100 : dy2;
+            fillrect(y + dy2, x + dx2, y + dy2 + ((char *)rp2)[3] - 1,
+                     x + dx2 + ((char *)rp2)[2] - 1, 1);
         }
     }
     /* Pola yang SAMA berulang di 0x45DD, tapi `q = idx` (bukan idx+141h). */
