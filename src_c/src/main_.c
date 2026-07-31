@@ -145,10 +145,10 @@ main()
     char e30[0x28];             /* 0030 */
     char e58[0x28];             /* 0058 */
     char e80[0x28];             /* 0080 */
-    char ea8[0x28];             /* 00a8 */
-    char ed0[0x28];             /* 00d0 */
-    char ef8[0x28];             /* 00f8 */
-    char e120[0x28];            /* 0120 */
+    int  ea8[20];              /* 00a8  larik INT (ditulis per kata) */
+    int  ed0[20];              /* 00d0  larik INT (ditulis per kata) */
+    int  ef8[20];              /* 00f8  larik INT (ditulis per kata) */
+    int  e120[20];              /* 0120  larik INT (ditulis per kata) */
     char lvlbuf[264];           /* 0148 */
     char recs[1500];            /* 0250 */
     char objs[900];             /* 082c */
@@ -505,9 +505,16 @@ main()
             if (p1 == 1) {
                 /* Ditulis per KATA ke ea8 (`mov [bp+si+a8h],bx`), jadi
                    penyangga 40-byte itu sebenarnya larik 20 int. */
-                for (i = 0; i < nmechc; i++)
-                    ((int *)ea8)[i] = -1;
+                for (i = 0; i < nmechc; i++) {
+                    ea8[i] = -1;
+                    ed0[i] = -1;
+                    e120[i] = -1;
+                    ef8[i] = -1;
+                }
+                pickpart(4, recbase, fh, big, buf0d54, nzany, e30, e58, recC,
+                         buf6f22, e08, e80);
             }
+            f498c(ytop, nzany, recC, e08, e58);
             break;
         case 3:
             break;
