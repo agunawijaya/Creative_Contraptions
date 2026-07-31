@@ -151,12 +151,12 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
 
 - **LINK berhasil**: 61 `.OBJ` + `MC.LIB` → `src_c/out/CONTRAP.EXE`, tanpa error.
 - **Segmen DATA 9.556/9.556 byte, 0 beda** vs biner asli (diukur dari .EXE hasil link).
-- **Kode C+ASM: 77/81 fungsi COCOK byte-per-byte, 18.686 byte**; TOTAL 76,8%,
-  kode C game 71,9%. **TIDAK ADA stub tersisa** — `animvm` (3.040 B) SELESAI
+- **Kode C+ASM: 78/81 fungsi COCOK byte-per-byte, 18.851 byte**; TOTAL 77,3%,
+  kode C game 72,5%. **TIDAK ADA stub tersisa** — `animvm` (3.040 B) SELESAI
   2026-07-31, dan `nvar` (566 B) juga.
   Empat fungsi belum byte-exact tapi sudah sangat dekat (metrik GLOBAL):
-  `main` 4.201/4.219 (99,6%), `place` 501/503, `f498c` 162/165,
-  `loadcon` 687/739 (93,0%), `pickvar` 1.654/1.730 (95,6%).
+  `main` 4.203/4.219 (99,6%), `place` 501/503, `loadcon` 687/739 (93,0%),
+  `pickvar` 1.654/1.730 (95,6%). `f498c` SELESAI 2026-07-31.
   ⚠ Sisanya SELURUHNYA kelas alokasi register — bingkai semua fungsi sudah cocok
   dan tidak ada lagi struktur yang belum ditulis.
 - TIGA fungsi selesai 2026-07-31 lewat DUA aturan baru (keduanya di `src_c/README.md`):

@@ -2653,3 +2653,29 @@ Dasar 4.201/4.219. Semua diukur, semua ditolak atau tanpa efek:
 dirumuskan — **urutan rantai perbandingan `switch` bisa berbeda dari urutan
 `case` di sumber**, dan keduanya tidak bergerak bersama. Kalau nanti ada
 pemahaman soal itu, ia menutup 2 byte di sini.
+
+
+## `probeB`: rantai perbandingan `switch` = KEBALIKAN urutan `case` (main_ +2)
+
+Kelas beda yang iterasi lalu baru teridentifikasi, kini TERJAWAB — lagi-lagi
+lewat probe, bukan tebakan. Lima varian, satu kompilasi, urutan `cmp` dibaca
+langsung. Aturannya di README.
+
+Yang membuat ini tidak sepele: aturan LAMA "urutan `case` = urutan ALAMAT BADAN"
+juga benar, dan keduanya BERGERAK BERLAWANAN. Karena itu menukar urutan case
+yang punya badan masing-masing memperbaiki satu hal sambil merusak yang lain —
+persis yang terukur iterasi lalu (4.201 -> 4.199, ditolak).
+
+Yang bisa diperbaiki cuma kelompok label yang BERBAGI badan, karena di situ
+urutan label tidak memengaruhi tata letak. `main_` baris 403 (`case 2: case 3:`
+-> `case 3: case 2:`) memberi 4.201 -> **4.203**. Kandidat kedua (baris 354,
+`case 2: case 3: case 4:`) diuji juga: TIDAK berubah.
+
+Celah `main_` tinggal **16 byte dalam 10 celah**.
+
+⭐ Ini kali KETIGA probe terkendali menjawab pertanyaan yang tebakan berulang
+gagal jawab (probeA waktu-simpanan, bentuk penjaga f498c, probeB urutan rantai).
+Polanya konsisten: begitu sebuah pertanyaan bisa dirumuskan sebagai "faktor apa
+yang membedakan?", probe menjawabnya dalam SATU kompilasi.
+
+CLAUDE.md ikut disegarkan ke 78/81 / 18.851 / 77,3%.

@@ -400,8 +400,13 @@ main()
            dikenali sebagai switch karena blok ujinya diletakkan SESUDAH badan
            dan dicapai lewat `jmp` ke depan, persis seperti dua bentuk lain. */
         switch (mode) {
-        case 2:
+        /* ⭐ URUTAN LABEL: `case 3:` DULU. Rantai perbandingan `switch`
+           dipancarkan KEBALIKAN urutan `case` di sumber (probeB), jadi
+           sumber (3,2) memberi rantai `cmp 2` lalu `cmp 3` seperti asli.
+           Karena kedua label BERBAGI badan, menukarnya tidak mengubah
+           tata letak apa pun. GLOBAL 4.201 -> 4.203. */
         case 3:
+        case 2:
             sub = goalmenu();
             if (sub == -1)
                 continue;

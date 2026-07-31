@@ -1212,6 +1212,30 @@ Semua fungsi lain, termasuk `main` yang angkanya paling rendah, sudah lengkap
 secara struktur. Persentase RENDAH tidak berarti "masih banyak yang belum
 ditulis" — itu keliru yang dipegang berminggu-minggu.
 
+## ⭐⭐ RANTAI PERBANDINGAN `switch` = KEBALIKAN urutan `case` di sumber
+
+Dibuktikan dengan `probes/probeB.c` (lima varian, satu kompilasi):
+
+```
+sumber case 3,2      -> rantai  cmp 2 , cmp 3
+sumber case 2,3      -> rantai  cmp 3 , cmp 2
+sumber case 3,2,1    -> rantai  cmp 1 , cmp 2 , cmp 3
+```
+
+Berlaku juga kalau badan cuma `break` (tanpa `continue`) dan kalau switch-nya
+dibungkus `if` — jadi ini sifat murni urutan label.
+
+⚠ JANGAN dikacaukan dengan aturan "urutan `case` = urutan ALAMAT BADAN".
+KEDUANYA benar dan mereka BERGERAK BERLAWANAN: badan mengikuti urutan sumber,
+rantai perbandingan membalikkannya. Karena itu kalau case punya badan MASING-
+MASING, menukar urutannya memperbaiki rantai TAPI merusak badan (diukur di
+`main_`: 4.201 -> 4.199, ditolak).
+
+⭐ YANG BISA DIPERBAIKI: kelompok label yang BERBAGI badan
+(`case 2: case 3: <badan>`). Di situ urutan label tidak memengaruhi tata letak
+badan sama sekali, jadi ia bebas ditukar untuk mencocokkan rantai. `main_`
+baris 403: `case 2: case 3:` -> `case 3: case 2:`, GLOBAL 4.201 -> 4.203.
+
 ## ⭐⭐⭐ PENJAGA POSITIF + `if/else` vs `continue` — memilihkan REGISTER
 
 Menyelesaikan `f498c` (162/165 -> **165/165**). Ketiga byte itu ukurannya SAMA
