@@ -494,15 +494,23 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 case 2:
                 case 3:         /* aliran mentah sampai penanda GANDA 0xFF 0xFF */
                     sndptr = scrptr;
-                    /* ⚠ SUDAH DICOBA & GAGAL: bentuk `for(;;) { scrptr++;
-                       if (*scrptr == 0xff && *++scrptr == 0xff) break; }`
-                       menurunkan penjajaran 2.753 -> 2.731. Bentuk do/while
-                       dengan `||` di bawah ini yang benar. Sisa 1 byte di
-                       0x22da: aslinya MEMUAT ULANG `mov ax,[3AEh]` sedangkan
-                       kita memakai ulang SI dari uji pertama. */
-                    do {
+                    /* ⚠ SUDAH DICOBA & GAGAL: bentuk `&&` satu-ekspresi
+                       (`if (*scrptr == 0xff && *++scrptr == 0xff) break;`)
+                       menurunkan penjajaran 2.753 -> 2.731.
+                       Bentuk `continue` di bawah MEMANG memaksa muat-ulang
+                       `mov ax,[3AEh]` seperti aslinya (itu yang dicari), TAPI
+                       masih menyisakan `jmp` mubazir ke instruksi berikutnya
+                       karena `break`-nya bukan jalur jatuh-tembus. Aslinya
+                       keluar lewat FALL-THROUGH dari `jne` yang kedua — bentuk
+                       do/while `||` memberi itu tapi memakai ulang SI. Sisa
+                       1 byte, belum ada bentuk yang memberi KEDUANYA. */
+                    for (;;) {
                         scrptr++;
-                    } while (*scrptr != 0xff || *++scrptr != 0xff);
+                        if (*scrptr != 0xff)
+                            continue;
+                        if (*++scrptr == 0xff)
+                            break;
+                    }
                     scrptr++;
                     break;
                 }
@@ -550,11 +558,17 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 }
                 switch (u5a) {
                 case 0:
-                    if (*scrptr != 0xff) {
+                    /* ⚠ Syaratnya `== 0xff` dengan `else` yang mem-`break`,
+                       BUKAN `!= 0xff` lalu badan. Aslinya `jne <else>` lalu
+                       badan-benar lalu `jmp` MELEWATI else ke badan case -1 —
+                       jadi jatuh-tembusnya lewat cabang BENAR, dan cabang
+                       salah keluar duluan. */
+                    if (*scrptr == 0xff)
+                        u5c = 1;
+                    else {
                         scrptr++;
                         break;
                     }
-                    u5c = 1;
                     /* ⚠ JATUH TEMBUS ke case -1 */
                 case -1:
                     u5a = *scrptr++;

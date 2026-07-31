@@ -1356,3 +1356,55 @@ memakai ulang SI dari uji pertama.
 ### Geseran tersisa (3)
 
 `0x21bb:+3`, `0x22da:+4`, `0x23a0:+6`.
+
+---
+
+## `animvm` tahap 11: struktur if/else terbalik — 2.753 → 2.799 (92,1%)
+
+| | sebelum | sesudah |
+|---|---|---|
+| TERJAJAR | 2.753 / 3.040 (90,6%) | **2.799 / 3.040 (92,1%)** |
+| geseran | 3 | **2** |
+| panjang | −6 | **−1** |
+
+### ⭐ Arah syarat menentukan LETAK badan — dan jalur jatuh-tembusnya
+
+`case 0` di switch dalam `case 0x0f` ditulis:
+
+```c
+if (*scrptr != 0xff) { scrptr++; break; }   /* SALAH */
+u5c = 1;
+```
+
+Aslinya kebalikannya, dengan `else`:
+
+```c
+if (*scrptr == 0xff)                        /* BENAR */
+    u5c = 1;
+else {
+    scrptr++;
+    break;
+}
+/* jatuh tembus ke case -1 */
+```
+
+Bedanya bukan cuma `je` vs `jne`: yang kedua menaruh badan-benar LEBIH DULU
+lalu `jmp` MELEWATI blok `else` untuk mendarat di badan `case -1`. Jadi
+jatuh-tembusnya lewat cabang BENAR sementara cabang salah keluar duluan.
+Penjajaran +41 byte dari satu perubahan ini.
+
+### Gelung aliran bunyi: `continue` memaksa muat-ulang
+
+Memecah syarat gelung `case 0x04` jadi dua `if` dengan `continue` memberi
+`mov ax,[3AEh]` (muat ulang) seperti aslinya — bukan `mov ax,si`. +5 byte.
+
+⚠ Tapi bentuk itu menyisakan `jmp` MUBAZIR ke instruksi berikutnya, karena
+`break`-nya bukan jalur jatuh-tembus. Aslinya keluar lewat FALL-THROUGH dari
+`jne` kedua. Bentuk `do/while ||` memberi jatuh-tembus itu TAPI memakai ulang
+SI. **Belum ada bentuk yang memberi keduanya** — sisa 1 byte, dicatat di
+berkasnya lengkap dengan apa yang sudah dicoba.
+
+### Geseran tersisa (2)
+
+`0x21bb:+3` (dua `jmp 1cd2` berturut di aslinya, yang kedua KODE MATI; kita
+cuma satu) dan `0x2304:+1` (jmp mubazir di atas).
