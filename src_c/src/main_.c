@@ -1,9 +1,26 @@
 /* FUN_1000_0082 @ 1000:0082, 4.219 byte — main().
  *
- * ⏳ DRAF AWAL. Belum masuk manifest (stubs.c masih menyediakan main kosong),
- * jadi berkas ini TIDAK ikut di-link. Ukur dengan:
+ * ⏳ DRAF — 2.568 dari 4.219 byte ditulis (61%), TERJAJAR 1.779.
+ * SUDAH ikut di-link (stub main sudah dicabut). Ukur dengan:
  *     pwsh src_c/build/compile.ps1 -Name main_
- *     python src_c/verify/aligncmp.py main_ 0082 4219
+ *     python src_c/verify/aligncmp.py main_ 82 <ukuran_awalan>
+ *     python src_c/verify/aligncmp.py main_ 82 <n> --sbs <addr> <n> <geser>
+ *
+ * ⚠ PAKAI METRIK TERJAJAR, BUKAN POSISI. Angka posisi hanya sahih kalau
+ * panjang draf sudah persis; lihat src_c/README.md.
+ *
+ * BELUM DITULIS: badan case 2 (dari 0x0A4E), case 3 (0x0C03), case 1 (0x0E06),
+ * dan blok `quit` (0x10E8..0x10C9 wilayah ekor).
+ *
+ * PETA LABEL (semua sudah terverifikasi dari disassembly):
+ *   quit  = 0x10E8   reset = 0x0668 (DUA jalur masuk)
+ *   redo  = 0x08A6 (pintas KE DEPAN)   after = 0x08C3   done1 = 0x0A1C
+ *   gelung permainan 0x06AB keluar ke 0x0A2E
+ *   nilai balik 0FEh = "waktu habis, ulangi" (konvensi sama dgn pickvar)
+ *
+ * GESERAN TERSISA (delapan, SEMUANYA sudah terjelaskan -- jangan dikejar):
+ *   +7 @0xD6 penghalang gendata DGROUP:0000; sisanya disp8-vs-disp16 karena
+ *   temp belum tumbuh ke 8 byte, atau lompatan ke label yang belum jauh.
  *
  * ⭐ TEMUAN ARSITEKTUR TERPENTING: hampir SEMUA tabel besar game ini hidup di
  * BINGKAI TUMPUKAN main, bukan di DGROUP. Global-global penunjuk yang selama
