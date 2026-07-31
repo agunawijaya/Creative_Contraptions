@@ -432,7 +432,15 @@ main()
                 loadarc(objfh, objtab + j * 0xc, 0, recB, nmechc, markf);
                 pickpart(4, recbase, fh, big, buf0d54, nzany, e30, e58, recC,
                          buf6f22, e08, e80);
+                fillans(0x1a8, base, seed, buf62ae, buf6df2, nmechc, ed0, ef8,
+                        recB, idtab, ea8, e120, ytop, lvl);
+                goto after;
             redo:
+                /* 0x08A6 -- jalur pintas kalau `failed` sudah diset: lewati
+                   seluruh pemuatan ulang, cukup gambar ulang papannya. */
+                p1++;
+                f171f(2, 0x922, sub, nmax, postab);
+            after:
                 ;
             }
             break;
