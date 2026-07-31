@@ -477,8 +477,20 @@ main()
                     goal++;
                 goal--;
             }
-            break;
+            /* 0x0A2E -- ekor case 4. Tidak pernah jatuh ke bawah: kalau
+               dibatalkan kembali ke menu, kalau tidak ulangi dari `reset`. */
+            if (cursel == -1)
+                continue;
+            goto reset;
         case 2:
+            failed = 1;
+            cursel = 0;
+            if (p1 == 1) {
+                /* Ditulis per KATA ke ea8 (`mov [bp+si+a8h],bx`), jadi
+                   penyangga 40-byte itu sebenarnya larik 20 int. */
+                for (i = 0; i < nmechc; i++)
+                    ((int *)ea8)[i] = -1;
+            }
             break;
         case 3:
             break;
