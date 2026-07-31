@@ -524,6 +524,9 @@ main()
             }
             if (cursel == -1)
                 goto endcase2;
+            failed = animvm(state, nmechc, recB, ef8, e120, nzany, recC, e58,
+                            e80);
+            cursel = waitkey();
         endcase2:
             break;
         case 3:
