@@ -309,7 +309,7 @@ inner:
     case 0x34:
     case 0x14b:
         /* mundur satu varian; baris > 100 berarti potongan lanjutan, lewati */
-        if (idx > 0 && ((struct rec *)recbase)[list[idx - 1]].row > 100)
+        if (idx > 0 && (list[idx - 1] * 0xc + recbase)[1] > 100)
             idx--;
         idx--;
         if (idx < 0) {
