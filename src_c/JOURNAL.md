@@ -932,3 +932,58 @@ lolos lewat lapis 3.
 NAMA tidak boleh dipakai untuk dua alamat.** Tiap kali menambah
 `extern ... /* @0xNNN */`, periksa namanya belum dipakai untuk alamat LAIN —
 bukan cuma bahwa alamatnya belum punya nama.
+
+---
+
+## `animvm` tahap 2: gelung utama + blok skor + ekor (412 → 758)
+
+| | sebelum | sesudah |
+|---|---|---|
+| `animvm` TERJAJAR | 412 / 3.040 (13,6%) | **758 / 3.040 (24,9%)** |
+| byte tertulis | 480 | 1.208 |
+| DATA (DGROUP) | 100% | 100% |
+| symcheck CURIGA | 0 | 0 |
+
+Yang ditulis: gelung langkah utama (dua cabang MEKANISME/ZANY yang bertemu di
+blok skor), gelung penafsir skrip, dan ekor. Yang belum: 17 badan case.
+
+### Dua bentuk yang perlu dicatat
+
+**`showsc(sclo, 1)` — satu argumen `long` mendarat sebagai DUA parameter word.**
+Biner mem-`push [732h]` lalu `push [730h]`, dan `showsc.c` menerimanya sebagai
+`showsc(lo, hi, flash)`. Jadi pemanggilnya memang menulis satu `long`; konvensi
+pemanggilan yang memecahnya. `extern long sclo;` (nama SAMA dengan `int sclo`
+di gdata.c, tipe beda) sekaligus memberi `add [730h],imm / adc [732h],0` untuk
+penambahan skornya. Trik yang sama seperti `char *scrptr`.
+
+**`switch (*scrptr++)` tanpa variabel perantara.** Opcode-nya tidak pernah
+disimpan ke slot bingkai mana pun — dispatcher menerima nilai langsung di AX.
+
+### Bingkai: ganjal dikecilkan 10 → 8
+
+Ekspresi baru menuntut 6 byte temp (sebelumnya 4), jadi bingkai sempat jadi
+0x6c. Mengecilkan `tpad` mengembalikannya ke 0x6a — dan itu **menaikkan
+penjajaran 547 → 758**, bukan cuma memperbaiki angka bingkai. Offset lokal yang
+meleset merusak SEMUA rujukan sesudahnya.
+
+### ⚠ Jebakan: nama BERKAS ≠ nama SIMBOL, lagi
+
+`keyio(0x16, 0)` gagal ditautkan: modul `keyio.asm` mem-PUBDEF `F66FD`, bukan
+`keyio`. LINK bersih setelah dipanggil `f66fd()`. Ini pengulangan jebakan yang
+sudah pernah menghasilkan 18 BEDA palsu di symcheck — komentar `nama()=alamat`
+di kepala berkas adalah CATATAN kita, bukan nama simbol yang sebenarnya.
+Untuk modul assembly, periksa PUBDEF-nya:
+`python -c "import sys;sys.path.insert(0,'src_c/verify');from symcheck import read_pubdefs;print(read_pubdefs('src_c/out/keyio.OBJ'))"`
+
+### Geseran yang tersisa (untuk iterasi berikut)
+
+`0x1b28:+10` (terbesar), `0x1b51:-1`, `0x1b63:-3`, `0x1bd8:+4`, `0x1c07:-1`,
+`0x1c3b:+2`, `0x1cfa:+6`.
+
+Yang di 0x1b28 sudah terlokalisasi: `fail[c1]++` kita memancarkan
+`mov si,[bp] / inc word ptr [si]` (alamat penuh sudah di penunjuk), aslinya
+`mov si,[bp] / inc word ptr [si+7BEh]` (basis larik jadi displacement, temp
+[bp] cuma berisi `c1*2` yang DIPAKAI ULANG dari ekspresi sebelumnya).
+Terkait juga pilihan register di 0x1b11: aslinya `cmp ax,[di]` (dua penunjuk
+hidup bersamaan), punya kita `cmp ax,[bx]`.
+⚠ Ini BARU TERLOKALISASI, BELUM TERDIAGNOSIS — jangan tebak sebabnya.
