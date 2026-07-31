@@ -124,8 +124,8 @@ int  n, idx, flag;
     }
     /* Slot bp+0Ah inilah yang Ghidra rusak jadi
        `if (param_7 + 0x141 != param_7)` -- sebenarnya PENUGASAN biasa. */
-    k = list[idx];
-    k2 = k;
+    k2 = list[idx];
+    k = k2;
     q = idx + 0x141;
     sel = -1;
     if (idx + 1 < n) {

@@ -15,6 +15,7 @@ Keluarannya juga mencetak DAFTAR GESERAN: di alamat mana panjang kita mulai
 menyimpang dan sebanyak apa. Itu yang menunjuk blok mana yang harus digarap,
 jauh lebih berguna daripada satu angka total.
 """
+import difflib
 import os
 import struct
 import sys
@@ -65,6 +66,27 @@ def align_runs(m, slots, orig):
             i += 1
             j += 1
     return runs
+
+
+def global_aligned(m, slots, orig):
+    """Byte cocok di bawah penjajaran GLOBAL (difflib), bukan pemindaian serakah.
+
+    ⚠ KENAPA ADA. `aligned()` di bawah memakai jendela geseran ±24 dan lari
+    minimal 6/12 byte. Kalau pola divergensinya BERUBAH, ia bisa gagal
+    menyambung dan MELAPORKAN TURUN padahal kodenya membaik. Terjadi nyata di
+    `pickvar` (2026-07-31): satu perubahan menurunkan angka serakah 1.616 ->
+    1.583 TAPI menaikkan penjajaran global 1.631 -> 1.654 dan POSISI 368 ->
+    1.333. Yang benar yang global.
+
+    Pakai angka GLOBAL untuk memutuskan; angka serakah cuma untuk daftar
+    geserannya, yang tetap berguna menunjuk LETAK masalah.
+    """
+    mm = bytearray(m)
+    for k in slots:                     # slot relokasi = wildcard
+        if k < len(mm) and k < len(orig):
+            mm[k] = orig[k]
+    sm = difflib.SequenceMatcher(None, bytes(mm), orig, autojunk=False)
+    return sum(n for _, _, n in sm.get_matching_blocks())
 
 
 def aligned(m, slots, orig):
@@ -178,7 +200,11 @@ def main():
     print("%s @0x%04x  bingkai sub sp=0x%02x" % (name, addr, m[3]))
     print("  panjang   : %d / %d  (%+d)" % (len(m), size, len(m) - size))
     print("  POSISI    : %d   <- MENYESATKAN kalau panjang belum pas" % pos)
-    print("  TERJAJAR  : %d / %d  (%.1f%%)" % (tot, size, 100.0 * tot / size))
+    gtot = global_aligned(m, slots, orig)
+    print("  TERJAJAR  : %d / %d  (%.1f%%)   <- serakah, untuk daftar geseran"
+          % (tot, size, 100.0 * tot / size))
+    print("  GLOBAL    : %d / %d  (%.1f%%)   <- INI yang dipakai memutuskan"
+          % (gtot, size, 100.0 * gtot / size))
     print("  geseran   : %s" % ", ".join("0x%04x:%+d" % (addr + o, d)
                                          for o, d in sh))
 

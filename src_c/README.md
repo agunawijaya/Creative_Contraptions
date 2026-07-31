@@ -865,6 +865,29 @@ varian mana yang benar, dan percobaan berikutnya langsung cocok.
    (deklarasi pertama di `bp+2`). Kalau ukuran `sub sp,N` tidak cocok, jumlah atau
    urutan lokal masih salah — itu petunjuk paling cepat.
 
+## ⚠⚠ METRIK SERAKAH BISA MELAPORKAN TURUN PADAHAL MEMBAIK — pakai GLOBAL
+
+`aligned()` di `aligncmp.py` memindai serakah dengan jendela geseran ±24 dan
+lari minimal 6/12 byte. Kalau POLA divergensinya berubah, ia bisa gagal
+menyambung dan **melaporkan penurunan padahal kodenya membaik.**
+
+Terjadi nyata di `pickvar` (2026-07-31). Satu perubahan urutan pernyataan:
+
+| metrik | sebelum | sesudah | arah |
+|---|---|---|---|
+| TERJAJAR (serakah) | 1.616 | 1.583 | turun ❌ |
+| POSISI | 368 | **1.333** | naik |
+| panjang | −4 | **−3** | naik |
+| **GLOBAL (difflib)** | 1.631 | **1.654** | **naik ✅** |
+
+Tiga dari empat menunjukkan perbaikan; yang serakah salah. `aligncmp.py`
+sekarang mencetak **GLOBAL** juga — pakai angka itu untuk MEMUTUSKAN, dan
+angka serakah hanya untuk DAFTAR GESERAN-nya (yang tetap berguna menunjuk
+LETAK masalah).
+
+⚠ Ini juga berarti keputusan lama yang diambil hanya dari angka serakah layak
+ditinjau ulang — beberapa "sudah dicoba & gagal" mungkin sebenarnya berhasil.
+
 ## ⚠⚠ LUBANG METRIK PENJAJARAN: ia BUTA terhadap identitas simbol
 
 `aligncmp.py` memperlakukan slot relokasi sebagai wildcard (harus begitu —

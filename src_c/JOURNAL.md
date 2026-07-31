@@ -1653,3 +1653,45 @@ Dua iterasi tanpa kemajuan di `animvm` (tahap 15 dan 17). Sesuai protokol,
 iterasi berikutnya PINDAH ke `main` (2.682/4.219) atau `pickvar` (1.616/1.730),
 yang daftar "dicoba & gagal"-nya ditulis SEBELUM aturan tahap 8/11/12/13/14/16
 dan karena itu layak ditengok ulang dengan cara baca yang baru.
+
+---
+
+## `pickvar` kembali digarap — dan metrik penjajaran sendiri terbukti bisa MENYESATKAN
+
+Sesudah `animvm` mentok dua iterasi, target pindah ke `pickvar` (1.616/1.730
+menurut metrik serakah). Catatan lamanya menduga cacat +3 @0x43B8 berasal dari
+"tekanan register dari `k`/`k2` di atasnya" — persis kelas masalah yang
+aturan tahap 8/12 pecahkan di `animvm`.
+
+### Percobaan yang dulu gagal, kini berhasil
+
+Menukar `k = list[idx]; k2 = k;` jadi `k2 = list[idx]; k = k2;` pernah dicoba
+dan tercatat GAGAL (1.462 vs 1.495) — tapi pengukuran itu dari keadaan blok
+yang jauh lebih awal. Diulang sesuai pelajaran (c):
+
+| metrik | sebelum | sesudah |
+|---|---|---|
+| TERJAJAR (serakah) | 1.616 | 1.583 |
+| POSISI | 368 | **1.333** |
+| panjang | −4 | **−3** |
+| **GLOBAL** | 1.631 | **1.654** |
+
+Geseran `0x4515` juga jadi **+0** (lunas).
+
+### ⚠⚠ Temuan alat: metrik serakah melaporkan TURUN padahal MEMBAIK
+
+Tiga dari empat ukuran menunjukkan perbaikan; hanya yang serakah turun.
+Sebabnya: `aligned()` memindai dengan jendela ±24 dan lari minimal 6/12 byte,
+jadi begitu POLA divergensi berubah ia bisa gagal menyambung.
+
+`aligncmp.py` sekarang juga mencetak **GLOBAL** (difflib, slot relokasi
+diperlakukan wildcard). Aturannya: **GLOBAL untuk memutuskan, serakah hanya
+untuk daftar geserannya.**
+
+⚠ Konsekuensi yang lebih luas: keputusan lama yang diambil HANYA dari angka
+serakah layak ditinjau ulang. Beberapa entri "sudah dicoba & gagal" di seluruh
+proyek mungkin sebenarnya berhasil. Sudah masuk README.
+
+Sebagai perbandingan, `animvm` dengan metrik baru: GLOBAL 2.900/3.040 (95,4%)
+vs serakah 2.941 — di sana yang serakah justru sedikit terlalu murah hati.
+Keduanya dekat, jadi kesimpulan `animvm` tidak berubah.
