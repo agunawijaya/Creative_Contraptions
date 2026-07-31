@@ -580,6 +580,13 @@ main()
             fillans(0x1a8, base, seed, buf62ae, buf6df2, nmechc, ed0, ef8,
                     recB, idtab, ea8, e120, ytop, lvl);
             drawslot(ytop, nmechc, recB, ed0, ef8);
+            f498c(ytop, nzany, recC, e08, e58);
+            while (failed != 0) {
+                failed = 0;
+                /* 9 argumen ini persis EKOR daftar argumen runplay. */
+                cursel = runfill(nzany, e08, e30, e80, recC, e58, ytop, big,
+                                 buf0d54);
+            }
             break;
         case 1:
             break;
