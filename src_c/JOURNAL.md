@@ -1609,3 +1609,47 @@ ZANY di depan pencacah.
 
 Diperiksa berdampingan: sudah identik, cuma slot relokasi. Sama seperti temuan
 tahap 15 — periksa isi celah sebelum menggarapnya.
+
+---
+
+## `animvm` tahap 17: tanpa kemajuan — tapi sisa pekerjaannya kini TERUKUR
+
+TERJAJAR tetap **2.941/3.040 (96,7%)**. Tidak ada kemajuan angka.
+
+### ⭐ Kesimpulan: 99 byte celah yang tersisa nyaris SELURUHNYA hilir dari DUA byte
+
+Tiap celah tersisa diperiksa berdampingan. Hasilnya:
+
+| celah | isi | sebab |
+|---|---|---|
+| 0x2313 (13) | identik | artefak geseran |
+| 0x23b7 (13) | identik | artefak geseran |
+| 0x1a9c (7) | identik | artefak geseran |
+| 0x1ce0 (8) | identik kecuali `jmp 0x2432` vs `jmp 0x2433` | fungsi kita 1 byte lebih pendek |
+| 0x1ac6 (11) | idem (`jmp 0x244f` vs `0x2450`) | idem |
+| 0x22ea (26) | `jmp` mubazir + hilirannya | geseran 0x2304 |
+
+Jadi ISI `animvm` sudah benar hampir di mana-mana. Yang tersisa: **satu byte
+di 0x2304 dan tiga byte di 0x21bb**, dan seluruh sisanya akan lunas sendiri
+begitu keduanya beres. Angka 96,7% itu meremehkan keadaan sebenarnya.
+
+### Dua bentuk lagi ditutup untuk 0x21bb — keduanya TIDAK MENGUBAH APA PUN
+
+Aslinya punya DUA `jmp 1cd2` berturut di ujung switch bersarang case 0x03
+(yang kedua kode MATI); kita cuma satu. Dicoba:
+
+- membuang `break` di dalam case switch-dalam (badannya jatuh keluar sendiri)
+  → keluaran **IDENTIK**, 2.941.
+- mengganti `break` case 0x03 dengan `continue` → keluaran **IDENTIK**, 2.941.
+
+Temuan kecil yang berguna: MS C 1.04 **meruntuhkan rantai lompatan** dan
+menghasilkan kode yang sama untuk ketiga bentuk itu. Jadi `jmp` mati di biner
+asli TIDAK berasal dari salah satu variasi ini — sumbernya masih belum
+diketahui, dan tiga bentuk sudah tertutup.
+
+### Keputusan
+
+Dua iterasi tanpa kemajuan di `animvm` (tahap 15 dan 17). Sesuai protokol,
+iterasi berikutnya PINDAH ke `main` (2.682/4.219) atau `pickvar` (1.616/1.730),
+yang daftar "dicoba & gagal"-nya ditulis SEBELUM aturan tahap 8/11/12/13/14/16
+dan karena itu layak ditengok ulang dengan cara baca yang baru.
