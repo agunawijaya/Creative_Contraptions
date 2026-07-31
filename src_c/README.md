@@ -1079,6 +1079,30 @@ register sesudah uji tanda. Bentuk DUA PERNYATAAN memaksa muat ulang:
 Terbukti di `animvm` `case 0x02` (2026-07-31): bentuk kedua membuat bloknya
 meleset 2 byte; bentuk pertama membuatnya COCOK byte-per-byte.
 
+## ⭐ TERNARY vs `if/else` — bedanya SATU SIMPANAN, dan pilihannya per-TEMPAT
+
+Keduanya semantik sama, kodenya tidak:
+
+| sumber | pancaran |
+|---|---|
+| `v = c ? a : b;` | hitung ke AX, **satu** simpanan, AX dipakai ulang sesudahnya |
+| `if (c) v = a; else v = b;` | simpan di **kedua** cabang, lalu MUAT ULANG `v` |
+
+Selisihnya 4 byte di `animvm` `case 0x03`. ⚠ Dan pilihannya **per-tempat, bukan
+per-berkas**: di fungsi yang sama, pemilihan indeks (`u14 = c1+1 : c1`) memakai
+`if/else`, sedangkan pemulihan tanda ambang 0xC8 tepat di bawahnya memakai
+TERNARY. Jangan menyeragamkan — ukur tiap tempat.
+
+## ⭐ SATU ekspresi `||` menahan penunjuk di register, dua `if` tidak
+
+| sumber | uji kedua |
+|---|---|
+| `if (*p == 0xff \|\| p == 0) break;` | `test si,si` (2 byte) — SI dipakai ulang |
+| `if (*p == 0xff) break; if (p == 0) break;` | `cmp [3AEh],0` (5 byte) — muat ulang |
+
+Alur kendalinya IDENTIK; yang berbeda cuma apakah kompiler masih menganggap
+penunjuknya hidup di register. Sepola dengan aturan penugasan-di-dalam-syarat.
+
 ## ⚠ Hasil NEGATIF: `imul word ptr [mem]` BUKAN dari perkalian biasa
 
 `animvm` @0x1afd memancarkan `mov ax,3 / imul word ptr [bp+10h]` (5 byte),

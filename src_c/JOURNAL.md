@@ -1183,3 +1183,48 @@ percobaan itu JANGAN diulang.
 Ini penerapan aturan "TERLOKALISASI belum berarti TERDIAGNOSIS" secara sadar:
 divergensinya sudah tepat di satu instruksi sejak awal iterasi, tapi tiga
 tebakan yang masuk akal semuanya salah.
+
+---
+
+## `animvm` tahap 7: dua aturan bentuk, 2.560 → 2.642 (86,9%)
+
+| | sebelum | sesudah |
+|---|---|---|
+| TERJAJAR | 2.560 / 3.040 (84,2%) | **2.642 / 3.040 (86,9%)** |
+| panjang | 3.025 / 3.040 (−15) | **3.034 / 3.040 (−6)** |
+| geseran | 11 | **8** |
+
+Tiga geseran lunas (`0x1ce8`, `0x2012`, `0x2103`) lewat dua aturan bentuk baru.
+
+### ⭐ SATU ekspresi `||` menahan penunjuk di register
+
+| sumber | uji kedua |
+|---|---|
+| `if (*p == 0xff || p == 0) break;` | `test si,si` (2 byte) |
+| `if (*p == 0xff) break; if (p == 0) break;` | `cmp [3AEh],0` (5 byte) |
+
+Alur kendalinya IDENTIK. Yang berbeda cuma apakah kompiler masih menganggap
+penunjuknya hidup di register — dan itu bergantung pada apakah kedua uji ada
+di SATU ekspresi. Sepola dengan aturan penugasan-di-dalam-syarat (tahap 6).
+
+### ⭐ TERNARY vs `if/else` — dan pilihannya per-TEMPAT
+
+| sumber | pancaran |
+|---|---|
+| `v = c ? a : b;` | hitung ke AX, SATU simpanan, AX dipakai ulang |
+| `if (c) v = a; else v = b;` | simpan di KEDUA cabang, lalu MUAT ULANG `v` |
+
+Selisih 4 byte. Yang penting dicatat: **pilihannya per-tempat, bukan
+per-berkas.** Di `case 0x03` yang sama, pemilihan indeks memakai `if/else`
+sedangkan pemulihan tanda ambang 0xC8 tepat di bawahnya memakai TERNARY —
+dan keduanya sudah terverifikasi cocok. Menyeragamkan salah satu akan merusak
+yang lain.
+
+### Geseran tersisa (8)
+
+`0x1b28:+10`, `0x1b50:-1`, `0x1bd8:+3`, `0x1c07:-2`, `0x21bb:+1`, `0x2236:+3`,
+`0x22da:+4`, `0x23a0:+6`.
+
+Empat yang pertama berpangkal pada dua tempat `imul word ptr [mem]` (cabang
+MEKANISME 0x1afd dan cabang ZANY 0x1bb7) yang sudah dinyatakan BUNTU di tahap 6
+— jangan diulang tanpa pemahaman baru.

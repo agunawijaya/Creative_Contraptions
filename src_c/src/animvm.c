@@ -267,9 +267,11 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
         }
         /* Jalankan skrip ANIMATE part ini sampai 0xFF. */
         for (;;) {
-            if (*scrptr == 0xff)
-                break;
-            if (scrptr == 0)
+            /* SATU ekspresi `||`, bukan dua `if` terpisah: aslinya menguji
+               `test si,si` (2 byte) dengan MEMAKAI ULANG SI yang baru dipakai
+               untuk membaca `*scrptr`. Dua pernyataan terpisah memaksa
+               kompiler memuat ulang penunjuknya (`cmp [3AEh],0`, 5 byte). */
+            if (*scrptr == 0xff || scrptr == 0)
                 break;
             if (keyhit() == 0x1b) {
                 failed = -1;
@@ -381,7 +383,15 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 u44 = (u44 >= 0xc8) ? u44 - 0x100 : u44;
                 u46 = *scrptr++;
                 if (steps[i + 1] == -1) {
-                    u14 = (steps[i] == -1) ? c1 + 1 : c1;
+                    /* ⚠ if/else, BUKAN ternary. Aslinya MENYIMPAN di kedua
+                       cabang lalu MEMUAT ULANG; ternary menghitung ke AX,
+                       menyimpan sekali, dan memakai ulang AX (4 byte lebih
+                       pendek). Bandingkan dengan pemulihan tanda 0xC8 di
+                       bawah, yang justru ternary — bentuknya per-TEMPAT. */
+                    if (steps[i] == -1)
+                        u14 = c1 + 1;
+                    else
+                        u14 = c1;
                     u48 = anmech + sel1[u14];
                     u26 = rec1[u14 * 3];
                     u28 = rec1[u14 * 3 + 1];
@@ -414,7 +424,10 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                     }
                 }
                 else {
-                    u16 = (steps[i] == -1) ? c2 : c2 + 1;
+                    if (steps[i] == -1)
+                        u16 = c2;
+                    else
+                        u16 = c2 + 1;
                     u48 = anzany + sel2[u16];
                     u26 = rec2[u16 * 3];
                     u28 = rec2[u16 * 3 + 1];
