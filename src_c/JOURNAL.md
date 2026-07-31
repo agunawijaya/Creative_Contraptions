@@ -3087,3 +3087,59 @@ ukuran                : 48.000 vs 46.532 (+1.468; DGROUP kita punya 1.364 byte
    ada di `gdata.c` dan duplikat; perlu dicek sebelum dihapus.
 3. Perilaku belum sama: punya kita tidak pernah memanggil `loadcon` (0x5035),
    dan `loadcon` memang satu dari empat fungsi yang belum byte-exact.
+
+
+## TIGA SISA .EXE DITUTUP — dan jejak eksekusi kini COCOK dengan asli
+
+### 1. `menu` diduplikasi di `stubs.c` — bug KEBENARAN, bukan cuma ukuran
+`stubs.c` mendefinisikan `char menu[360]`, padahal `menu` ada @0x1c28 — DI DALAM
+wilayah DGROUP terinisialisasi yang `gdata.c` sudah sediakan. Akibatnya
+`goalmenu` menulis ke larik TERPISAH, bukan ke DGROUP 0x1c28. Bukan sekadar
+360 byte berlebih: datanya mendarat di tempat yang salah.
+Diperbaiki dengan menambah penanda `@0x1c28` pada `extern struct mitem menu[]`
+di `goalmenu.c` supaya `gendata` memanennya (`char menu[288]` di gdata.c), lalu
+definisi di `stubs.c` dihapus. DGROUP tetap 9.556/9.556.
+
+### 2. `prep` 113 byte terlalu panjang — isinya modul PUSTAKA
+Manifest menyebut `prep 6939 271` (berakhir 0x6A48), tapi `libmatch.py` jelas:
+```
+0x69d7  113 byte  CXM33   (pembantu perkalian long)
+0x6a48  271 byte  PRINTF
+```
+Jadi 113 byte terakhir `prep.asm` sebenarnya **CXM33 milik MC.LIB**. Kode itu
+tidak pernah di-PUBLIC di `prep.asm`, jadi ia beban mati: LINK tetap menarik
+CXM33 dari pustaka untuk memenuhi rujukan, dan salinan lokalnya menggeser
+SELURUH wilayah pustaka +113 byte. `prep.asm` dipotong ke 158 byte -> COCOK.
+
+⚠ INI JUGA MEMBATALKAN "koreksi" saya sendiri iterasi lalu. Saya menyimpulkan
+batas wilayah kode = 0x6A48 karena aritmetikanya hanya tertutup begitu.
+Ternyata yang salah bukan batasnya melainkan UKURAN `prep`. Batas yang benar
+tetap **0x69D7**, dan sesudah `prep` dipotong `tot_bytes` jadi tepat 26.965 =
+0x69D7-0x82. ⭐ Aritmetika yang "tertutup rapi" bukan bukti — ia bisa tertutup
+karena dua kesalahan saling menutupi.
+
+### 3. Hasilnya di tingkat .EXE
+```
+GLOBAL seluruh muatan : 45.794 / 46.532 = 98,4%
+geseran               : -3 byte KONSTAN dari 0x4959 sampai DGROUP
+                        (dulu melompat +110 di batas pustaka -- sekarang TIDAK)
+DATA                  : offset paragraf 0, isi 9.556/9.556
+```
+Geseran -3 itu PERSIS sisa kelas alokator yang diparkir. Tidak ada lagi
+kesalahan tata letak.
+
+### 4. JEJAK EKSEKUSI COCOK
+Uji perilaku sebelumnya MENYESATKAN: emulator memasang hook di alamat ASLI,
+sedangkan build kita bergeser -3, jadi hook untuk fungsi >=0x4959 tidak pernah
+menyala. Sesudah 8 konstanta alamat di `emu.py` digeser -3:
+```
+KITA : 5035 6869 672f 26ae 131a 498c 3f0f 18db
+ASLI : 5035 6869 672f 26ae 131a 498c 3f0f 18db 2714 278e
+```
+**Delapan fungsi pertama dipanggil dengan URUTAN YANG SAMA**, dan `draw672`
+melonjak dari 0 ke 49.511 (blit benar-benar berjalan). Divergensi sesudahnya
+wajar: `loadcon` (52 byte), `pickvar`, `place`, `main` (3 byte) belum exact.
+
+⭐ PELAJARAN: uji perilaku yang memakai alamat TETAP tidak sah selama build
+masih bergeser. Sempat menyimpulkan "kita tidak pernah memanggil loadcon"
+padahal ia dipanggil di 0x5032 dan hook-nya di 0x5035.

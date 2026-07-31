@@ -78,7 +78,7 @@ text     644a     218
 blitmsk  6524     326
 keyio    66fd      50
 blit     672f     314
-prep     6939     271
+prep     6939     158
 snd2     5b57     356
 waitn    2b11      35
 animvm   18db    3040

@@ -179,11 +179,17 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
   Penyebabnya PANJANG SEGMEN PROG: kurang satu fungsi kosong 5 byte di 0x5318,
   sehingga DATA tidak jatuh di batas paragraf dan `crt0` menulis ke [0x0C].
   Ditulis sebagai `f5318.c` -> DATA offset 0, dan .EXE langsung berjalan.
-  ⚠ Batas wilayah kode DIKOREKSI: 0x0082..**0x6A48** (bukan 0x69D7) — `prep`
-  berakhir tepat di situ, dan `printf` MC.LIB mulai di 0x6A48.
-  SISA di tingkat .EXE: +110 byte di wilayah MC.LIB (geseran melompat tepat di
-  0x6A49) dan 1.364 byte ekor DGROUP dari `stubs.c` (sndbuf/menu, mungkin
-  duplikat gdata.c).
+  ✅ SEMUA kesalahan tata letak lain juga ditutup:
+     - `prep` 113 byte terlalu panjang — ekornya modul MC.LIB `CXM33`; dipotong
+       ke 158 B. (Batas wilayah kode TETAP 0x69D7; "koreksi" ke 0x6A48 keliru,
+       aritmetikanya tertutup karena dua kesalahan saling menutupi.)
+     - `menu` diduplikasi di `stubs.c` padahal ia @0x1c28 di dalam DGROUP —
+       `goalmenu` menulis ke larik yang SALAH. Kini dipanen `gendata`.
+  Hasil: **GLOBAL .EXE 98,4%**, geseran -3 byte KONSTAN (= sisa kelas alokator),
+  dan JEJAK EKSEKUSI COCOK dengan asli untuk 8 fungsi pertama
+  (5035 6869 672f 26ae 131a 498c 3f0f 18db).
+  ⚠ Uji perilaku HARUS menggeser alamat hook emulator -3, kalau tidak hook untuk
+  fungsi >=0x4959 tidak menyala dan hasilnya menyesatkan.
   (catatan lama, masih berlaku:)
   wilayah 0x5F93..0x6442 berisi **1.207 byte NOL di biner asli yang TIDAK ADA
   di build kita** — manifest lompat dari `setup` (0x5f90) ke `text` (0x644a).

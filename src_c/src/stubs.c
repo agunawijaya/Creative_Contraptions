@@ -36,4 +36,7 @@
  *             karena deklarasinya bertipe struct sehingga belum dipanen gendata.
  */
 char sndbuf[16];
-char menu[360];
+/* `menu` DIHAPUS 2026-07-31: ia @0x1c28 -- DI DALAM wilayah DGROUP
+   terinisialisasi, jadi `gdata.c` yang harus menyediakannya. Definisi di sini
+   membuat `goalmenu` menulis ke larik TERPISAH, bukan ke DGROUP 0x1c28.
+   Sekarang dipanen gendata lewat penanda @0x1c28 di goalmenu.c. */

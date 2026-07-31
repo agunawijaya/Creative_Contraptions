@@ -81,57 +81,15 @@ L69C9:  ADD	AX, WORD PTR [BP+8]     ; 69C9  03 46 08
         POP	BP                      ; 69D4  5d
         POP	ES                      ; 69D5  07
         RET                         ; 69D6  c3
-        PUSH	BP                     ; 69D7  55
-        SUB	SP, 4                   ; 69D8  83 ec 04
-        MOV	BP, SP                  ; 69DB  8b ec
-        MOV	WORD PTR [BP], AX       ; 69DD  89 46 00
-        OR	AX, BX                   ; 69E0  0b c3
-        JE	L6A43                    ; 69E2  74 5f
-        MOV	WORD PTR [BP+2], CX     ; 69E4  89 4e 02
-        OR	CX, DX                   ; 69E7  0b ca
-        JE	L6A3F                    ; 69E9  74 54
-        MOV	AX, WORD PTR [BP]       ; 69EB  8b 46 00
-        MOV	CX, WORD PTR [BP+2]     ; 69EE  8b 4e 02
-        MOV	SI, AX                  ; 69F1  8b f0
-        TEST	SI, SI                 ; 69F3  85 f6
-        JNS	L69FE                   ; 69F5  79 07
-        NOT	AX                      ; 69F7  f7 d0
-        NEG	BX                      ; 69F9  f7 db
-        SBB	AX, 0FFFFH              ; 69FB  1d ff ff
-L69FE:  XOR	SI, CX                  ; 69FE  33 f1
-        MOV	WORD PTR [BP], SI       ; 6A00  89 76 00
-        TEST	CX, CX                 ; 6A03  85 c9
-        JNS	L6A0E                   ; 6A05  79 07
-        NOT	CX                      ; 6A07  f7 d1
-        NEG	DX                      ; 6A09  f7 da
-        SBB	CX,-1                   ; 6A0B  83 d9 ff
-L6A0E:  MOV	SI, 20H                 ; 6A0E  be 20 00
-        MOV	WORD PTR [BP+2], SI     ; 6A11  89 76 02
-        XOR	SI, SI                  ; 6A14  33 f6
-        XOR	DI, DI                  ; 6A16  33 ff
-L6A18:  SHR	SI, 1                   ; 6A18  d1 ee
-        RCR	DI, 1                   ; 6A1A  d1 df
-        RCR	AX, 1                   ; 6A1C  d1 d8
-        RCR	BX, 1                   ; 6A1E  d1 db
-        JAE	L6A26                   ; 6A20  73 04
-        ADD	DI, DX                  ; 6A22  03 fa
-        ADC	SI, CX                  ; 6A24  13 f1
-L6A26:  DEC	WORD PTR [BP+2]         ; 6A26  ff 4e 02
-        JNE	L6A18                   ; 6A29  75 ed
-        SHR	AX, 1                   ; 6A2B  d1 e8
-        RCR	BX, 1                   ; 6A2D  d1 db
-        MOV	SI, WORD PTR [BP]       ; 6A2F  8b 76 00
-        TEST	SI, SI                 ; 6A32  85 f6
-        JNS	L6A43                   ; 6A34  79 0d
-        NOT	AX                      ; 6A36  f7 d0
-        NEG	BX                      ; 6A38  f7 db
-        SBB	AX, 0FFFFH              ; 6A3A  1d ff ff
-        JMP	SHORT L6A43             ; 6A3D  eb 04
-L6A3F:  XOR	AX, AX                  ; 6A3F  33 c0
-        XOR	BX, BX                  ; 6A41  33 db
-L6A43:  ADD	SP, 4                   ; 6A43  83 c4 04
-        POP	BP                      ; 6A46  5d
-        RET                         ; 6A47  c3
+
+; ⚠ DIPOTONG 2026-07-31. Baris di bawah ini dulu memuat 113 byte lagi
+; (0x69D7..0x6A47) yang TERNYATA BUKAN milik `prep` melainkan modul MC.LIB
+; `CXM33` (pembantu perkalian long) -- dibuktikan `src_c/verify/libmatch.py`:
+;     0x69d7  113 byte  CXM33   CXM33@0x69d7
+; Kode itu tidak pernah di-PUBLIC di sini, jadi ia beban mati: LINK tetap
+; menarik CXM33 dari pustaka untuk memenuhi rujukan, dan salinan di sini
+; cuma menggeser SELURUH wilayah pustaka +113 byte.
+; `prep` yang benar = 0x6939..0x69D6 = 158 byte.
 
 PROG    ENDS
         END

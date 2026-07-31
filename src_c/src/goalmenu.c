@@ -26,7 +26,7 @@ struct mitem {
     int  y;
 };
 
-extern struct mitem menu[];
+extern struct mitem menu[];     /* tabel entri menu @0x1c28 */
 extern int miscfh;
 extern int level_;
 extern int ytop_;
