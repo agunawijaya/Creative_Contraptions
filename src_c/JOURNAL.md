@@ -456,3 +456,108 @@ terbantah.** Tandai terbantah, jangan hapus, dan sebut alat pembuktinya.
    itu bagian dari target atau boleh ditinggal.
 3. **`.EXE` belum bisa dijalankan** (`main` + 20 stub kosong). Belum dibahas
    apakah "bisa dijalankan" jadi tonggak tersendiri sebelum 100% byte-identical.
+
+---
+
+## Sesi 2026-07-30/31 (semalaman, otonom lewat `/loop`)
+
+User tidur dan meminta pekerjaan diteruskan tanpa henti, dengan protokol
+anti-thrashing yang ia setujui. Yang berikut ini terjadi tanpa pengawasan;
+semua angkanya bisa diaudit dari `git log --oneline`.
+
+### Hasil utama: `pickvar` (0x42ca, 1.730 byte) dari 275 -> 1.616 byte sejajar
+
+Ditulis blok demi blok dari disassembly. Yang mengubah segalanya bukan menulis
+lebih banyak kode, melainkan **mengganti cara mengukur**.
+
+### ⚠ PELAJARAN TERMAHAL: metrik "byte cocok per POSISI" itu MENYESATKAN
+
+Selama berjam-jam saya mengukur kemajuan dengan menghitung byte yang sama di
+posisi yang sama. Itu hanya sahih kalau panjang draf SUDAH persis. Begitu ada
+satu sisipan, seluruh sisa berkas bergeser dan byte yang sebenarnya benar
+terhitung salah.
+
+Buktinya telak: satu perubahan menurunkan angka posisi 392 -> 386 **tapi**
+menaikkan angka penjajaran 684 -> 704. Kalau saya percaya angka posisi,
+perubahan yang BENAR akan saya buang. Di akhir sesi `pickvar` menunjukkan
+POSISI 368 padahal 1.616 byte benar-benar sejajar.
+
+Alatnya sekarang ada di repo: **`python src_c/verify/aligncmp.py <nama>`**
+(dan `--sbs <alamat> <n> <geseran>` untuk banding berdampingan). Keluarannya
+juga menyebut DI ALAMAT MANA panjang mulai menyimpang — itu yang menunjuk blok
+berikutnya yang harus digarap, jauh lebih berguna daripada satu angka total.
+
+### Aturan kompiler baru (semuanya sudah masuk `src_c/README.md`)
+
+1. **Akses record selalu bentuk PENUNJUK** `(idx * 0xc + basis)[n]`.
+   Bentuk offset `((char*)basis)[idx*0xc+n]` memuat basis DUA KALI (+15 byte
+   sekali kena). Bentuk struct `((struct rec*)basis)[idx].f` memuat basis dini
+   ke DX lalu men-spill-nya (+6 byte, dan bisa membengkakkan bingkai).
+2. **KOREKSI catatan saya sendiri.** Saya pernah menulis "sisi kanan harus
+   bentuk struct supaya CSE atas recbase putus". Itu KELIRU. Kedua sisi bentuk
+   penunjuk; yang membedakan hanya URUTAN OPERAN perkalian:
+   `0xc * list[i]` -> `mov ax,0Ch / imul word ptr [bx]` sedangkan
+   `k * 0xc` -> `mov ax,cx / mov dx,0Ch / imul dx`.
+3. **`if (--x < 0)` != `x--; if (x < 0)`.** Yang kedua memakai ulang flag DEC
+   (`jge`, 2 byte lebih pendek); aslinya `test ax,ax` + `jns`, dan itu hanya
+   keluar dari bentuk pre-decrement di dalam syarat.
+4. **SWITCH JARANG: tabel nilai/label disusun KEBALIKAN urutan sumber.**
+   Pemindai mulai dari entri TERAKHIR (`si=18h`, `sub si,4`, `jns`). Jadi
+   urutan `case` di sumber = urutan ALAMAT badannya, dan tabel dibaca mundur.
+   Tanpa aturan ini urutan case pasti tertukar.
+5. **`idx == q` bukan `q == idx`** — operan kiri dimuat lebih dulu dan dipakai
+   ulang di perbandingan berikutnya.
+6. **Jangan menganggap slot yang belum dikenali itu "pengganjal".** Di
+   `pickvar` LIMA kali berturut tebakan pengganjal ternyata variabel nyata.
+7. **Kalau dua blok terlihat kembar, ukur DUA-DUANYA.** 0x4455 dan 0x46A0
+   tampak identik tapi yang kedua menyimpan empat sudut ke slot dulu.
+   Sebaliknya 0x4713 memang duplikat byte-per-byte dari 0x46CD — 68 byte
+   gratis.
+
+### Bug NYATA yang ditemukan di alat verifikasi sendiri
+
+- **`symcheck` melaporkan 18 BEDA PALSU.** Ia memetakan nama simbol dari NAMA
+  BERKAS di manifest, padahal satu modul assembly bisa memuat beberapa fungsi:
+  modul `text` mulai di 0x644a tapi simbol `text` sebenarnya di **0x6453**
+  (0x644a itu pembungkus INT 10h terpisah). Sekarang alamat diambil dari
+  rekaman PUBDEF `.OBJ`, dan pemadanan nama tidak peduli besar-kecil huruf
+  (MASM memancarkan HURUF BESAR, berkas `.c` huruf kecil). 24 -> 6 beda.
+- **0x644a tidak pernah punya nama** — asmgen menamainya otomatis `F644A`.
+  Baru ketahuan saat `main` mulai digarap, karena hanya `main` yang
+  memanggilnya. Sekarang bernama `bios10`.
+
+### `main` (0x0082, 4.219 byte) — draf dimulai, peta bingkai TERVALIDASI
+
+⭐ **Temuan arsitektur:** hampir semua tabel besar game ini hidup di **bingkai
+tumpukan `main`**, bukan di DGROUP. `recbase`, `base`, `objtab`, `level_`,
+`ytop_` semuanya diisi di 0x00B5..0x00E4 dengan alamat lokal `main`. Itu
+menjelaskan kenapa DGROUP cuma 9.556 byte: bingkai `main` sendiri
+**0x6F96 = 28.566 byte**.
+
+Peta bingkai diukur dari seluruh 4.219 byte disassembly: 12 penyangga + 4 int
++ dua celah 4 byte tak terreferensi. Ukurannya saling menguatkan dengan temuan
+lain: `recbase` = 1.500 byte = **125 record x 12**, dan itu cocok dengan batas
+`k2 > 0x78` (120) yang ditemukan terpisah di `pickvar`.
+
+Verifikasi: `sub sp` kita 0x6F90 vs 0x6F96 — selisih **persis 6** = temp yang
+belum tumbuh (kita 2 byte, aslinya 8). Bagian LOKAL sudah benar seluruhnya.
+
+### Yang SENGAJA tidak dikerjakan (butuh keputusan user)
+
+- **`gendata.py` membuang alamat DGROUP 0..3.** Penyaringnya `START <= a`
+  dengan `START = 4`, padahal `a` itu alamat DGROUP sedangkan START offset
+  DATA. Akibatnya simbol di DGROUP:0000 tidak pernah terbit, dan instruksi
+  `mov bx,[0]` di `main` (0x00B9) belum bisa ditulis — biayanya 7 byte.
+  **Tidak saya perbaiki** karena menyentuh penataan DGROUP yang sekarang 100%
+  cocok (9.556/9.556). Ini keputusan user.
+- **0x846 bernama `mode_`** padahal isinya pegangan berkas dari `open()`.
+  Nama menyesatkan; tidak diganti karena aturan "satu alamat satu nama".
+
+### Sisa `pickvar` (tidak tuntas)
+
+TERJAJAR 1.616/1.730 (93,4%), panjang 1.726 vs 1.730. Tiga titik geseran:
+`+3 @0x43B8` (aslinya memancarkan spill `mov [bp+2],si` yang tidak kita
+keluarkan — di kemunculan KEDUA spill yang sama sudah keluar, jadi bedanya
+tekanan register), `+1 @0x4515`, `+4 @0x495A`. Daftar "sudah dicoba & gagal"
+lengkap ada di ujung `src_c/src/pickvar.c`, kini diukur dengan metrik
+penjajaran (angka lama berbasis posisi dibuang karena tidak sebanding).
