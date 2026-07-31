@@ -204,12 +204,15 @@ main()
         printf(0x930);
         return;
     }
+    /* ⚠ Urutan DIBACA dari urutan MUATAN REGISTER di biner, bukan dari urutan
+       simpanannya: aslinya memuat ax=&ytop, bx=_TOP, cx=&basebuf, dx=&recs
+       lebih dulu, baru memakai ulang ax untuk &objs dan &lvlbuf. */
     ytop_ = (int)ytop;
-    objtab = (int)objs;
-    level_ = (int)lvlbuf;
+    g83a = _TOP;
     base = (int)basebuf;
     recbase = (int)recs;
-    g83a = _TOP;
+    objtab = (int)objs;
+    level_ = (int)lvlbuf;
     for (i = 0; i < 0x14; i++)
         markf[i] = 1;
     for (i = 0; i < 0x14; i++)
@@ -217,10 +220,11 @@ main()
     /* Empat penugasan konstanta ini dipancarkan dalam urutan TERBALIK
        (aturan MS C 1.04 yang sudah dikenal), jadi urutan sumbernya
        page, page2, prevtop, prevx -- bukan sebaliknya. */
+    /* Urutan dibaca dari MUATAN: ax=140h, bx=26Ch, cx=284h, dx=8004h. */
+    prevx = 0x140;
+    prevtop = 0x140;
     page = 0x26c;
     page2 = 0x284;
-    prevtop = 0x140;
-    prevx = 0x140;
     miscfh = open(0x952, 0x8004);
     if (miscfh == -1) {
         printf(0x957);

@@ -1738,3 +1738,41 @@ seragam ini.
 LINK bersih, DATA 100%, symcheck CURIGA 0.
 `fixorder main_`: 455 slot cocok, 11 BEDA (naik dari 10 karena lebih banyak
 wilayah kini sejajar dan bisa diperiksa), 19 di luar lari sejajar.
+
+---
+
+## `main`: aturan urutan-muatan dipakai dua kali — GLOBAL 3.215 → 3.218
+
+| | sebelum | sesudah |
+|---|---|---|
+| GLOBAL | 3.215 / 4.219 | **3.218 / 4.219 (76,3%)** |
+| TERJAJAR (serakah) | 3.986 | **4.013** |
+| geseran | 4 | **3** |
+| `fixorder` BEDA simbol | 11 | **7** |
+
+Dua penataan ulang, keduanya DIBACA dari urutan muatan register, bukan ditebak:
+
+1. Blok pembuka. Aslinya memuat `ax=&ytop`, `bx=_TOP`, `cx=&basebuf`,
+   `dx=&recs` lebih dulu lalu memakai ulang AX untuk `&objs` dan `&lvlbuf`.
+   Urutan sumbernya jadi: `ytop_`, `g83a`, `base`, `recbase`, `objtab`,
+   `level_` — bukan urutan simpanannya. Geseran `0x00d1` lunas.
+2. Blok `page`/`prevx`. Aslinya `mov ax,140h` DULU, jadi `prevx`/`prevtop`
+   ditulis sebelum `page`/`page2`.
+
+`fixorder` turun dari 11 ke 7 BEDA identitas simbol — artinya sebagian
+"beda simbol" itu tadinya cuma efek wilayah yang belum sejajar.
+
+### ⚠ `main` juga punya TABEL DATA TERTANAM
+
+Disassembly berhenti di **0x0487** (asli) / 0x04f8 (kita) — sama seperti
+`animvm` yang tabelnya di tengah fungsi. Semua pemeriksaan berdampingan di
+atas 0x487 HARUS memakai potongan disassembly terpisah, kalau tidak wilayah
+itu tak akan terlihat sama sekali. Geseran `0x069f` dan `0x0c19` ada di
+wilayah itu dan BELUM diperiksa.
+
+### Sisa
+
+Geseran `0x013d:+2` masih ada: aslinya memuat `bx=26Ch`/`cx=284h` ke REGISTER
+lalu menunda simpanannya, kita memancarkan simpanan-immediate langsung.
+Penataan ulang sudah membuat `mov ax,140h` cocok, tapi bentuk yang memaksa
+pemuatan-ke-register belum ketemu.
