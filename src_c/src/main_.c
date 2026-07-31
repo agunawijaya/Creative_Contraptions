@@ -141,10 +141,10 @@ main()
     /* ⭐ KOREKSI peta: ini BUKAN larik 8x0x28, melainkan DELAPAN penyangga
        40-byte terpisah, dipakai dalam DUA KELOMPOK EMPAT: (08,30,58,80)
        dioper ke pickpart, (a8,d0,f8,120) ke panggilan berikutnya. */
-    char e08[0x28];             /* 0008 */
-    char e30[0x28];             /* 0030 */
-    char e58[0x28];             /* 0058 */
-    char e80[0x28];             /* 0080 */
+    int  e08[20];              /* 0008  larik INT */
+    int  e30[20];              /* 0030  larik INT */
+    int  e58[20];              /* 0058  larik INT */
+    int  e80[20];              /* 0080  larik INT */
     int  ea8[20];              /* 00a8  larik INT (ditulis per kata) */
     int  ed0[20];              /* 00d0  larik INT (ditulis per kata) */
     int  ef8[20];              /* 00f8  larik INT (ditulis per kata) */
@@ -515,6 +515,7 @@ main()
                 pickpart(4, recbase, fh, big, buf0d54, nzany, e30, e58, recC,
                          buf6f22, e08, e80);
             }
+        again2:
             f498c(ytop, nzany, recC, e08, e58);
             drawslot(ytop, nmechc, recB, ed0, ef8);
             while (failed != 0) {
@@ -541,9 +542,26 @@ main()
             default:
                 goto restart;
             }
+            /* 0x0BF6 -- ekor case 2: kalau belum dibatalkan, ulangi dari
+               0x0AB2; kalau dibatalkan, ulangi dari `restart`. */
+            if (cursel != -1)
+                goto again2;
+            goto restart;
         endcase2:
             break;
         case 3:
+            failed = 1;
+            cursel = 0;
+            if (p1 == 1) {
+                /* Empat penyangga SISANYA (08, 30, 58, 80) juga larik int --
+                   ditulis per kata, sama seperti A8/D0/F8/120. */
+                for (i = 0; i < nzany - 1; i++) {
+                    e08[i] = -1;
+                    e30[i] = -1;
+                    e80[i] = -1;
+                    e58[i] = -1;
+                }
+            }
             break;
         case 1:
             break;
