@@ -38,6 +38,10 @@ struct rec {
 extern char *recbase;       /* @0x73c */
 extern int lvl;             /* @0x734 */
 extern int tw;              /* @0x7f0 */
+extern int ta;              /* @0x7ec */
+extern int tb;              /* @0x7ea */
+extern int mode;            /* @0x792 */
+extern int tx;              /* @0x7ee */
 
 pickvar(fh, buf, x, y, list, n, idx, flag)
 int  fh, buf, x, y;
@@ -62,9 +66,9 @@ int  n, idx, flag;
     int  ox;            /* 12h */
     char f1[2];         /* 14h  tak dipakai di biner */
     int  k2;            /* 16h  salinan kedua list[idx] */
-    char f2[2];         /* 18h */
+    int  i;             /* 18h  pencacah kedip luar */
     int  sel;           /* 1Ah  nilai balik, mulai -1 */
-    char f3[2];         /* 1Ch */
+    int  j;             /* 1Ch  pencacah tunda dalam */
     int  k;             /* 1Eh  = list[idx] */
     char f4a[4];        /* 20h..23h */
     int  ww;            /* 24h  lebar record utama */
@@ -88,7 +92,8 @@ int  n, idx, flag;
     int  cnt;           /* 48h  pencacah percobaan acak */
     int  dv;            /* 4Ah  selisih baris y1-ya, sebelum di-abs */
     struct rec *rp;     /* 4Ch */
-    char f7[4];         /* 4Eh..51h */
+    char f7[2];         /* 4Eh */
+    int  ok;            /* 50h  boleh dipilih? */
 
     rb = (int)recbase;
     if (lvl == 2)
@@ -239,6 +244,25 @@ tail:
         bw = ((x2 > xb) ? x2 : xb) - bx0;
         bh = ((y2 > yb) ? y2 : yb) - by0;
     }
+    /* 0x47D2 -- kedipkan kotak gabungan dua kali; tiap kedip menunggu 12 kali
+       retrace kecuali ditekan tombol. `timebar` hanya jalan kalau tb habis. */
+    tb = ta;
+    for (i = 0; i < 2; i++) {
+        drawrect(bx0, by0, bw, bh, 3);
+        hintmark();
+        for (j = 0; j < 0xc; j++) {
+            if (keyhit())
+                break;
+            ta = tb;
+            if (ta <= 0)
+                timebar();
+            vbend();
+            vbwait();
+        }
+    }
+    ok = 1;
+    if (mode == 4 && tx <= 0)
+        ok = 0;
 done:
     return idx;
 }
