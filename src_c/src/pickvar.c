@@ -71,7 +71,10 @@ int  n, idx, flag;
     int  hh;            /* 26h  tinggi record utama */
     int  dx2;           /* 28h  geser x record ke-2, BERTANDA */
     int  dy2;           /* 2Ah  geser y record ke-2, BERTANDA */
-    char f4b1[8];       /* 2Ch..33h */
+    int  bx0;           /* 2Ch  kotak gabungan: kiri */
+    int  by0;           /* 2Eh  atas */
+    int  bw;            /* 30h  lebar */
+    int  bh;            /* 32h  tinggi */
     int  x1;            /* 34h  = x + dx3 */
     int  xa;            /* 36h  set KEDUA, dipakai blok 46CD/471B */
     int  x2;            /* 38h  = x1 + ww */
@@ -83,7 +86,7 @@ int  n, idx, flag;
     int  rb;            /* 44h  salinan recbase */
     int  rp2;           /* 46h  penunjuk record ke-2 (dari salinan rb) */
     int  cnt;           /* 48h  pencacah percobaan acak */
-    char f6[2];         /* 4Ah */
+    int  dv;            /* 4Ah  selisih baris y1-ya, sebelum di-abs */
     struct rec *rp;     /* 4Ch */
     char f7[4];         /* 4Eh..51h */
 
@@ -221,6 +224,21 @@ part2:
         blit(buf, xa, ya, ww, hh);
     }
 tail:
+    /* 0x475F -- kotak gabungan. Kalau kedua bagian berjauhan (>= 50 baris),
+       pakai kotak bagian KEDUA saja; kalau berdekatan, gabungkan keduanya. */
+    dv = y1 - ya;
+    if ((dv < 0 ? -dv : dv) >= 0x32) {
+        bx0 = xa;
+        by0 = ya;
+        bw = xb - xa;
+        bh = yb - ya;
+    }
+    else {
+        bx0 = (x1 <= xa) ? x1 : xa;
+        by0 = (y1 <= ya) ? y1 : ya;
+        bw = ((x2 > xb) ? x2 : xb) - bx0;
+        bh = ((y2 > yb) ? y2 : yb) - by0;
+    }
 done:
     return idx;
 }
