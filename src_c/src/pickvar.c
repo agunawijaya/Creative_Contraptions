@@ -132,13 +132,15 @@ int  n, idx, flag;
         /* Pola "row berselisih 100 = bagian lanjutan", sama seperti drawpair
            dan nvar. Perkaliannya BEDA bentuk di dua sisi -- ikuti biner:
            `0xc * list[idx+1]` (konstanta kiri, operan memori) vs `k * 0xc`. */
-        /* DUA BENTUK BERBEDA dengan sengaja: sisi kiri char-pointer
-           (`mov ax,0Ch / imul word ptr [bx]`), sisi kanan struct
-           (`mov ax,cx / mov dx,0Ch / imul dx`). Campuran ini juga yang
-           MEMUTUS CSE atas `recbase` -- biner memuatnya DUA KALI
-           ([73Ch] ke DI lalu ke SI), bukan sekali lalu dipakai ulang. */
+        /* ⚠ KOREKSI catatan lama: sisi kanan BUKAN bentuk struct. KEDUANYA
+           bentuk penunjuk char; yang membedakan cuma URUTAN OPERAN kali:
+             kiri  `0xc * list[idx+1]` -> mov ax,0Ch / imul word ptr [bx]
+             kanan `k * 0xc`           -> mov ax,cx  / mov dx,0Ch / imul dx
+           Bentuk struct di sisi kanan memaksa recbase dimuat lebih awal ke DX
+           lalu di-spill ke bingkai (+6 byte). Dengan dua-duanya penunjuk,
+           recbase memang dimuat DUA KALI (DI lalu SI) seperti aslinya. */
         if ((0xc * list[idx + 1] + recbase)[1] - 100 ==
-                ((struct rec *)recbase)[k].row) {
+                (k * 0xc + recbase)[1]) {
             /* Pola drawpair: char di MS C 1.04 itu unsigned, jadi tandanya
                dipulihkan lewat TERNARY dengan nilai-apa-adanya di posisi
                FALSE (cabang yang MEMUAT ULANG dari slot). */
