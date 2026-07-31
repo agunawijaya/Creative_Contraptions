@@ -130,6 +130,14 @@ main()
         return;
     }
     loadarc(mode_, level_, 1);
+    /* Enam muatan awal dari arsip yang sama. Argumen ke-3 = nomor record,
+       ke-4 = alamat tujuan di DGROUP. */
+    load(mode_, level_, 0, 0x31c);
+    load(mode_, level_, 1, 0x364);
+    load(mode_, level_, 2, 0x526);
+    load(mode_, level_, 3, 0x586);
+    load(mode_, level_, 4, 0x5e6);
+    load(mode_, level_, 0x13, 0x646);
 }
 
 /* ⏳ BELUM DITULIS: 0x0101 ke atas (4.100 byte).

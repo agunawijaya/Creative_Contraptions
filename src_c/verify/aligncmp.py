@@ -117,7 +117,8 @@ def main():
     name = sys.argv[1]
     if "--sbs" in sys.argv:
         k = sys.argv.index("--sbs")
-        addr, size = manifest_entry(name)
+        addr, size = ((int(sys.argv[2], 16), int(sys.argv[3])) if k > 3
+                      else manifest_entry(name))
         sbs(name, addr, size, int(sys.argv[k + 1], 16),
             int(sys.argv[k + 2]), int(sys.argv[k + 3]))
         return
