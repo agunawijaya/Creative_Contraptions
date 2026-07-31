@@ -2590,3 +2590,25 @@ Jangan memakai catatan itu untuk memperkirakan ukuran bingkai tanpa mengukur.
 Sisa jalan untuk `pickvar` -3 byte: belum ada. Yang sudah gugur di situs ini:
 tiga permutasi urutan pernyataan, bentuk `goto`, `&&` baris 207, dan kini
 penunjuk-lokal. `probeA` sudah membuktikan bentuk sumber bukan pengungkitnya.
+
+
+## ✅ `f498c` SELESAI byte-per-byte — 162/165 -> 165/165 (2026-07-31)
+
+Fungsi ke-78. `verifyall`: COCOK 78/81, 18.851 byte. Kode C game 71,9% ->
+**72,5%**; TOTAL 76,8% -> **77,3%**.
+
+Perubahannya: penjaga `if (sel[i] < 0) continue;` + `continue` kedua diganti
+penjaga POSITIF bersarang dengan `if/else`. Aturannya di README.
+
+⭐ NILAINYA MELEBIHI 3 BYTE ITU. Ini **pengungkit pertama yang terbukti untuk
+kelas "beda register murni"** — kelas yang selama belasan iterasi dianggap tak
+terkendali dan berkali-kali saya sebut "murni pilihan register, tidak ada
+pengungkit". Ternyata ada: BENTUK PENJAGA menentukan pilihan alokator.
+
+Ini juga mengoreksi cara saya menutup kasus. Beberapa kali saya menulis "sisanya
+MURNI pilihan register" seolah itu vonis akhir. Yang benar: itu deskripsi
+GEJALA, bukan sebab — dan gejala yang sama ternyata punya pengungkit sumber.
+
+⚠ Disapukan ke `place` (satu-satunya fungsi sisa dengan bentuk serupa) dan
+DITOLAK: `while (j < n) { i = flag[j]; if (i < 0) break; ... }` diubah jadi
+`while (j < n && (i = flag[j]) >= 0)` memberi 501 -> 473. Per-tempat lagi.

@@ -26,15 +26,19 @@ int *tab, *sel, *sel2;
     int n;
 
     for (i = 0; i < cnt; i++) {
-        if (sel[i] < 0)
-            continue;
-        n = nvar(tab[i * 3 + 2], buf);
-        if (n <= 0) {
-            printf(0x1e08, i);
-            continue;
+        /* ⭐ PENJAGA POSITIF + `if/else`, BUKAN dua `continue`. Bentuk
+           `continue` memberi tiga blok dasar terpisah; alokator lalu memilih
+           BX untuk penunjuk `tab` sedangkan asli MEMAKAI ULANG SI (3 byte
+           beda, ukuran instruksinya sama). Bentuk bersarang ini menyatukan
+           blok dan memulihkan pilihan register. GLOBAL 162 -> 165/165. */
+        if (sel[i] >= 0) {
+            n = nvar(tab[i * 3 + 2], buf);
+            if (n <= 0)
+                printf(0x1e08, i);
+            else
+                drawpair(fh, ytop, tab[i * 3], tab[i * 3 + 1], buf, n,
+                         sel[i], sel2[i]);
         }
-        drawpair(fh, ytop, tab[i * 3], tab[i * 3 + 1], buf, n,
-                 sel[i], sel2[i]);
     }
 }
 

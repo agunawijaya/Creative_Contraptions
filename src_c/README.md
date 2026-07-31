@@ -1212,6 +1212,41 @@ Semua fungsi lain, termasuk `main` yang angkanya paling rendah, sudah lengkap
 secara struktur. Persentase RENDAH tidak berarti "masih banyak yang belum
 ditulis" — itu keliru yang dipegang berminggu-minggu.
 
+## ⭐⭐⭐ PENJAGA POSITIF + `if/else` vs `continue` — memilihkan REGISTER
+
+Menyelesaikan `f498c` (162/165 -> **165/165**). Ketiga byte itu ukurannya SAMA
+(cuma field register `bx` vs `si`), jadi TIDAK ADA bentuk yang mengubah panjang
+— yang berubah cuma pilihan alokator.
+
+```c
+/* SALAH — dua `continue`, tiga blok dasar terpisah */
+if (sel[i] < 0) continue;
+n = nvar(...);
+if (n <= 0) { printf(...); continue; }
+drawpair(...);
+
+/* BENAR — penjaga POSITIF, badan bersarang, `if/else` */
+if (sel[i] >= 0) {
+    n = nvar(...);
+    if (n <= 0) printf(...);
+    else        drawpair(...);
+}
+```
+
+Dengan `continue`, alokator memilih **BX** untuk penunjuk `tab`; dengan bentuk
+bersarang ia MEMAKAI ULANG **SI** seperti asli. Jadi bentuk penjaga menentukan
+pilihan register, bukan cuma tata letak lompatan.
+
+⭐ INI PENGUNGKIT PERTAMA YANG TERBUKTI untuk kelas "beda register murni".
+Sebelumnya kelas itu dianggap tak terkendali. Kalau sebuah fungsi cuma beda di
+field register dan panjangnya TEPAT, periksa apakah ada `continue`/`break` yang
+bisa ditulis ulang sebagai penjaga positif bersarang.
+
+⚠ TIDAK BERLAKU UMUM. Bentuk setara di `place`
+(`while (j < n) { i = flag[j]; if (i < 0) break; ... }` ->
+`while (j < n && (i = flag[j]) >= 0)`) memberi **501 -> 473**. DITOLAK.
+Seperti biasa: per-TEMPAT, dan harus DIUKUR.
+
 ## ⭐⭐⭐ WAKTU SIMPANAN: bawaannya DITUNDA — simpanan SEGERA itu gejala
 ## TEKANAN REGISTER, bukan bentuk sumber (probeA, 2026-07-31)
 
