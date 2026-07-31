@@ -177,9 +177,13 @@ again:
     /* BLOK MATI: `idx + 141h != q` selalu salah karena q diset = idx + 141h.
        Byte-nya ada di biner (0x451A..0x45DC) jadi tetap ditulis apa adanya. */
     if (idx + 0x141 != q) {
+        /* Bentuk PENUNJUK (aturan 3), BUKAN offset ((char*)recbase)[k*0xc+3]:
+           yang offset memaksa recbase dimuat DUA KALI (+15 byte). Bentuk
+           struct `[k].h` memberi instruksi yang benar tapi menuntut temp
+           kelima -- bingkai jadi 54h, jadi tidak bisa dipakai. */
         fillrect(y + oy, x + ox,
-                 y + oy + ((char *)recbase)[k * 0xc + 3] - 1,
-                 x + ox + ((char *)recbase)[k * 0xc + 2] - 1, 1);
+                 y + oy + (k * 0xc + recbase)[3] - 1,
+                 x + ox + (k * 0xc + recbase)[2] - 1, 1);
         if (sel != -1) {
             rp2 = rb + sel * 0xc;
             dx2 = ((char *)rp2)[4];
