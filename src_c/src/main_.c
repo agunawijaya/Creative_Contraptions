@@ -87,6 +87,10 @@ extern int  recC[];             /* @0x4b6 */
 /* postab bertipe `struct pos` di berkas lain; di sini isinya tidak dipakai,
    cuma alamatnya yang dioper, jadi cukup dideklarasikan sebagai char[]. */
 extern char postab[];           /* @0x3b6 */
+extern int  curz;               /* @0x2e6 */
+extern int  slot;               /* @0x51a */
+extern int  failed;             /* @0x842 */
+extern int  pass;               /* @0x71c */
 extern int  lvl2;               /* @0x736 */
 extern int  lvl3;               /* @0x738 */
 extern int  shufflg;            /* @0x794 */
@@ -120,7 +124,9 @@ main()
     char ytop[3000];            /* 10a6 */
     char big[18000];            /* 1c5e */
     char buf62ae[2884];         /* 62ae */
-    char buf6df2[304];          /* 6df2 */
+    char buf6df2[300];          /* 6df2 */
+    int  p1;                    /* 6f1e  dikira bagian penyangga, ternyata int */
+    char g3[2];                 /* 6f20 */
     char buf6f22[100];          /* 6f22 */
     int  i;                     /* 6f86  pencacah loop, dipakai 9 kali */
     char g1[4];                 /* 6f88  tak terreferensi */
@@ -328,8 +334,19 @@ main()
                 n = 0;
             else
                 n = 1;
+            loadarc(seed, base, n, recB, nmechc, markf);
             break;
         }
+        /* Lima penugasan nol di-hoist dari satu `xor ax,ax` yang juga jadi
+           argumen; urutan pancarannya KEBALIKAN urutan sumber. */
+        pass = 0;
+        p1 = 0;
+        failed = 0;
+        slot = 0;
+        curz = 0;
+        j = loadarc(objfh, objtab, 0, recC, nzany, mark);
+        loadarc(objfh, objtab + j * 0xc, 0, recB, nmechc, markf);
+        p1++;
     }
 quit:
     ;
