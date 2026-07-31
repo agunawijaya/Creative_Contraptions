@@ -28,6 +28,8 @@
    jalan. Hapus satu per satu saat fungsinya ditulis. */
 setup() { return 0; }      /* @0x5f90 */
 f171f() { return 0; }      /* @0x171f -- belum dinamai, belum direkonstruksi */
+f498c() { return 0; }      /* @0x498c -- tepat sesudah pickvar, bingkai 74h */
+animvm() { return 0; }     /* @0x18db -- VM animasi, 3.040 byte */
 
 /* Simbol DATA yang tidak bisa lewat gdata.c:
  *   sndbuf -- alamat aslinya 0x670e, DI LUAR DGROUP (itu segmen kode).

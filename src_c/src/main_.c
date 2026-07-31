@@ -86,6 +86,7 @@ extern int  recC[];             /* @0x4b6 */
 /* postab bertipe `struct pos` di berkas lain; di sini isinya tidak dipakai,
    cuma alamatnya yang dioper, jadi cukup dideklarasikan sebagai char[]. */
 extern char postab[];           /* @0x3b6 */
+extern int  state[];            /* @0x4f2 */
 extern char idtab[];            /* @0x2ea */
 extern int  scrmode;            /* @0x3b0 */
 extern int  g83a;               /* @0x83a  belum dianalisa maknanya */
@@ -207,6 +208,9 @@ main()
              buf6f22, e08, e80);
     fillans(0x1a8, base, seed, buf62ae, buf6df2, nmechc, ed0, ef8, recB,
             idtab, ea8, e120, ytop, lvl);
+    f498c(ytop, nzany, recC, e08, e58);
+    drawslot(ytop, nmechc, recB, ed0, ef8);
+    animvm(state, nmechc, recB, ef8, e120, nzany, recC, e58, e80);
 }
 
 /* ⏳ BELUM DITULIS: 0x0101 ke atas (4.100 byte).
