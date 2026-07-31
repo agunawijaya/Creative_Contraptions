@@ -24,6 +24,7 @@ keyhit     1791  131
 showsc     2a86  139
 drawrect   4009  139
 unrle      666a  147
+f2fde      2fde   66
 revdet     3020  155
 drawtab    3769  177
 xform      5e3b  107
