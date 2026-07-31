@@ -2090,3 +2090,48 @@ beda untuk `main`, padahal TERJAJAR mengatakan 3.999 byte COCOK. Sebabnya model
 sama dengan metrik GLOBAL sehingga hasilnya pasti konsisten. Ini kejadian
 KETIGA (metrik serakah, `fixorder`, sekarang ini) — pelajaran (h) berlaku juga
 untuk alat yang baru saja kita tulis sendiri, bukan cuma yang lama.
+
+
+## Sapuan PROFIL CELAH: cuma `nvar` yang masih "volume" (2026-07-31)
+
+Alat baru `src_c/verify/gapprof.py` dijalankan atas ketujuh fungsi yang belum
+exact. Tabelnya ada di README. Kesimpulan yang mengubah rencana kerja: enam dari
+tujuh sudah LENGKAP secara struktur; yang tersisa di sana murni alokasi register.
+Hanya `nvar` yang masih punya celah >= 20 B.
+
+Karena itu urutan prioritas lama ("garap yang persentasenya paling rendah")
+salah arah. `main` (80,1%) justru sekelas `place` (99,6%) dalam hal JENIS
+kesulitan; yang membedakan cuma banyaknya luka, bukan sifatnya.
+
+## `nvar`: gumpalan 0x41b4..0x423e dibedah, empat bentuk sumber diuji, semua gagal
+
+Disassembly berdampingan menunjukkan sebabnya jelas dan konsisten:
+
+```
+ASLI  41af mov ax,[bp+0ah]      KITA  41af mov ax,[bp+0eh]
+      41b2 inc word ptr [bp+0ah]      41b2 mov [bp],ax        <- tumpahan
+      41b5 shl ax,1                   41b5 inc ax
+                                      41b6 mov bx,[bp]        <- dibaca lagi
+```
+
+Aslinya menyimpan `cnt` yang baru KE MEMORI SEGERA (`inc word ptr`), sehingga
+nilai lama cukup ditahan di AX. Kita MENUNDA simpanan `cnt` sampai akhir
+pernyataan, jadi nilai BARU yang menempati AX dan nilai lama harus ditumpahkan
+ke temp — persis dua kata temp yang membuat bingkai kita 3ch vs 38h.
+
+Akibat lanjutannya terlihat 40 byte kemudian: aslinya menahan `list` di BX dari
+0x41c0 sampai 0x41f0 dan memancarkan `mov ax,cx / mov dx,0ch / imul dx` (7 B),
+kita kehilangan BX dan memancarkan `mov ax,0ch / imul dx` (5 B) plus `mov si,cx`
+tambahan. Jadi satu keputusan di 0x41b2 membiayai selisih di seluruh blok —
+contoh paling bersih dari pelajaran (a).
+
+Empat bentuk sumber diuji, GLOBAL dasar 411/566:
+```
+E2  ternary menggantikan if/else untuk r        -> 401  (-10)
+E3  arah syarat dibalik (b >= a)                -> 390  (-21)
+E4  (recbase + list[r])->row                    -> 411  (BYTE-IDENTIK, lihat README)
+E5  if (r != 0) menggantikan if (r > 0)         -> 410  (-1)
+```
+Tidak satu pun memicu bentuk `inc word ptr [cnt]`. Yang menentukan bukan bentuk
+ekspresi di sekitarnya melainkan kapan simpanan `cnt` boleh dilakukan; pengungkit
+untuk itu belum ketemu.

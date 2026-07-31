@@ -1174,6 +1174,44 @@ memilih register berbeda. Satu penugasan pun sudah cukup memicunya.
 ⚠ Jangan pakai daftar geseran untuk memutuskan di sini: varian yang ditolak ini
 memendekkan geseran 4 → 2 dan menaikkan TERJAJAR, sambil menurunkan GLOBAL 108.
 
+## ⭐ `a[i].f` dan `(a+i)->f` IDENTIK — sebuah kelas probe yang tertutup permanen
+
+Diuji di `nvar` (2026-07-31), ketiga akses record sekaligus diganti bentuk
+penunjuk. `.OBJ` keluar BYTE-IDENTIK (SHA1 `09a5d68cccfbb83b`, 551 B).
+
+MS C 1.04 meruntuhkan indeks larik-of-struct dan aritmetika penunjuk ke pohon
+yang sama sebelum memilih kode. Jadi memindah-mindahkan antara kedua bentuk itu
+TIDAK PERNAH mengubah keluaran — jangan buang probe ke sana lagi. Ini berbeda
+dari `*(char *)p` vs `*p`, yang mengubah TIPE dan karenanya memang berpengaruh.
+
+## ⭐⭐ PROFIL CELAH — pisahkan "kurang DITULIS" dari "murni REGISTER" lebih dulu
+
+Alat: `python src_c/verify/gapprof.py --semua`. Memakai difflib yang SAMA dengan
+metrik GLOBAL, jadi pasti konsisten. Ia mendaftar celah tak-tercocokkan menurut
+UKURAN, bukan menurut jumlah.
+
+Bacanya:
+* celah TERBESAR >= 20 B  -> masih ada STRUKTUR yang belum ditulis; garap volumenya
+* rata-rata celah 1-2 B   -> kelas ALOKASI REGISTER; JANGAN diperlakukan sbg volume
+
+Sapuan pertama (2026-07-31) mengubah urutan prioritas seluruh sisa pekerjaan:
+
+```
+nvar     411/566  (72,6%)  155 B / 92 celah  terbesar 22 B  -> VOLUME
+animvm  2900/3040 (95,4%)  140 B /114 celah  terbesar  3 B  -> REGISTER
+pickvar 1654/1730 (95,6%)   76 B / 47 celah  terbesar 10 B  -> REGISTER
+loadcon  687/739  (93,0%)   52 B / 41 celah  terbesar  7 B  -> REGISTER
+place    501/503  (99,6%)    2 B /  2 celah  terbesar  1 B  -> REGISTER
+f498c    162/165  (98,2%)    3 B /  3 celah  terbesar  1 B  -> REGISTER
+main_   3378/4219 (80,1%)  841 B /514 celah  terbesar 14 B  -> REGISTER
+```
+
+`nvar` adalah SATU-SATUNYA yang masih berprofil volume, dan gumpalannya rapat:
+0x41b4=12 B, 0x4216=16 B, 0x4228=22 B — 50 dari 155 byte dalam jendela 0x41b4..0x423e.
+Semua fungsi lain, termasuk `main` yang angkanya paling rendah, sudah lengkap
+secara struktur. Persentase RENDAH tidak berarti "masih banyak yang belum
+ditulis" — itu keliru yang dipegang berminggu-minggu.
+
 ## ⚠ PERCOBAAN YANG GAGAL BISA BENAR — cek ulang sesudah perbaikan LAIN
 
 Memecah `u4c = *++u54;` jadi `u54++; u4c = *u54++;` di `animvm` `case 0x0c`
