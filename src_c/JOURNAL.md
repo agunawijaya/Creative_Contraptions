@@ -2716,3 +2716,30 @@ di alamat mana ia mendarat. Baru sesudah itu bentuknya layak diutak-atik.
 
 ⚠ Selama pemetaannya belum pasti, `main_` 0x0b41 dan 0x0e01 TETAP DIPARKIR.
 Keduanya 2 byte dan 1 byte; tidak sebanding dengan risiko menebak.
+
+
+## `main_` 0x0b39 TERPECAHKAN lewat PEMETAAN PENANDA — 4.203 -> 4.205 (99,7%)
+
+Situs yang iterasi lalu dicatat "pemetaannya ambigu, jangan ditebak". Teknik
+penanda dipakai persis seperti yang direncanakan, dan langsung menjawab.
+
+Penanda `f2fde();` disisipkan tepat sebelum `again2:`, lalu `.OBJ`-nya di-diff
+terhadap build dasar. difflib melaporkan `insert` di **0x0ab2** — jadi `again2`
+ada di 0x0ab2, BUKAN di 0x0b43 seperti dugaan dua iterasi terakhir. Dengan itu
+`cmp` di 0x0b3c jelas milik `if (cursel == -1) goto endcase2;` (baris 626),
+jauh di bawah `again2`.
+
+⚠ Percobaan pertama mencari penandanya dengan memindai pola `call` di
+disassembly GAGAL — terlalu banyak kandidat. Yang bekerja: DIFF terhadap build
+dasar. Dicatat di README.
+
+Perbaikannya lalu jelas: asli melompat ke UJI EKOR, bukan ke `endcase2` yang
+badannya cuma `break` (dan karenanya diruntuhkan MS C jadi lompatan langsung ke
+`restart`). Diberi label `tail2:` pada uji ekor dan `goto tail2` — +2.
+
+Padanannya di `case 3` DITOLAK (4.205 -> 4.204): strukturnya beda, ujinya
+SESUDAH `endcase3:`. Per-tempat lagi.
+
+Celah `main_` tinggal **14 byte dalam 9 celah**, dan yang tersisa: gugusan 8 B
+di 0x0126 (`page`/`page2`, dua alternatif sudah gugur di dua dasar), tiga celah
+1-byte di 0x0c84/88/8a (BX vs SI), dan 0x0e01.

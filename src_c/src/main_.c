@@ -623,7 +623,12 @@ main()
                                   ed0, e120, ef8, buf62ae, buf6df2);
             }
             if (cursel == -1)
-                goto endcase2;
+                /* ⭐ `tail2`, BUKAN `endcase2`. Keduanya SETARA (endcase2 =
+                   `break` yang akhirnya sampai ke `restart` juga), tapi
+                   `goto endcase2` diruntuhkan jadi lompatan LANGSUNG ke
+                   `restart`; asli melompat ke uji ekor di 0x0BF6.
+                   Dipetakan lewat PENANDA, bukan ditebak. GLOBAL 4.203 -> 4.205. */
+                goto tail2;
             failed = animvm(state, nmechc, recB, ef8, e120, nzany, recC, e58,
                             e80);
             cursel = waitkey();
@@ -648,6 +653,7 @@ main()
                `je` lebih dulu lalu jatuh-tembus ke `goto again2`. Bentuk
                `!= -1` memberi `jne` dan menukar kedua `jmp` sesudahnya —
                semantiknya sama, byte-nya beda. */
+        tail2:
             if (cursel == -1)
                 goto restart;
             goto again2;

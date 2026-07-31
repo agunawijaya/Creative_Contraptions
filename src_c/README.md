@@ -1212,6 +1212,39 @@ Semua fungsi lain, termasuk `main` yang angkanya paling rendah, sudah lengkap
 secara struktur. Persentase RENDAH tidak berarti "masih banyak yang belum
 ditulis" — itu keliru yang dipegang berminggu-minggu.
 
+## ⭐⭐ PEMETAAN LEWAT PENANDA — pastikan blok sumbernya SEBELUM mendiagnosis
+
+Cara: sisipkan pemanggilan unik tanpa argumen (`f2fde();`) di blok kandidat,
+kompilasi, lalu DIFF `.OBJ`-nya terhadap build dasar. Titik `insert` di difflib
+adalah alamat tempat blok itu benar-benar dipancarkan. Hapus penandanya lagi.
+
+⚠ JANGAN mencari penandanya dengan menebak pola `call` di disassembly — terlalu
+banyak kandidat. DIFF terhadap build dasar memberi alamatnya TEPAT.
+
+Ini memecahkan `main_` 0x0b39 sesudah dua iterasi analisis yang berputar. Dugaan
+"blok sebelum `again2:`" SALAH: penandanya mendarat di **0x0ab2**, jadi `again2`
+ada di sana dan `cmp` di 0x0b3c sebenarnya milik `if (cursel == -1) goto ...`
+JAUH di bawahnya. Begitu pemetaannya pasti, perbaikannya jelas dalam satu
+percobaan.
+
+## ⭐⭐ `goto` KE LABEL YANG BENAR — MS C meruntuhkan rantai, jadi PILIH sasarannya
+
+`main_` 4.203 -> 4.205. Sumber kita `goto endcase2` (label yang badannya cuma
+`break`); MS C meruntuhkannya jadi lompatan LANGSUNG ke `restart`. Asli melompat
+ke UJI EKOR (`if (cursel == -1) goto restart; goto again2;`) yang letaknya tepat
+sebelum `endcase2`.
+
+Keduanya SETARA secara semantik — lewat uji ekor, `cursel == -1` tetap berakhir
+di `restart`. Yang beda cuma sasaran `jmp`-nya. Perbaikannya: beri LABEL pada
+uji ekor (`tail2:`) dan lompat ke sana.
+
+⭐ POLANYA: kalau `jmp` kita menunjuk sasaran yang lebih JAUH ke hilir daripada
+asli, kemungkinan besar kita melompat ke label yang badannya kosong/`break` dan
+kompilernya meruntuhkan rantai. Cari titik ANTARA yang setara, beri label di
+situ, dan lompat ke sana.
+⚠ per-TEMPAT: padanannya di `case 3` (`goto endcase3` -> label uji ekor)
+DITOLAK, 4.205 -> 4.204 — di sana ujinya justru SESUDAH label.
+
 ## ⭐⭐ RANTAI PERBANDINGAN `switch` = KEBALIKAN urutan `case` di sumber
 
 Dibuktikan dengan `probes/probeB.c` (lima varian, satu kompilasi):
