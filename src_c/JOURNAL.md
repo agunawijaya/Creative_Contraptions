@@ -2743,3 +2743,29 @@ SESUDAH `endcase3:`. Per-tempat lagi.
 Celah `main_` tinggal **14 byte dalam 9 celah**, dan yang tersisa: gugusan 8 B
 di 0x0126 (`page`/`page2`, dua alternatif sudah gugur di dua dasar), tiga celah
 1-byte di 0x0c84/88/8a (BX vs SI), dan 0x0e01.
+
+
+## `main_` 0x0c84 dipetakan PASTI; dua bentuk operan gugur
+
+Teknik penanda dipakai lagi, kali ini sebagai LANGKAH PERTAMA (bukan sesudah
+tersesat). Penanda disisipkan sebelum `for (j = 0; j < cnt2; j++)` dan mendarat
+di **0x0c62** — jadi gelung di 0x0c68..0x0c98 memang blok itu. Pemetaan PASTI
+sebelum satu pun hipotesis dicoba.
+
+Dua bentuk operan diuji pada `(buf6f22[j] * 0xc + (char *)recbase)[1]`:
+```
+(0xc * buf6f22[j] + (char *)recbase)[1]   -> 4.205  IDENTIK (tak berpengaruh)
+((char *)recbase + buf6f22[j] * 0xc)[1]   -> 4.200  LEBIH BURUK
+```
+Jadi urutan operan BUKAN pengungkit BX-vs-SI di situs ini. Ini melengkapi
+daftar: bentuk penjaga (ditolak di `place`), syarat-dalam-`for` (identik), dan
+kini urutan operan — ketiganya gugur untuk kelas BX-vs-SI di `main_`.
+
+⚠ CATATAN PROSES — BUG HARNESS YANG TERULANG. Sapuan pertama melaporkan "GAGAL
+KOMPILASI" untuk KEDUA varian. Sebabnya sama persis dengan kejadian di `loadcon`
+beberapa iterasi lalu: fungsi shell dipanggil `V x '<pengganti>'` sehingga
+`sys.argv[2]` berisi `"x"`, bukan penggantinya. Sudah dicatat sebagai jebakan,
+tapi TETAP TERULANG karena harness-nya ditulis ulang dari nol tiap kali.
+⭐ Perbaikannya: tulis skrip pengganti sebagai BERKAS di scratchpad
+(`mrep.py`) dengan argumen eksplisit, lalu panggil berkas itu — jangan menaruh
+heredoc di dalam fungsi shell yang argumennya diteruskan berlapis.
