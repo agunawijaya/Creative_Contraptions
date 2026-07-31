@@ -87,6 +87,19 @@ extern int  recC[];             /* @0x4b6 */
 /* postab bertipe `struct pos` di berkas lain; di sini isinya tidak dipakai,
    cuma alamatnya yang dioper, jadi cukup dideklarasikan sebagai char[]. */
 extern char postab[];           /* @0x3b6 */
+extern int  ta;                 /* @0x7ec */
+extern int  tx;                 /* @0x7ee */
+extern int  schi;               /* @0x732 */
+extern int  sclo;               /* @0x730 */
+extern int  count;              /* @0x82c */
+extern int  both;               /* @0x844 */
+extern int  hintshown;          /* @0x848 */
+extern int  range;              /* @0x830 */
+/* Dua alamat ini belum pernah dinamai; keduanya slot 2-byte bebas (0x2e6=curz
+   dan 0x7e6=zcnt masing-masing hanya 2 byte). Nama sengaja netral karena
+   maknanya belum terbukti -- baru terlihat diset 0 lalu diuji != -1. */
+extern int  cursel;             /* @0x2e8 */
+extern int  g7e8;               /* @0x7e8 */
 extern int  curz;               /* @0x2e6 */
 extern int  slot;               /* @0x51a */
 extern int  failed;             /* @0x842 */
@@ -347,6 +360,38 @@ main()
         j = loadarc(objfh, objtab, 0, recC, nzany, mark);
         loadarc(objfh, objtab + j * 0xc, 0, recB, nmechc, markf);
         p1++;
+        /* Switch PADAT ketiga (tabel 0x10CA, 4 entri) -- ini yang memuat
+           BADAN UTAMA fungsi, 0x065F..0x10C9 (~2.660 byte). Urutan case
+           mengikuti alamat badan: 0x065F(4), 0x0A3B(2), 0x0C03(3), 0x0E06(1).
+           default melompat ke 0x450 = `continue`.
+           ⏳ Badan case 2, 3, 1 BELUM ditulis; dibiarkan kosong dulu supaya
+           bentuk tabel padat 4-entri tetap terbangkitkan. */
+        switch (mode) {
+        case 4:
+            if (menu12() == -1)
+                continue;
+            schi = 0;
+            sclo = 0;
+            ta = 5;
+            tx = 0x140;
+            count = 4;
+            hintshown = 0;
+            g7e8 = 0;
+            cursel = 0;
+            failed = 0;
+            sub = 0;
+            both = 0;
+            range = 0x140 - 0x14;
+            pickmax();
+            goal = 6;
+            break;
+        case 2:
+            break;
+        case 3:
+            break;
+        case 1:
+            break;
+        }
     }
 quit:
     ;

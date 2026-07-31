@@ -928,6 +928,22 @@ pernah terbit dan LINK melaporkan unresolved. Ini memblokir satu instruksi di
 `main` (0x00B9 `mov bx,[0]`, biaya 7 byte). **Belum diperbaiki** — menyentuh
 penataan DGROUP yang sekarang 100% cocok (9.556/9.556), jadi butuh keputusan.
 
+## ⚠ Menambah nama extern baru butuh TIGA langkah, bukan satu
+
+`buildall.ps1` **tidak** menjalankan `gendata.py`, dan **tidak** ikut
+mengompilasi ulang `gdata.c`. Jadi setelah menambah `extern ... /* @0xNNN */`
+di sumber mana pun:
+
+```
+python src_c/build/gendata.py            # 1. regenerasi gdata.c
+pwsh src_c/build/compile.ps1 -Name gdata # 2. WAJIB — buildall melewatkannya
+pwsh src_c/build/buildall.ps1            # 3. sisa modul
+```
+
+Melewatkan langkah 2 memberi `Unresolved Externals` untuk nama yang jelas-jelas
+sudah ada di `gdata.c` — gejala yang menyesatkan karena berkasnya benar,
+hanya `.OBJ`-nya yang basi.
+
 ## ⚠ `link.ps1` menautkan SEMUA `.OBJ` di `out/`, bukan hanya yang di manifest
 
 Begitu sebuah `.c` baru ditaruh di `src/`, `buildall.ps1` mengompilnya dan
