@@ -82,6 +82,8 @@ extern int  lvl;                /* @0x734 */
 extern int  nmax;               /* @0x3b4 */
 extern int  nzany;              /* @0x4b4 */
 extern int  nmechc;             /* @0x41c */
+extern int  nmechb;             /* @0x41a */
+extern int  ids[];              /* @0x3f2 */
 extern int  recB[];             /* @0x41e */
 extern int  recC[];             /* @0x4b6 */
 /* postab bertipe `struct pos` di berkas lain; di sini isinya tidak dipakai,
@@ -444,6 +446,11 @@ main()
                 f498c(ytop, nzany, recC, e08, e58);
                 drawslot(ytop, nmechc, recB, ed0, ef8);
                 redraw();
+                /* 21 argumen -- panggilan terbesar di seluruh biner. */
+                cursel = runplay(ytop, nmechc, recB, ids, nmechb, ea8, lvl,
+                                 ed0, e120, ef8, buf62ae, buf6df2, nzany,
+                                 e08, e30, e80, recC, e58, ytop, big,
+                                 buf0d54);
             }
             break;
         case 2:
