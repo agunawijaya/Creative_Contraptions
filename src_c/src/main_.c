@@ -9,6 +9,28 @@
  *
  * ⚠ PAKAI METRIK TERJAJAR, BUKAN POSISI (lihat src_c/README.md).
  *
+ * ⭐⭐ AKAR MASALAH GESERAN DITEMUKAN (2026-07-31). SEMUA lokal kita persis
+ * 2 byte LEBIH RENDAH dari asli -- terbukti dengan mendaftar tiap slot yang
+ * kita rujuk: 0x11E/0x146/0x24E/0x82A/0xBAE/0xD52/0x10A4/0x1C5C/0x62AC/0x6DF0
+ * berbanding 0x120/0x148/0x250/0x82C/0xBB0/0xD54/0x10A6/0x1C5E/0x62AE/0x6DF2.
+ * Penyebabnya BUKAN deklarasi lokal (semua ukurannya sudah pas dan saling
+ * terkunci oleh offset yang terlihat di biner), melainkan TEMP: aslinya
+ * memesan 8 byte temp (bp+00..07), kita cuma 6. Artinya ada SATU ekspresi di
+ * sumber asli yang butuh slot temp KEEMPAT, dan bentuk yang kita tulis lebih
+ * sederhana. Selama itu belum ketemu, hampir semua geseran yang tersisa
+ * adalah akibat ikutan -- bukan kesalahan blok per blok.
+ *
+ * ⚠ JANGAN "memperbaiki"-nya dengan membesarkan salah satu penyangga.
+ * Percobaan: menambah 2 byte ke lvlbuf menaikkan TERJAJAR 2.682 -> 3.470 dan
+ * membuat SEMUA slot cocok -- tapi itu KOMPENSASI, bukan kebenaran: ia
+ * menggeser lvlbuf/recs ke offset yang jelas-jelas salah menurut biner.
+ * Angka 3.470 itu berguna sebagai BUKTI DIAGNOSIS (membuktikan selisihnya
+ * memang persis 2 byte dan seragam), bukan sebagai hasil.
+ *
+ * ⚠ Pengganjal `char x[2]` yang TIDAK dirujuk DIBUANG kompiler; `char x[3]`
+ * dan `char x[4]` dialokasikan (keduanya jadi 4 byte). Jadi aturan lama
+ * "array selalu dialokasikan" tidak berlaku untuk array 2-byte tak terpakai.
+ *
  * ⚠ 13 byte DIBLOKIR bug alat, bukan soal sumber: dua instruksi (0x00B9 dan
  * 0x10F1) mengakses kata pertama DGROUP, tapi gendata.py membuang alamat
  * DGROUP 0..3 (penyaring `START <= a` dengan START = 4). Memperbaikinya
