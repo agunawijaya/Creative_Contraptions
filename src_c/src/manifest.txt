@@ -44,6 +44,7 @@ drawslot   3f0f  250
 pickloop   2e90  334
 hintmark   4cd4  301
 fillans    149d  307
+f498c      498c  165
 drawpair   4a31  392
 redraw   5936    30
 pause    31b0     42
