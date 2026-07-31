@@ -21,35 +21,35 @@ Arsip percakapan mentah ada di folder memory Claude Code (`*.jsonl`, 9,3 MB).
 Pakai HANYA kalau perlu menelusuri satu detail spesifik; jangan dibaca utuh dan
 jangan dipakai sebagai sumber status. Path lengkapnya ada di `src_c/JOURNAL.md`.
 
-**Pekerjaan berikutnya, urutan disarankan (per 2026-07-30, sesi lanjutan):**
+**Pekerjaan berikutnya, urutan disarankan (per 2026-07-31, sesudah sesi semalaman):**
 
-Selesai sesi ini, TUJUH fungsi, semuanya cocok byte-per-byte: `runmenu` (547 B),
-`review` (704 B), `mkpal` (634 B), `bounce` (398 B), `runfill` (383 B),
-`setzany` (282 B), `setmark` (259 B) = **3.207 byte**. Strategi "garap fungsi
-baru dulu, bukan near-miss" terbukti (sesi sebelumnya: nol byte).
-**Teruskan strategi itu.**
+⚠ **BACA DULU: cara mengukur sudah BERUBAH.** Metrik "byte cocok per POSISI"
+hanya sahih kalau panjang draf sudah persis sama dengan aslinya. Untuk fungsi
+yang belum pas panjangnya, pakai:
+```
+python src_c/verify/aligncmp.py <nama>                    # ringkasan + daftar geseran
+python src_c/verify/aligncmp.py <nama> --sbs <addr> <n> <geser>   # berdampingan
+```
+`pickvar` sempat menunjukkan POSISI 368 padahal 1.616 byte benar-benar
+sejajar. Satu perubahan menurunkan POSISI 392->386 tapi menaikkan penjajaran
+684->704 — kalau percaya angka posisi, perubahan yang BENAR akan dibuang.
 
-1. **`0x5035` (739 B, loader CONTRAP) — SUDAH DIMULAI.** Peta bingkai + daftar
-   global yang perlu dinamai ada di `src_c/JOURNAL.md`; struktur berkasnya sudah
-   TERVALIDASI di `CODE_MAP.md`, jadi maknanya tidak perlu ditebak — tinggal
-   dinamai lalu ditulis. 46 byte tak-terreferensi di ujung bingkai diselesaikan
-   SECARA EMPIRIS (aturan 8i), bukan diteorikan dulu.
-   `0x5505` SUDAH SELESAI (964 B, cocok). Berikutnya `0x42ca` (1.730 B,
-   `pickvar`) — pengintaian bingkai + peringatan soal pseudo-C-nya ada di
-   `src_c/JOURNAL.md`; kerjakan dari disassembly, bukan dari Ghidra.
-   ⚠ Cek ukuran sebenarnya dengan `alamat_fungsi_berikutnya - alamat`, JANGAN
-   percaya `truesize.py` untuk fungsi ber-`switch` (lihat README).
-   ⚠ Kalau ekor sebuah fungsi mirip fungsi lain, cek dulu apakah itu KEMBARAN
-   (sumber diduplikasi) — `setmark`/`setzany` dan `show`/`setsel` begitu, dan
-   yang kedua jadi hampir gratis.
-2. Balik ke dua near-miss dengan mata segar:
-   - `place` (0x4e3e): panjang sudah tepat 503, sisa **2 byte** — register SI vs DI
-   - `nvar` (0x4094): 551/566 — pemicunya sudah dipersempit lewat probe ke ekspresi
-     bersarang `recbase[list[r]].row`, BUKAN bentuk `cnt++`
-   Peta slot + daftar "sudah dicoba & gagal" ada di ujung masing-masing berkas.
-3. Fungsi besar: `main` (0x0082, 4.219 B) dan VM animasi (0x18db, 3.040 B).
-4. Assembly tulisan tangan (butuh MASM) — nol dikerjakan; angkanya perlu
-   dihitung ulang karena dua primitif baru ketemu (`shftl` 0x5dce, `shftr` 0x6600).
+1. **`main` (0x0082, 4.219 B) — SUDAH DIMULAI, `src_c/src/main_.c`.**
+   Peta bingkai sudah TERVALIDASI (lokal persis; `sub sp` kita 0x6F90 vs
+   0x6F96, selisih 6 = temp yang belum tumbuh). 229 byte pembuka ditulis.
+   Teruskan blok demi blok dari 0x0179.
+2. **`pickvar` (0x42ca) — 93,4% sejajar, tiga titik geseran tersisa**
+   (`+3 @0x43B8`, `+1 @0x4515`, `+4 @0x495A`). Daftar "sudah dicoba & gagal"
+   ada di ujung berkasnya.
+3. Dua near-miss lama: `place` (sisa 2 byte, SI vs DI) dan `nvar` (551/566).
+4. VM animasi (0x18db, 3.040 B) dan `0x498c` (fungsi tepat sesudah pickvar).
+
+**DUA KEPUTUSAN MENUNGGU USER:**
+- `gendata.py` membuang alamat DGROUP 0..3 (penyaring `START <= a`, START=4).
+  Akibatnya `mov bx,[0]` di `main` belum bisa ditulis (biaya 7 byte).
+  Memperbaikinya menyentuh DGROUP yang sekarang 100% cocok — perlu izin.
+- 0x846 bernama `mode_` padahal isinya pegangan berkas dari `open()`.
+  Ganti nama atau biarkan?
 
 ## Proyek ini apa
 
@@ -141,12 +141,15 @@ python src_c/verify/verifyall.py   # tabel status per fungsi + segmen DATA
 python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
 ```
 
-## Status decompile→source (per 2026-07-30)
+## Status decompile→source (per 2026-07-31)
 
 - **LINK berhasil**: 61 `.OBJ` + `MC.LIB` → `src_c/out/CONTRAP.EXE`, tanpa error.
 - **Segmen DATA 9.556/9.556 byte, 0 beda** vs biner asli (diukur dari .EXE hasil link).
-- **Kode C+ASM: 68/71 fungsi COCOK, 14.149 byte**; TOTAL 64,5%. Stub sisa **2**
-  (`main` 4.219 B dan `pickvar` 1.730 B) — jalur assembly SUDAH TUNTAS.
+- **Kode C+ASM: 68/72 fungsi COCOK byte-per-byte, 14.149 byte**; TOTAL 64,5%.
+  `pickvar` dan `main` kini punya SUMBER NYATA (bukan stub) dan ikut di-link,
+  tapi belum byte-exact jadi belum dihitung COCOK:
+  `pickvar` 1.616/1.730 sejajar (93,4%), `main` 229/4.219 ditulis.
+  Stub tersisa **1**: `setup` (0x5f90), dipanggil `main`.
 - ✅ Tabrakan nama `put()` sudah dibereskan: `put`=0x65e0, `putmsk`=0x6524.
 - Dua near-miss: `place` (503 byte tepat, 2 byte beda = register SI/DI) dan
   `nvar` (551/566, 2 temp kelebihan). Peta slot & daftar gagal ada di berkasnya.
