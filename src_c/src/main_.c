@@ -120,6 +120,7 @@ extern int  range;              /* @0x830 */
    maknanya belum terbukti -- baru terlihat diset 0 lalu diuji != -1. */
 extern int  cursel;             /* @0x2e8 */
 extern int  g7e8;               /* @0x7e8 */
+extern int  nmech;              /* @0x3ac */
 extern int  cur;                /* @0x51c */
 extern int  curz;               /* @0x2e6 */
 extern int  slot;               /* @0x51a */
@@ -615,6 +616,7 @@ main()
             goto restart;
         case 1:
             cur = -1;
+        again1:
             p1 = 1;
             mode = 2;
             goal = 0;
@@ -626,7 +628,19 @@ main()
             j = loadarc(seed, base, 1);
             for (i2 = 0; i2 < 9; i2++)
                 recB[i2 * 3 + 2] = rowtab[i2];
-            mkpal(seed, ytop, recB, i2, 1);
+            nmech = mkpal(seed, ytop, recB, i2, 1);
+            cursel = review(ytop, 0, 0, 0, 0, cur);
+            if (cursel == -1)
+                continue;
+            cursel = revdet(cur);
+            if (cursel == -1)
+                continue;
+            if (cursel == 0xd)
+                goto again1;
+            if (loadcon(cur) < 0) {
+                printf(0x957);
+                return;
+            }
             break;
         }
     }
