@@ -290,6 +290,24 @@ main()
             lvl2 = 1;
             break;
         }
+        goal = 1;
+        /* ⭐ BENTUK SWITCH KETIGA: RANTAI PERBANDINGAN (0x05F1). Kalau nilai
+           case-nya cuma sedikit, MS C 1.04 tidak membuat tabel sama sekali --
+           ia memancarkan `cmp ax,2 / jne .. / jmp badan` berurutan. Tetap
+           dikenali sebagai switch karena blok ujinya diletakkan SESUDAH badan
+           dan dicapai lewat `jmp` ke depan, persis seperti dua bentuk lain. */
+        switch (mode) {
+        case 2:
+        case 3:
+            sub = goalmenu();
+            if (sub == -1)
+                continue;
+            if (loadcon(-1) < 0)
+                goto quit;
+            if (mode == 3)
+                setzany(nzany + nmechc, state, lvl2, markf, mark);
+            break;
+        }
     }
 quit:
     ;
