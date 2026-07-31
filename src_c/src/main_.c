@@ -120,6 +120,7 @@ extern int  range;              /* @0x830 */
    maknanya belum terbukti -- baru terlihat diset 0 lalu diuji != -1. */
 extern int  cursel;             /* @0x2e8 */
 extern int  g7e8;               /* @0x7e8 */
+extern int  cur;                /* @0x51c */
 extern int  curz;               /* @0x2e6 */
 extern int  slot;               /* @0x51a */
 extern int  failed;             /* @0x842 */
@@ -580,6 +581,7 @@ main()
             fillans(0x1a8, base, seed, buf62ae, buf6df2, nmechc, ed0, ef8,
                     recB, idtab, ea8, e120, ytop, lvl);
             drawslot(ytop, nmechc, recB, ed0, ef8);
+        again3:
             f498c(ytop, nzany, recC, e08, e58);
             while (failed != 0) {
                 failed = 0;
@@ -604,8 +606,19 @@ main()
                 goto restart;
             }
         endcase3:
-            break;
+            if (cursel != -1)
+                goto again3;
+            goto restart;
         case 1:
+            cur = -1;
+            p1 = 1;
+            mode = 2;
+            goal = 0;
+            pass = 0;
+            f171f(mode, 0x922, 0, 0, postab);
+            mode = 1;
+            goal = 1;
+            f2fde();
             break;
         }
     }
