@@ -38,7 +38,10 @@ def play_once(gid, fill):
 
 allok = True
 for gid in g.goal_ids:
-    nvar = len(g.draws_var.get(gid, {})) or 1
+    # Jumlah varian dari CONTRAP, bukan dari berapa berkas tangkapan yang ada.
+    # Dulu `len(g.draws_var[gid])` -- tes ini ikut membatasi dirinya pada
+    # varian yang kebetulan sempat direkam emulator.
+    nvar = len(g.k_goals.get(gid) or ()) or 1
     seen = {}
     # cukup trial utk menutup semua varian (acak, hindari-ulang)
     for _ in range(nvar * 12):

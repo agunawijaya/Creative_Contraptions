@@ -119,3 +119,34 @@ def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
                     baris_t[xx] = baris_l[xx]
         rend.bola(tampil, e[1], e[2])
     return keluar
+
+
+def jalur_bola(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
+               maks=400, varian=None):
+    """-> (jalur, jangkauan)
+
+    `jalur`      daftar (x, y) bola, satu per panggilan drawball.
+    `jangkauan`  {(x_part, y_part): indeks langkah bola saat part itu AKTIF}
+
+    Menggantikan berkas rekaman `ball*.json` dan `reach*.json`. Dipakai mode
+    Fill in Mechanisms untuk memutuskan di kotak salah yang MANA bola berhenti:
+    kotak yang lebih dulu dicapai rantai, bukan kotak salah pertama menurut
+    urutan slot di CONTRAP -- keduanya bisa berbeda.
+    """
+    var, parts, _latar = susun(goal, graph, mechs, misc, animate, kontrap,
+                               seed, mode, varian)
+    if not parts:
+        return [], {}
+    mesin = vm.VM(parts)
+    jalur = []
+    jangkauan = {}
+    while len(jalur) < maks:
+        e = mesin.langkah()
+        if e is None or e[0] in ("selesai", "belum"):
+            break
+        if e[0] != "bola":
+            continue
+        p = parts[mesin.aktif]
+        jangkauan.setdefault((p.x, p.y), len(jalur))
+        jalur.append((e[1], e[2]))
+    return jalur, jangkauan

@@ -114,32 +114,8 @@ class Game:
         # `mode` di setupscr.c menentukan warna pita bawah; mode 0/1 = cyan.
         # Terukur: layar design mode Fill in Mechanisms memakai cabang ini.
         self.mode_latar = 0
-        # daftar gambar DETERMINISTIK (diekstrak dari eksekusi game asli via emulator):
-        # per goal, daftar {arch, idx, x, y} = record & posisi EKSAK. Tanpa tebakan.
-        self.draws = {}
-        ddir = os.path.join(os.path.dirname(__file__), "cc", "draws")
-        for g in range(1, 8):
-            fp = os.path.join(ddir, "draws_goal%d.json" % g)
-            if os.path.exists(fp):
-                self.draws[g] = json.load(open(fp))
-        # daftar gambar PER-VARIAN (draws_goalG_vV.json). Fill in Mechanisms memuat
-        # varian ACAK tiap load (spt FUN_1000_5035 di game asli) -> starting screen
-        # berbeda-beda utk goal yg sama. v0 = referensi terverifikasi (rest pose).
-        self.draws_var = {}       # gid -> {vi -> daftar draw}
-        for g in range(1, 8):
-            vm = {}
-            vi = 0
-            while True:
-                fp = os.path.join(ddir, "draws_goal%d_v%d.json" % (g, vi))
-                if not os.path.exists(fp):
-                    break
-                vm[vi] = json.load(open(fp))
-                vi += 1
-            if vm:
-                self.draws_var[g] = vm
         self.last_variant = {}    # gid -> varian terakhir (agar tak berulang, spt 0x1e30)
         self.cur_variant = 0
-        self.cur_draws = []       # draw varian yg sedang dimainkan
         # LAYAR JUDUL. Dulu ini rakitan tangan: jalur bola karangan, reaksi
         # objek tebakan, dan judul "CREATIVE CONTRAPTIONS" berhuruf TrueType.
         # Sekarang TIDAK ADA yang dikarang -- layar judul memakai JALUR KODE YANG
@@ -291,10 +267,12 @@ class Game:
             text.draw_center(fb, opt, yy, color=col, size=13)
         text.draw_center(fb, "Up/Down to move, ENTER to choose", 186, color=2, size=10)
 
-    def _blit_scene(self, fb, gid, draw_mech=True, archs=None, draws=None):
-        """Gambar contraption dari daftar draw DETERMINISTIK (record & posisi eksak).
-        archs=None -> pakai draw_mech (kompat lama); else set arch yg digambar.
-        draws=None -> per-goal (default v0); else daftar draw varian terpilih."""
+    def _blit_scene(self, fb, gid, draw_mech=True, archs=None):
+        """Gambar contraption. Dibangkitkan dari berkas aset, bukan dari daftar
+        draw hasil tangkapan emulator.
+
+        `archs` = himpunan arsip yang digambar; None -> pakai `draw_mech`.
+        """
         if archs is not None:
             draw_mech = "MECHS" in archs
         vi = getattr(self, "cur_variant", 0)
@@ -352,31 +330,19 @@ class Game:
         text.draw_center(fb, "Press SPACE to run  -  ESC for menu", 190, color=3, size=10)
 
     # ---------- Review: putar animasi run yang benar (PER-VARIAN) ----------
-    def _anim_file(self, base, gid, vi):
-        """path file anim per-varian dgn fallback ke per-goal lama."""
-        d = os.path.join(os.path.dirname(__file__), "cc", "anim")
-        for cand in ("%s%d_v%d.json" % (base, gid, vi), "%s%d.json" % (base, gid)):
-            p = os.path.join(d, cand)
-            if os.path.exists(p):
-                return p
-        return None
+    def _jalur(self, gid, vi=0):
+        """(jalur bola, jangkauan per part) dari VM -- bukan dari rekaman.
 
-    def _reach(self, gid, vi=0):
-        """reach-index per slot mekanisme (dict {(x,y): reach}) — cocok by POSISI karena
-        urutan slot (CONTRAP) bisa beda dgn urutan draw."""
-        key = (gid, vi)
-        if key not in self.reach_cache:
-            fp = self._anim_file("reach", gid, vi)
-            data = json.load(open(fp)) if fp else []
-            self.reach_cache[key] = {(d["x"], d["y"]): d["reach"] for d in data}
-        return self.reach_cache[key]
-
-    def _ballpath(self, gid, vi=0):
-        """jalur bola LAYAR (koord layar sebenarnya) utk render bola-di-atas-build."""
+        Dulu ini dua berkas tangkapan: `ball<goal>_v<n>.json` untuk jalur bola
+        dan `reach<goal>_v<n>.json` untuk "bola sampai di slot ini pada langkah
+        ke berapa". Keduanya hasil MENJALANKAN game, dan keduanya hanya ada
+        untuk varian yang kebetulan sempat ditangkap.
+        """
         key = (gid, vi)
         if key not in self.ballpath_cache:
-            fp = self._anim_file("ball", gid, vi)
-            self.ballpath_cache[key] = json.load(open(fp)) if fp else []
+            self.ballpath_cache[key] = _adg.jalur_bola(
+                gid, self.k_graph, self.k_mechs, self.k_misc,
+                self.k_anim, self.k_goals)
         return self.ballpath_cache[key]
 
     def _anim_surfaces(self, gid, seed=0, varian=None):
@@ -417,7 +383,6 @@ class Game:
         terpilih), berjalan sendiri & non-interaktif (spt game asli 0x3b2=7 + 18db)."""
         self.chosen_goal = 7
         self.cur_variant = rev_i
-        self.cur_draws = self.draws_var.get(7, {}).get(rev_i, [])
         self.anim_from_play = False
         self.review_demo = True
         self.anim_frames = self._anim_surfaces(7, varian=rev_i)
@@ -431,7 +396,7 @@ class Game:
         if 0 <= self.anim_i < len(self.anim_frames):
             fb.blit(self.anim_frames[self.anim_i], (0, 0))
         else:
-            self._blit_scene(fb, self.chosen_goal, draw_mech=True, draws=self.cur_draws)
+            self._blit_scene(fb, self.chosen_goal, draw_mech=True)
         last = len(self.anim_frames) - 1
         if self.anim_limit is not None:
             last = min(last, self.anim_limit)
@@ -456,8 +421,11 @@ class Game:
 
     # ---------- pemilihan varian (spt loader FUN_1000_5035: acak, hindari ulang) ----------
     def _pick_variant(self, gid):
-        vm = self.draws_var.get(gid)
-        n = len(vm) if vm else 1
+        # Jumlah varian datang dari CONTRAP, bukan dari berapa banyak berkas
+        # tangkapan yang kebetulan ada. Dulu `len(self.draws_var[gid])`, dan
+        # itu berarti sebuah varian yang belum sempat ditangkap emulator
+        # TIDAK PERNAH terpilih -- data game dibatasi oleh alat ukur kita.
+        n = len(self.k_goals.get(gid) or ()) or 1
         if n <= 1:
             self.last_variant[gid] = 0
             return 0
@@ -471,25 +439,33 @@ class Game:
     def start_play(self, gid, fill="mech"):
         vi = self._pick_variant(gid)
         self.cur_variant = vi
-        var = self.goals[gid][vi] if vi < len(self.goals[gid]) else self.goals[gid][0]
-        # draw varian terpilih (fallback ke per-goal lama bila belum ada)
-        self.cur_draws = (self.draws_var.get(gid, {}).get(vi)
-                          or self.draws.get(gid, []))
+        vs = self.k_goals.get(gid) or []
+        var = vs[vi] if vi < len(vs) else vs[0]
         self.fill_mode = fill                     # "mech" | "zany" | "both" (Mix Up)
         self.slots = []
         self.palette = []
 
-        def idx_at(arch, x, y):
-            """idx sprite draw pada posisi (x,y) utk arch (CONTRAP x,y == draws x,y)."""
-            for d in self.cur_draws:
-                if d["arch"] == arch and d["x"] == x and d["y"] == y:
-                    return d["idx"]
-            return -1
+        # Record sprite per slot datang dari UNDIAN yang sama dengan game
+        # (pickpart untuk objek zany, fillans untuk mekanisme) -- bukan dari
+        # rekaman `draws_goal*.json`. Dulu posisi slot dicocokkan ke daftar
+        # blit hasil tangkapan; sekarang tidak ada yang perlu dicocokkan.
+        rng = _rng.Rng(0)
+        _pick.loadcon_pick(rng, max(1, len(vs)))
+        jz = [t for (y, x, t) in var["zany"]]
+        tz = _pick.tabel(self.k_graph, jz)
+        selz = [None if i is None else tz[i]["idx"]
+                for i in _pick.pickpart(rng, tz, jz, sub=gid)]
+        jm = [t for (y, x, t) in var["mech"]]
+        tm = _pick.tabel(self.k_mechs, jm)
+        selm = [None if i is None else tm[i]["idx"]
+                for i in _pick.fillans(tm, jm)]
 
         def add_slots(parts, arch):
-            for (y, x, typ) in parts:
+            dipilih = selm if arch == "MECHS" else selz
+            for k, (y, x, typ) in enumerate(parts):
+                idx = dipilih[k] if k < len(dipilih) and dipilih[k] is not None else -1
                 self.slots.append(dict(y=y, x=x, correct=typ, filled=None, tries=0,
-                                       arch=arch, sprite=idx_at(arch, x, y)))
+                                       arch=arch, sprite=idx))
         # entri palet = (nama, ids, arch, sprite_idx). sprite_idx = gambar EKSAK yg akan
         # DITEMPATKAN utk kategori itu di contraption ini (dari slot), supaya ikon palet
         # SAMA dgn gambar yg muncul saat ditaruh (mis. Inclined Plane -> id 101, bukan 100).
@@ -552,7 +528,7 @@ class Game:
     def _play(self, fb):
         gid = self.chosen_goal
         # part TETAP tampil (mech mode: zany scenery; zany: mekanisme; both: tidak ada)
-        self._blit_scene(fb, gid, archs=self.fixed_archs, draws=self.cur_draws)
+        self._blit_scene(fb, gid, archs=self.fixed_archs)
         inbox = (self.fill_mode == "zany")   # Zany: kandidat berputar DI DALAM kotak
         for i, s in enumerate(self.slots):
             arch = self._arch(s["arch"])
@@ -686,12 +662,11 @@ class Game:
                 self.anim_fail = None
                 self.anim_limit = None
                 self.start_review(self.chosen_goal, from_play=True)
-            elif self.fill_mode == "mech" and self._ballpath(self.chosen_goal, self.cur_variant):
-                # GAGAL: bola jalan DI ATAS build kamu, berhenti di kotak salah pertama.
-                # Jalur bola & reach PER-VARIAN (dari eksekusi game asli). reach dicocokkan
-                # by-POSISI karena urutan slot (CONTRAP) bisa beda dari urutan draw.
-                bp = self._ballpath(self.chosen_goal, self.cur_variant)
-                reach = self._reach(self.chosen_goal, self.cur_variant)
+            elif self.fill_mode == "mech" and self._jalur(self.chosen_goal, self.cur_variant)[0]:
+                # GAGAL: bola jalan DI ATAS build kamu, berhenti di kotak salah
+                # yang lebih dulu DICAPAI RANTAI -- belum tentu kotak salah
+                # pertama menurut urutan slot di CONTRAP.
+                bp, reach = self._jalur(self.chosen_goal, self.cur_variant)
                 def slot_reach(i):
                     s = self.slots[i]
                     return reach.get((s["x"], s["y"]))
