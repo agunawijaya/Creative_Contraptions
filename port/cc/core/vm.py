@@ -255,7 +255,23 @@ class VM:
                 simpul = self.simpul[self.n - 1]
                 return ("bunyi", simpul[1], simpul[2] if len(simpul) > 2 else b"")
             if nama == "op05":
-                continue                 # putmsk(): gambar ulang mask bola
+                # ⭐ HAPUS BOLA. Bukan no-op, dan bukan "gambar ulang mask"
+                # seperti dikira sebelumnya: `animvm.c` baris 578 memanggil
+                # `putmsk(buf9c5, page2)` -- yaitu putmsk dengan mask NOL,
+                # sehingga SELURUH kotak dipulihkan dari `page2`.
+                #
+                # Pada saat opcode ini jalan, `drawball` sudah menukar halaman,
+                # jadi `page2` adalah cuplikan `prep` FRAME INI: isi layar di
+                # kotak bola SEBELUM bolanya digambar. Efeknya: bola yang baru
+                # saja digambar dihapus lagi.
+                #
+                # Diukur dari jejak instruksi (CC_TRACEWR pada panggilan
+                # drawball ke-21 goal 3): sesudah `draw` menulis bola di
+                # y 68..75, putmsk menulis balik 55 55 55 di baris yang sama.
+                #
+                # `prevx == 0x140` tetap melewatkan penghapusan, dan benderanya
+                # TIDAK dikonsumsi di sini -- putmsk tidak menyentuh prevx.
+                return ("hapus", self.jangan_hapus)
             if nama == "op06":
                 self.jangan_hapus = True
                 continue

@@ -18,9 +18,13 @@ mengompensasi urutan gambar yang salah. Begitu urutannya dibetulkan, TANPA
 pergeseran apa pun hasilnya naik dari 101/135 jadi 119/135 frame identik.
 Angka yang membaik bukan bukti bahwa penjelasannya benar.
 
-Terukur terhadap tangkapan VRAM emulator, tujuh layar (goal 1..6 + judul 128):
-381/402 frame byte-identik, 99,9988% piksel. Goal 4, 5, 6 dan layar judul
-100% frame.
+⭐ HASIL SEKARANG: terhadap tangkapan VRAM emulator, tujuh layar (goal 1..6 +
+judul 128) = **402/402 frame byte-identik, 25.728.000/25.728.000 piksel
+(100,000000%)**. Uji: `python work/test_anim_vs_gim.py`.
+
+Catatan di bawah ditulis saat angkanya masih 381/402 lalu 396/402; sengaja
+DISIMPAN karena isinya jalan buntu yang sebabnya sudah dipahami -- membacanya
+lebih murah daripada mengulanginya.
 
 ── 21 frame yang BELUM cocok, dan satu hipotesis yang sudah DIUJI dan GAGAL ──
 
@@ -134,18 +138,57 @@ tidak bisa direproduksi.
 memberi 0/402, karena rujukan tidak memperlihatkan bola di pita atas saat
 animasi berjalan.
 
-SISA 6 FRAME: goal 1 f089 & f121, goal 2 f034, goal 3 f021/f023/f026.
-Goal 4, 5, 6 dan layar judul sudah SELURUH frame-nya identik.
+── Enam frame terakhir: opcode 0x05 ternyata BUKAN no-op ────────────────
 
-Keenamnya berbentuk sama: kotak beda selebar 8 piksel -- persis satu bola --
-dengan tinggi 4..8. Dan arahnya konsisten: RUJUKAN LEBIH BERSIH daripada
-port, yaitu gim menghapus lebih banyak daripada model ini. Contoh goal 1
-f121: pada baris 40-41 port masih memperlihatkan bola di posisi sebelumnya
-sedangkan rujukan sudah cyan, padahal blit part (GRAPH 40, y 8..39) tidak
-menjangkau baris itu.
+Sisa 6 frame (goal 1 f089 & f121, goal 2 f034, goal 3 f021/f023/f026)
+berbentuk sama: kotak beda selebar satu bola, dan RUJUKAN SELALU LEBIH
+BERSIH -- gim menghapus lebih banyak. Dugaan pertama "pemotongan di tepi
+kiri" (ketiga kegagalan goal 3 ada di x = 8..15) KELIRU.
 
-Goal 3 menarik: ketiga kegagalannya di x = 8..15, tepi KIRI arena. Itu
-mengesankan pemotongan di tepi, bukan aturan penghapusan. Belum diselidiki.
+Yang benar terlihat begitu kotak bedanya diukur, bukan dilihat sepintas:
+bedanya persis sebesar IRISAN kotak bola lama dan baru. Contoh goal 3 f023,
+bola 89 -> 91: kotak 89..96 dan 91..98, dan barisan yang beda tepat 91..96.
+
+Jejak instruksi (`CC_TRACEWR=26ae-6a00:21` pada goal 3) memberi sebabnya:
+
+    prep   BACA  VRAM y 68..75      -> 5a a5 55 ...   (masih ada bola lama)
+    draw   TULIS VRAM y 68..75      -> 5a a5 55 ...   (bola digambar lagi)
+    putmsk TULIS VRAM y 68..75      -> 55 55 55 ...   (bola DIHAPUS lagi)
+
+Panggilan putmsk ketiga itu terjadi SESUDAH `drawball` kembali, jadi ia
+bukan bagian `xform()`. Sumbernya `animvm.c` baris 578:
+
+    case 0x05:  putmsk(buf9c5, page2);  break;
+
+`buf9c5` berisi nol, dan putmsk melewati sel yang mask-nya BUKAN nol --
+jadi mask nol berarti SELURUH kotak dipulihkan. Pada saat itu `drawball`
+sudah menukar halaman, sehingga `page2` = cuplikan `prep` frame ini, yaitu
+isi layar sebelum bolanya digambar. Efek bersihnya: opcode 0x05 MENGHAPUS
+bola yang baru saja digambar.
+
+Port memperlakukan 0x05 sebagai no-op ("gambar ulang mask bola"). Begitu
+diterapkan sebagai penghapusan: 396/402 -> **402/402 frame, 100,000000%
+piksel**. Tujuh layar, tanpa satu pun pemetaan alamat.
+
+⚠ Kesimpulan yang dicabut: "tepi kiri arena". Ketiga frame goal 3 memang di
+x = 8..15, tapi itu kebetulan -- bola memang menyusuri tepi kiri di situ.
+Sumbu yang benar adalah IRISAN kotak, bukan batas layar.
+
+Uji regresinya sekarang permanen dan mandiri: `work/test_anim_vs_gim.py`
+membuat sendiri tangkapan emulatornya kalau belum ada.
+
+── Yang masih terbuka: animasi BERHENTI lebih awal ───────────────────────
+
+Rujukan punya lebih banyak frame daripada yang dijangkau VM ini:
+
+    goal 1  136 / 136      goal 4   79 / 79     <- sama panjang
+    goal 2   34 / 71       goal 5   22 / 66
+    goal 3   42 / 88       goal 6   36 / 95     judul 53 / 400 (dipotong)
+
+Semua frame yang DIBANDINGKAN identik; yang belum ada adalah lanjutannya.
+Perbandingan panjangnya mencurigakan: goal 5 tepat 3x, goal 2 dan 3 hampir
+2x. `goal` @0x718 = JUMLAH BOLA -- dugaan yang belum diuji: rantai diulang
+sekali per bola.
 """
 from . import contrap, pick, render as rend, skrip, vm, font
 from .rng import Rng
@@ -268,6 +311,19 @@ def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
             continue
         if e[0] == "bunyi":
             continue                       # tak ada efek visual
+        if e[0] == "hapus":
+            # opcode 0x05 = putmsk(buf9c5, page2) dengan mask NOL: pulihkan
+            # SELURUH kotak bola dari cuplikan pra-gambar. Ini BUKAN panggilan
+            # drawball, jadi ia TIDAK menghasilkan frame baru.
+            if page2 is not None and not e[1]:
+                px0, py0, tambalan = page2
+                for r, yy in enumerate(range(py0, py0 + 8)):
+                    if not (0 <= yy < rend.H):
+                        continue
+                    for c, xx in enumerate(range(px0, px0 + 12)):
+                        if 0 <= xx < rend.W:
+                            tampil[yy][xx] = tambalan[r][c]
+            continue
         if e[0] != "bola":
             continue
         # 1) inilah yang terlihat saat drawball ini DIMASUKI
