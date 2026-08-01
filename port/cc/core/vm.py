@@ -237,7 +237,21 @@ class VM:
                 self.n += 1; self.k = 0; continue
             self.n += 1; self.k = 0
             if nama == "end":
-                return ("selesai", None)
+                # ⭐ `end` (0xFF) BUKAN akhir animasi -- ia akhir SKRIP SATU
+                # PART. Di `animvm.c` gelung dalam berhenti pada `*scrptr ==
+                # 0xff`, lalu gelung LUAR (atas i = 0 .. n1+n2-1) memasang
+                # `scrptr = parttab[...].scr` part berikutnya dan jalan lagi.
+                # Yang mengakhiri animasi adalah opcode 0x10, atau habisnya
+                # part.
+                #
+                # Model lama berhenti di sini. Itu tidak terlihat pada goal 1
+                # dan 4 karena di sana part terakhir yang dijangkau memang
+                # part terakhir; pada goal 2/3/5/6 animasi berhenti di
+                # tengah jalan (goal 5: 22 dari 66 frame).
+                if self.aktif + 1 >= len(self.parts):
+                    return ("selesai", None)
+                self._pindah(self.aktif + 1)
+                continue
             if nama in ("op08", "op0a"):
                 # 0x0a JATUH TEMBUS ke 0x08 sesudah memasang "jangan hapus",
                 # jadi benderanya berlaku untuk titik ini juga.

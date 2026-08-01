@@ -177,18 +177,33 @@ Sumbu yang benar adalah IRISAN kotak, bukan batas layar.
 Uji regresinya sekarang permanen dan mandiri: `work/test_anim_vs_gim.py`
 membuat sendiri tangkapan emulatornya kalau belum ada.
 
-── Yang masih terbuka: animasi BERHENTI lebih awal ───────────────────────
+── `end` bukan akhir animasi, hanya akhir skrip SATU PART ────────────────
 
-Rujukan punya lebih banyak frame daripada yang dijangkau VM ini:
+Animasi sempat berhenti di tengah jalan pada goal 2/3/5/6 (goal 5 cuma 22
+dari 66 frame). Dugaan pertama -- "rantai diulang sekali per bola, karena
+`goal` @0x718 = JUMLAH BOLA dan 66 = 3 x 22" -- SALAH: diukur, `w718` = 1
+untuk goal 5, dan urutan posisi bolanya tidak berulang sama sekali.
 
-    goal 1  136 / 136      goal 4   79 / 79     <- sama panjang
-    goal 2   34 / 71       goal 5   22 / 66
-    goal 3   42 / 88       goal 6   36 / 95     judul 53 / 400 (dipotong)
+Sebabnya struktural. Di `animvm.c` ada DUA gelung: gelung dalam menjalankan
+opcode sampai `*scrptr == 0xff`, gelung LUAR berjalan atas i = 0..n1+n2-1
+dan tiap putaran memasang `scrptr = parttab[...].scr` part berikutnya. Jadi
+`end` cuma memindahkan kursor ke part berikutnya.
 
-Semua frame yang DIBANDINGKAN identik; yang belum ada adalah lanjutannya.
-Perbandingan panjangnya mencurigakan: goal 5 tepat 3x, goal 2 dan 3 hampir
-2x. `goal` @0x718 = JUMLAH BOLA -- dugaan yang belum diuji: rantai diulang
-sekali per bola.
+Model lama menganggap perpindahan part HANYA terjadi lewat `op03`
+(lemparan). Itu kebetulan cocok di goal 1 dan 4 karena `op03` di sana
+memang selalu diikuti `end`; di goal lain animasi berhenti terlalu cepat.
+
+Sesudah `end` memajukan part: goal 1..6 = **535/535 frame identik**, dan
+kini itu SELURUH panjang animasi game, bukan potongan awalnya.
+
+── Yang masih terbuka: layar judul ───────────────────────────────────────
+
+Layar judul cocok 53 frame lalu melenceng di f054: port menggambar teks
+"CREATIVE CONTRAPTIONS" (opcode 0x11) sekaligus, rujukan belum. Penyebabnya
+sudah teridentifikasi: penangan opcode 0x11 memanggil `bounce()`
+(`src_c/src/bounce.c`), yang melempar bola ENAM kali ke tepi layar acak
+lewat `moveball()` -- ratusan panggilan drawball yang belum ada di sini.
+Titiknya acak lewat `rnd()`, jadi butuh keadaan RNG yang sama juga.
 """
 from . import contrap, pick, render as rend, skrip, vm, font
 from .rng import Rng
