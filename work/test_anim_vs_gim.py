@@ -47,7 +47,9 @@ def tangkap(folder, goal):
     print("  [emu] menangkap goal %d ..." % goal)
     env = dict(os.environ)
     env["CC_OUT"] = os.path.join(folder, "out")
-    env["CC_VRAMSEQ"] = "26ae=%s" % seq
+    # Batas 1200: layar judul saja butuh 676 frame (enam pantulan `bounce()`
+    # sebelum teks judul muncul). Bawaan CC_VRAMSEQ 400 memotongnya.
+    env["CC_VRAMSEQ"] = "26ae=%s:1200" % seq
     subprocess.run([sys.executable, os.path.join(AKAR, "work", "emu.py"),
                     str(goal), "1"], env=env, cwd=AKAR,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -67,7 +69,7 @@ def main(folder):
         seq = tangkap(folder, goal)
         n = len([f for f in os.listdir(seq) if f.endswith(".png")])
         fs = adegan.frames(goal, g, m, mi, an, cs, mode=0,
-                           sub=(goal if goal != 128 else None))
+                           sub=(goal if goal != 128 else None), maks=1200)
         ok = dibanding = 0
         gagal = []
         for k in range(1, n):

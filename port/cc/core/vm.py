@@ -41,10 +41,25 @@ berbeda; menyamakannya akan menggeser part beberapa piksel di kasus tertentu.
 """
 
 TANDA = 0xC8                     # ambang pemulihan tanda untuk SKRIP animasi
+TAK_AKTIF = 0x140                # prevtop/prevx = 320 -> "belum ada bola"
 
 
 def sgn(v):
     return v - 0x100 if v >= TANDA else v
+
+
+def _u16(v):
+    return bytes((v & 0xFF, (v >> 8) & 0xFF))
+
+
+def cdiv(a, b):
+    """Pembagian bilangan bulat gaya C: dipotong MENUJU NOL, bukan ke bawah.
+
+    Penting di `moveball()`: `(dx * i) / n` sering negatif, dan `//` Python
+    membulatkan ke bawah sehingga jalur bolanya meleset satu piksel.
+    """
+    q = abs(a) // abs(b)
+    return -q if (a < 0) != (b < 0) else q
 
 
 class Part:
@@ -98,9 +113,16 @@ class VM:
     jalur bola padahal sebenarnya kursor skrip yang tergelincir.
     """
 
-    def __init__(self, parts, aktif=0):
+    def __init__(self, parts, aktif=0, rng=None):
         self.parts = parts               # URUT RANTAI (lihat contrap `state`)
         self.aktif = aktif
+        # RNG game. `bounce()` (dipanggil opcode 0x11) mengundi tepi layar
+        # tujuan, jadi mesin ini butuh keadaan seed yang SAMA dengan yang
+        # dipakai `adegan.susun()` untuk memilih part -- bukan seed baru.
+        # `susun()` menitipkannya di tiap Part; lihat catatan di sana.
+        from .rng import Rng
+        self.rng = rng or getattr(parts[0], "rng", None) or Rng(0)
+        self.antre = []                  # peristiwa yang sudah dibangkitkan
         self.simpul = list(parts[aktif].simpul)
         self.n = 0                       # simpul ke berapa
         self.k = 0                       # elemen ke berapa di dalam simpul
@@ -193,6 +215,88 @@ class VM:
         self.lempar_ke = ke
         return True
 
+    # ── bounce(): layar judul ─────────────────────────────────────────────
+    #
+    # Opcode 0x11 memanggil `bounce(buf9c5)` SEBELUM menulis teksnya. Itulah
+    # sebabnya layar judul punya ratusan frame lebih banyak daripada dugaan
+    # semula: teks "CREATIVE CONTRAPTIONS" baru muncul sesudah bolanya selesai
+    # memantul enam kali.
+    #
+    # Sumber: src_c/src/bounce.c (398 byte, byte-identik dgn biner).
+
+    def _shuffle(self):
+        """`shuffle()` @0x2b34 — 32 kali `rnd(2)`.
+
+        Yang digambarnya (kocok palet) tidak mengubah arena, tapi PEMAKAIAN
+        RNG-nya harus ditiru: tanpa 32 undian ini, tepi tujuan keenam
+        lemparan berikutnya akan salah semua.
+        """
+        for _ in range(0x20):
+            self.rng.rnd(2)
+
+    def _moveball(self, x1, y1, x2, y2, n):
+        """`moveball()` @0x29b0 — gerak LURUS n langkah, tiap langkah drawball.
+
+        Nama argumennya mengikuti biner: `x1` = ballx = **Y layar**,
+        `y1` = bally = **X layar**. Lihat setball(): `balltop = 199 - x`.
+        """
+        ev = []
+        dx = x2 - x1
+        dy = y2 - y1
+        for i in range(1, n):
+            self.by = x1 + cdiv(dx * i, n)
+            self.bx = y1 + cdiv(dy * i, n)
+            ev.append(("bola", self.bx, self.by, False))
+        self.by, self.bx = x2, y2        # langkah terakhir DIPAKSA tepat
+        ev.append(("bola", self.bx, self.by, False))
+        return ev
+
+    def _bounce(self):
+        """-> daftar peristiwa untuk enam pantulan bola di layar judul.
+
+        Tepi tujuan berputar searah jarum jam. Dengan sumbu yang SUDAH
+        dibetulkan (0x260 = Y, 0x25e = X) urutannya: atas, kanan, bawah, kiri
+        -- bukan "kiri, bawah, kanan, atas" seperti tertulis di bounce.c,
+        yang ditulis saat nama ballx/bally masih dikira harfiah.
+
+        Jumlah langkah dari hampiran jarak OKTAGONAL (maks + separuh min),
+        lalu dibagi 4 lewat DUA kali /2 seperti di biner.
+        """
+        ev = []
+        self._shuffle()
+        if self.jangan_hapus:            # prevtop/prevx masih 0x140
+            self._shuffle()
+            return ev
+        ph = 0
+        for _ in range(6):               # keyhit() selalu 0 di sini
+            if ph == 0:                  # tepi ATAS
+                tx = 8
+                ty = self.rng.rnd(0x10E) + 0x14
+            elif ph == 1:                # tepi KANAN
+                ty = 0x137
+                tx = self.rng.rnd(0x6F) + 0x1C
+            elif ph == 2:                # tepi BAWAH
+                tx = 0x97
+                ty = self.rng.rnd(0x10E) + 0x14
+            else:                        # tepi KIRI
+                tx = self.rng.rnd(0x6F) + 0x1C
+                ty = 0
+            ph = 0 if ph + 1 > 3 else ph + 1
+            bxc, byc = self.by, self.bx  # ballx = Y, bally = X
+            a = abs(byc - ty)
+            b = abs(bxc - tx)
+            a = (max(a, b)) + (min(a, b)) // 2
+            a = a // 2
+            d = a // 2
+            if d > 0xB4:
+                d = 0x96
+            ev.append(("bunyi", 1, _u16(500) + _u16((d * 8 + 500) & 0xFFFF)
+                       + _u16(8)))
+            ev.extend(self._moveball(bxc, byc, tx, ty, d))
+        # putmsk(spr, page2) dgn mask NOL -> hapus bolanya, sama seperti op05.
+        ev.append(("hapus", False))
+        return ev
+
     @property
     def part(self):
         return self.parts[self.aktif]
@@ -212,6 +316,8 @@ class VM:
 
     def langkah(self):
         """Peristiwa berikutnya, atau None kalau skripnya habis."""
+        if self.antre:                   # sisa peristiwa bounce()
+            return self.antre.pop(0)
         if self.terbang:                 # bola sedang melayang
             y, x = self.terbang.pop(0)
             self.by, self.bx = y, x
@@ -312,8 +418,11 @@ class VM:
                 return ("selesai", None)
             if nama == "op11":           # tulis teks berparameter dari skrip
                 # Di sinilah judul "CREATIVE CONTRAPTIONS" digambar -- bukan
-                # oleh layar statis. Handler-nya juga memanggil bounce().
-                return ("teks", data)
+                # oleh layar statis. Dan `bounce(buf9c5)` dipanggil LEBIH DULU,
+                # sebelum satu pun parameter teks dibaca: bola memantul enam
+                # kali dulu, teksnya baru muncul sesudahnya.
+                self.antre = self._bounce() + [("teks", data)]
+                return self.antre.pop(0)
             if nama in ("op03", "op0c"):
                 if self._lempar(nama, data) is None:
                     return ("selesai", None)

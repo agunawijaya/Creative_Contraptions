@@ -19,7 +19,8 @@ pergeseran apa pun hasilnya naik dari 101/135 jadi 119/135 frame identik.
 Angka yang membaik bukan bukti bahwa penjelasannya benar.
 
 ⭐ HASIL SEKARANG: terhadap tangkapan VRAM emulator, tujuh layar (goal 1..6 +
-judul 128) = **402/402 frame byte-identik, 25.728.000/25.728.000 piksel
+judul 128), animasi PENUH dari frame pertama sampai habis =
+**1.210/1.210 frame byte-identik, 77.440.000/77.440.000 piksel
 (100,000000%)**. Uji: `python work/test_anim_vs_gim.py`.
 
 Catatan di bawah ditulis saat angkanya masih 381/402 lalu 396/402; sengaja
@@ -196,14 +197,34 @@ memang selalu diikuti `end`; di goal lain animasi berhenti terlalu cepat.
 Sesudah `end` memajukan part: goal 1..6 = **535/535 frame identik**, dan
 kini itu SELURUH panjang animasi game, bukan potongan awalnya.
 
-── Yang masih terbuka: layar judul ───────────────────────────────────────
+── Layar judul: opcode 0x11 memantulkan bola dulu ────────────────────────
 
-Layar judul cocok 53 frame lalu melenceng di f054: port menggambar teks
-"CREATIVE CONTRAPTIONS" (opcode 0x11) sekaligus, rujukan belum. Penyebabnya
-sudah teridentifikasi: penangan opcode 0x11 memanggil `bounce()`
-(`src_c/src/bounce.c`), yang melempar bola ENAM kali ke tepi layar acak
-lewat `moveball()` -- ratusan panggilan drawball yang belum ada di sini.
-Titiknya acak lewat `rnd()`, jadi butuh keadaan RNG yang sama juga.
+Sesudah `end` dibetulkan, layar judul cocok 53 frame lalu melenceng di
+f054: port menggambar teks "CREATIVE CONTRAPTIONS" sekaligus, rujukan belum
+menggambar apa pun di sana.
+
+Penangan opcode 0x11 memanggil `bounce(buf9c5)` SEBELUM membaca satu pun
+parameter teks (`animvm.c` baris 361). `bounce()` melempar bola enam kali ke
+tepi layar yang berputar searah jarum jam, tiap lemparan lewat `moveball()`
+-- ratusan panggilan drawball. Teks judulnya baru muncul sesudah itu.
+
+Tujuannya diundi `rnd()`, jadi bagian ini hanya bisa cocok kalau keadaan
+seed-nya sama. Ternyata sudah: seed port sesudah undian pemilihan part goal
+128 = **0xa6b8**, persis nilai @0x71a yang diukur di emulator pada frame 53.
+Dari situ `bounce()` memakai 32 undian `shuffle()` + 1 `rnd()` -> seed
+0x3c11, dan emulator memang mencatat 0x3c11 di frame 54. Lemparan pertama
+menuju X = 83 di tepi atas, dan jalur terukurnya (156, 152, 148, ...) cocok
+langkah per langkah.
+
+Karena itu `susun()` MENITIPKAN objek Rng-nya ke tiap Part; VM tidak boleh
+membuat seed baru.
+
+Hasil: layar judul 53 -> **675/675 frame**, yaitu seluruh animasinya sampai
+habis, bukan potongan.
+
+⚠ Pembagian di `moveball()` harus dipotong MENUJU NOL (gaya C), bukan ke
+bawah (gaya Python). `(dx * i) / n` sering negatif; `//` menggeser jalur
+bola satu piksel. Lihat `vm.cdiv()`.
 """
 from . import contrap, pick, render as rend, skrip, vm, font
 from .rng import Rng
@@ -275,6 +296,13 @@ def susun(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0, varian=Non
         simpul, _ = skrip.muat(tab[base], animate)
         p = vm.Part(y, x, tab, base, simpul)
         p.arc = arc
+        # ⭐ RNG-nya DITITIPKAN, bukan dibuat ulang di VM. `bounce()` (opcode
+        # 0x11, layar judul) mengundi tepi tujuan dengan `rnd()` yang SAMA;
+        # kalau VM memulai seed baru, keenam lemparannya salah arah.
+        # Terukur: sesudah undian pemilihan part goal 128 selesai, seed port
+        # = 0xa6b8 -- persis nilai @0x71a di emulator pada frame 53, tepat
+        # sebelum bounce mulai.
+        p.rng = r
         parts.append(p)
     return var, parts, latar
 
