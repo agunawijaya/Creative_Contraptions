@@ -18,7 +18,7 @@ import pygame
 from cc import cga, assets, text, anim
 from cc.core import archive as _arc, contrap as _con, render as _rend
 from cc.core import pick as _pick, rng as _rng, adegan as _adg
-from cc.core import resensi as _res, hud as _hud
+from cc.core import resensi as _res, hud as _hud, palet as _pal
 
 
 GOAL_NAMES = {1: "Up and At 'Em", 2: "Hair Care", 3: "Easy Eating",
@@ -204,25 +204,35 @@ class Game:
             text.draw(fb, s, r["x"], r["y"], color=r["col"], size=8)
 
     def _review(self, fb):
-        """Layar intro/browse: instruksi (atas) + SLIDER 9 ikon mekanisme (bawah) + pointer."""
-        if self.review_layout:
-            self._rev_text(fb, self.review_layout["intro"])
-        # bilah slider dark-blue di bawah (spt game)
-        pygame.draw.rect(fb, cga.PALETTE[0], (0, 152, 320, 48))
-        n = len(MECH_CATEGORIES)
-        cw = 34
-        x0 = (cga.WIDTH - n * cw) // 2
-        for i, (name, ids) in enumerate(MECH_CATEGORIES):
-            bx = x0 + i * cw
-            pygame.draw.rect(fb, cga.PALETTE[3], (bx, 156, cw - 2, 30))   # kotak abu ikon
-            rec = self.mechs.first_of_major(ids[0])
-            if rec:
-                spr = self.mechs.sprite(rec)
-                fb.blit(spr, (bx + (cw - 2 - spr.get_width()) // 2,
-                              156 + (30 - spr.get_height()) // 2))
-        # pointer segitiga MENGHADAP ATAS (apex di atas) di bawah mekanisme terpilih
-        px = x0 + self.rev_i * cw + (cw - 2) // 2
-        pygame.draw.polygon(fb, cga.PALETTE[3], [(px, 188), (px - 5, 195), (px + 5, 195)])
+        """Layar intro Review Mechanisms + strip pemilih mekanisme.
+
+        Latar dan teksnya BUKAN karangan port: `setupscr(mode=2, sub=1)` dengan
+        `nbola = 0` (jalur Review menyetel `goal = 0` sebelum memanggilnya),
+        lalu ketujuh baris teks dari tabel DGROUP lewat `cc/core/resensi.py`.
+        Terukur terhadap tangkapan VRAM emulator: **64.000/64.000 piksel**.
+
+        Strip di bawah memakai `drawpal()` yang sama dengan layar isian --
+        sembilan sel 32x24 berukuran tetap, urutan dibalik, tepi diisi hitam.
+        Port lama menggambar sembilan kotak selebar 34 piksel dengan segitiga
+        penunjuk buatan sendiri.
+        """
+        latar = _rend.setupscr(_rend.new_fb(), 2, nbola=0, misc=self.k_misc, sub=1)
+        kfb = _rend.KanvasFB(latar)
+        for r in self.review_layout["intro"]:
+            kfb.teks(r["s"], r["x"], r["y"], r["col"], r["sw"], r["sh"])
+        fb.blit(_rend.to_surface(latar, pygame), (0, 0))
+
+        k = _rend.KanvasSurface(fb, pygame)
+
+        def isi(i):
+            tipe = MECH_CATEGORIES[i][1][0]
+            for r in self.k_mechs.recs:
+                if self.k_mechs.cocok(r, tipe):
+                    return self.k_mechs, r
+            return None
+
+        _pal.drawpal(k, self.rev_i, isi, len(MECH_CATEGORIES))
+        _pal.penunjuk(k, self.k_misc, (self.title_tick // _pal.PENUNJUK_TIK) & 1)
 
     def _review_detail(self, fb):
         """Layar detail satu mekanisme: judul + sprite (statis) + definisi + contoh.
@@ -613,25 +623,25 @@ class Game:
             text.draw_center(fb, self.message, 3, color=2, size=9)
 
     def _palette_strip(self, fb):
-        """Gambar SEMUA opsi palet berjajar horizontal (spt game asli FUN_1000_4e3e),
-        kotak terpilih disorot magenta. Muat di bilah 166..189."""
-        n = len(self.palette)
-        cw = max(18, min(32, 316 // max(1, n)))
-        x0 = (cga.WIDTH - n * cw) // 2
-        y, ch = 168, 20
-        for i, (nm, pids, parch, pidx) in enumerate(self.palette):
-            bx = x0 + i * cw
-            pygame.draw.rect(fb, cga.PALETTE[3], (bx, y, cw - 2, ch))     # kotak abu
-            spr = self._arch(parch).sprite_by_idx(pidx) if pidx >= 0 else None
-            if spr:
-                sc = min((cw - 4) / spr.get_width(), (ch - 2) / spr.get_height(), 1.0)
-                if sc < 1:
-                    spr = pygame.transform.scale(
-                        spr, (max(1, int(spr.get_width() * sc)), max(1, int(spr.get_height() * sc))))
-                fb.blit(spr, (bx + (cw - 2 - spr.get_width()) // 2,
-                              y + (ch - spr.get_height()) // 2))
-            if i == self.cur_part:                                        # sorot terpilih
-                pygame.draw.rect(fb, cga.PALETTE[2], (bx - 1, y - 1, cw, ch + 2), 2)
+        """Strip pemilih part -- `drawpal()` gim asli, lewat cc/core/palet.py.
+
+        Port lama menggambar SELURUH daftar berjajar dengan lebar sel yang
+        menyusut mengikuti banyaknya pilihan, dan menyorot yang terpilih dengan
+        kotak magenta. Aslinya: jendela geser sembilan sel 32x24 berukuran
+        TETAP, berpusat di pilihan sekarang, urutannya DIBALIK (item pertama
+        di kanan), dan tepi di luar daftar diisi HITAM.
+        """
+        k = _rend.KanvasSurface(fb, pygame)
+
+        def isi(i):
+            nm, pids, parch, pidx = self.palette[i]
+            if pidx < 0:
+                return None
+            arc = self.k_mechs if parch == "MECHS" else self.k_graph
+            return arc, arc.recs[pidx]
+
+        _pal.drawpal(k, self.cur_part, isi, len(self.palette))
+        _pal.penunjuk(k, self.k_misc, (self.title_tick // _pal.PENUNJUK_TIK) & 1)
 
     def tick(self):
         """Advance animasi review + gerak bola PLAY."""

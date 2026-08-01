@@ -416,6 +416,12 @@ OBS_KEYS = {
     "menu":    [0x1B],
     "title":   [0x1B],
 }.get(OBSERVE, [])
+# CC_OBSKEYS=0d,0d,20,... -- ganti urutan tombol OBSERVE dari luar. Perlu karena
+# urutan bawaan berhenti tepat sesudah goal dipilih, sehingga layar PEMILIH PART
+# (review() @0x3c4f, yang memanggil drawpal()) tak pernah tercapai.
+_OK = os.environ.get("CC_OBSKEYS")
+if _OK:
+    OBS_KEYS = [int(t, 16) for t in _OK.split(",") if t.strip()]
 obs_keyq = list(OBS_KEYS)
 OBSDIR = r"C:\Projects\Creative_Contraptions\work\obs_%s" % (OBSERVE or "none")
 obs_n = [0]
