@@ -671,65 +671,108 @@ class Game:
         perlu versi kedua -- aturan penempatannya satu, sasarannya dua.
         """
         k = _rend.KanvasSurface(fb, pygame)
-        _hud.showsc(k, self.score)
+        # ⚠ Pojok kanan pita atas menampung SATU dari dua hal, dan `f171f()`
+        # yang memilih: skor kalau mode == 4, nama goal kalau bukan. Port lama
+        # selalu memanggil `showsc()`, sehingga di mode isian skor "0"
+        # tertimpa di atas nama goal -- terlihat sebagai "00' Em" alih-alih
+        # "Up and At 'Em".
+        _hud.judul_atau_skor(k, self.mode_asli, self.chosen_goal, self.score)
         if self.mode_asli == 4:
             _hud.timedrw(k, self.tx, self.mode_asli, self.nbola, self.chosen_goal)
 
     def _play(self, fb):
+        """Layar bermain, digambar dengan ATURAN GIM ASLI.
+
+        Port lama mengarang kotak sorotan, panah, dan bilah status sendiri.
+        Sekarang urutannya mengikuti `main_.c`:
+
+            setupscr() + kontraption   latar & pita (mode 2/3/4 -> pita bawah
+                                       BIRU TUA, bukan cyan)
+            f15d0()                    huruf A.. di postab
+            drawslot()                 slot KOSONG = fillrect(x+1, y, x+0x1e,
+                                       y+0x17, 3) -- petak PENUH warna 3
+            drawpal()                  strip pemilih part
+            drawbox()                  kotak sorotan, EMPAT garis XOR warna 3
+            f171f()/showsc()/timedrw() pita atas
+
+        Terukur vs tangkapan VRAM emulator (goal 1 mode isian, tangkap di RET
+        drawpal 0x3C4E): pita atas 2.560/2.560, pita bawah 12.800/12.800
+        (termasuk strip), ketiga kotak slot kosong 2.160/2.160.
+        """
         gid = self.chosen_goal
         # part TETAP tampil (mech mode: zany scenery; zany: mekanisme; both: tidak ada)
         self._blit_scene(fb, gid, archs=self.fixed_archs)
-        self._hud(fb)
+        k = _rend.KanvasSurface(fb, pygame)
         inbox = (self.fill_mode == "zany")   # Zany: kandidat berputar DI DALAM kotak
-        for i, s in enumerate(self.slots):
-            arch = self._arch(s["arch"])
-            if s["filled"] is not None:
-                spr = arch.sprite_by_idx(s["sprite"]) if s["sprite"] >= 0 \
-                    else arch.sprite(arch.first_of_major(s["filled"]))
-                if spr:
-                    fb.blit(spr, (s["x"], s["y"]))
-            elif inbox and i == self.cur_slot:
-                # tampilkan kandidat saat ini DI DALAM kotak (blink), + panah
-                pn, pid, pa, pidx = self.palette[self.cur_part]
-                spr = self._arch(pa).sprite_by_idx(pidx) if pidx >= 0 else None
-                if spr:
-                    fb.blit(spr, (s["x"], s["y"]))
-                pygame.draw.rect(fb, cga.PALETTE[2], (s["x"] - 2, s["y"] - 2, 36, 28), 1)
-                text.draw(fb, "<", s["x"] - 10, s["y"] + 8, color=2, size=10)
-                text.draw(fb, ">", s["x"] + 34, s["y"] + 8, color=2, size=10)
-            else:
-                color = 2 if i == self.cur_slot else 3
-                # Penanda petunjuk Master (`hintmark()`): slot yang sedang
-                # ditunjuk digambar dgn warna yang dipilih fungsi itu -- 0
-                # berarti petunjuk sungguhan (dan menyalakan `mflag`, syarat
-                # bonus bola di animvm case 0x10), 2 hanya penanda biasa.
-                if self.petunjuk is not None and self.petunjuk.mflag is not None \
-                        and self.mode_asli == 4 and self.level == 1 \
-                        and i == self.petunjuk.cur2:
-                    color = self.petunjuk.warna
-                pygame.draw.rect(fb, cga.PALETTE[color], (s["x"], s["y"], 32, 24), 1)
-                text.draw(fb, chr(0x41 + i), s["x"] + 12, s["y"] + 7, color=color, size=11)
-        # bola saat "run" (di AREA MAIN, di atas contraption) — magenta spt bola asli
+
+        # --- slot: kosong = petak warna 3, terisi = sprite-nya ---------------
+        def isi(i):
+            s = self.slots[i]
+            if s["filled"] is None:
+                return None
+            arc = self.k_mechs if s["arch"] == "MECHS" else self.k_graph
+            if s["sprite"] is not None and s["sprite"] >= 0:
+                return arc, arc.recs[s["sprite"]]
+            return None
+        _rend.drawslot(k, [(s["y"], s["x"]) for s in self.slots], isi)
+
+        # Zany: kandidat yang sedang diputar tampil DI DALAM kotaknya
+        # (`pickvar()`), bukan di strip.
+        if inbox and 0 <= self.cur_slot < len(self.slots):
+            s = self.slots[self.cur_slot]
+            if s["filled"] is None:
+                _nm, _ids, pa, pidx = self.palette[self.cur_part]
+                arc = self.k_mechs if pa == "MECHS" else self.k_graph
+                if pidx >= 0:
+                    k.blit(arc, arc.recs[pidx], s["x"], s["y"])
+
+        # --- huruf penanda slot: f15d0(), warna 3 di postab ------------------
+        vs = self.k_goals.get(gid) or []
+        var = vs[self.cur_variant] if self.cur_variant < len(vs) else (vs[0] if vs else None)
+        if var:
+            for i, (a, b) in enumerate(var.get("pos") or []):
+                warna = 3
+                # `hintmark()`: slot yang sedang ditunjuk memakai warna pilihan
+                # fungsi itu -- 0 = petunjuk sungguhan (menyalakan `mflag`,
+                # syarat bonus bola), 2 = penanda biasa.
+                if (self.petunjuk is not None and self.mode_asli == 4
+                        and self.level == 1 and i == self.petunjuk.cur2):
+                    warna = self.petunjuk.warna
+                k.teks(chr(0x41 + i), b, a, warna)
+
+        # --- strip pemilih part ---------------------------------------------
+        if not inbox:
+            self._palette_strip(fb)
+
+        # --- kotak sorotan: EMPAT garis XOR warna 3 --------------------------
+        if 0 <= self.cur_slot < len(self.slots):
+            s = self.slots[self.cur_slot]
+            _rend.drawbox(k, s["y"], s["x"])
+
+        # --- pita atas: skor / nama goal / bilah timer -----------------------
+        self._hud(fb)
+
+        # bola saat "run" (di AREA MAIN, di atas contraption)
         if self.ball_pos is not None:
             bx, by = int(self.ball_pos[0]), int(self.ball_pos[1])
             pygame.draw.circle(fb, cga.PALETTE[2], (bx, by), 2)
             fb.set_at((bx, by), cga.PALETTE[3])
-        # BILAH STATUS bawah (y=166..199) — di bawah play area, tak menutupi slot/scenery
-        pygame.draw.rect(fb, cga.PALETTE[0], (0, 166, 320, 34))
-        if not inbox:
-            self._palette_strip(fb)                       # STRIP semua opsi (spt 4e3e)
-            label = self.palette[self.cur_part][0]
-        else:
-            text.draw(fb, "Cycle < > in box, ENTER to place", 40, 172, color=3, size=9)
-            label = ""
-        text.draw(fb, label, 4, 191, color=3, size=8)
-        text.draw(fb, "Score:%d" % self.score, 120, 191, color=1, size=8)
-        if self.timer is not None:
-            t = max(0, int(self.timer))
-            text.draw(fb, "%d:%02d" % (t // 60, t % 60), 290, 191, color=2, size=8)
-        # pesan feedback di ATAS area main (tak mengganggu bilah)
+        # --- baris pesan --------------------------------------------------
+        # Port lama menaruhnya di y=3, DI ATAS pita atas -- dan itu menimpa
+        # nama goal yang digambar `f171f()`, terlihat sebagai "00' Em" alih-alih
+        # "Up and At 'Em".
+        #
+        # `setupscr()` membersihkan satu baris teks cyan tepat untuk keperluan
+        # ini: `fillrect(0x10, 0xc0, 0x12f, 199, 1)` = y 192..199, x 16..303,
+        # yaitu SATU baris 8 piksel selebar 36 karakter. Dan pesan pembuka gim
+        # "Pick parts to fill the empty boxes." panjangnya tepat 35 karakter.
+        #
+        # ⚠ BELUM TERUKUR. Pesan di gim keluar lewat `printf()` (0x6a48, dari
+        # MC.LIB) dan emulator kami tidak merender keluaran teks DOS, jadi
+        # posisi ini DITURUNKAN dari `setupscr.c`, bukan diadu piksel. Yang
+        # sudah pasti: menaruhnya di pita atas SALAH.
         if self.message:
-            text.draw_center(fb, self.message, 3, color=2, size=9)
+            k.teks(self.message[:36], 0x10, 0xC0, 0)
 
     def _palette_strip(self, fb):
         """Strip pemilih part -- `drawpal()` gim asli, lewat cc/core/palet.py.

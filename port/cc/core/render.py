@@ -164,6 +164,56 @@ def labels(fb, pos, warna=3):
     return fb
 
 
+SLOT_W, SLOT_H = 0x1E, 0x17      # kotak slot: 30 lebar, 23 tinggi (dari x+1)
+
+
+def drawslot(k, slots, isi=None, arsip=None):
+    """`drawslot()` @0x3F0F — isi tiap slot kontraption.
+
+    ⭐ Slot KOSONG bukan kotak bergaris dengan huruf di tengahnya, melainkan
+    PETAK PENUH warna 3:
+
+        fillrect(x + 1, y, x + 0x1e, y + 0x17, 3);
+
+    Slot yang sudah terisi digambar sprite-nya, 0x18 x 0x20 di (y, x).
+
+    Terukur vs tangkapan VRAM (goal 1 mode isian, ketiga slot mekanisme):
+    2.160/2.160 piksel. Port lama menggambar kotak bergaris + huruf di dalam
+    kotak, dan itu karangan sendiri.
+
+    `slots` = daftar (y, x); `isi(i)` -> (arsip, record) untuk slot yang sudah
+    terisi, atau None kalau masih kosong.
+    """
+    for i, (y, x) in enumerate(slots):
+        pasangan = isi(i) if isi is not None else None
+        if pasangan is None:
+            k.fillrect(x + 1, y, x + SLOT_W, y + SLOT_H, 3)
+            continue
+        arc, rec = pasangan
+        k.blit(arc, rec, x, y)
+
+
+def drawbox(k, y, x):
+    """`drawbox()` @0x3886 — kotak sorotan, EMPAT garis warna 3, digambar XOR.
+
+        ybot = y + 0x17;  xlf = x + 1;  xrt = x + 0x1e;
+        line(xlf,   y,      x + 0x1d, y,      3);
+        line(xrt,   y,      xrt,      y+0x16, 3);
+        line(x + 2, ybot,   xrt,      ybot,   3);
+        line(xlf,   y + 1,  xlf,      ybot,   3);
+
+    Perhatikan ujung-ujungnya tidak simetris (x+0x1d di atas, x+2 di bawah):
+    itu memang begitu di biner, bukan salah salin.
+    """
+    ybot = y + 0x17
+    xlf = x + 1
+    xrt = x + 0x1E
+    k.xor(xlf, y, x + 0x1D, y, 3)
+    k.xor(xrt, y, xrt, y + 0x16, 3)
+    k.xor(x + 2, ybot, xrt, ybot, 3)
+    k.xor(xlf, y + 1, xlf, ybot, 3)
+
+
 # ---- keluaran -----------------------------------------------------------
 def to_rgb(fb):
     """Daftar tuple RGB, urut baris — untuk PIL."""
