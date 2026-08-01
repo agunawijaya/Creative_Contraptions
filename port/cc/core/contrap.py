@@ -64,7 +64,19 @@ def parse(path):
         cC = struct.unpack_from("<H", b, p)[0]
         p += 2
         zany = [struct.unpack_from("<hhH", b, p + k * 6) for k in range(cC)]
-        goals.setdefault(goal, []).append(dict(mech=mech, zany=zany, pos=pos))
+        p += cC * 6
+        # `state` @0x4f2 -- URUTAN RANTAI. Satu entri per part; -1 = mekanisme,
+        # selainnya objek zany. Di dalam tiap jenis, part dipakai berurutan
+        # sesuai urutannya di CONTRAP.
+        #
+        # Dipakai `animvm()` opcode 0x03 untuk tahu part MANA yang menerima bola
+        # berikutnya: `if (steps[i+1] == -1)` memilih daftar mekanisme, kalau
+        # tidak daftar zany. Diperiksa terhadap urutan skrip yang dilaporkan
+        # emulator untuk goal 1 -- zany, mech, zany, mech, zany, zany, zany,
+        # mech, zany, zany -- yang persis sama dengan [1,-1,1,-1,1,1,1,-1,1,1].
+        state = [struct.unpack_from("<h", b, p + k * 2)[0] for k in range(cB + cC)]
+        goals.setdefault(goal, []).append(
+            dict(mech=mech, zany=zany, pos=pos, state=state))
     return goals
 
 

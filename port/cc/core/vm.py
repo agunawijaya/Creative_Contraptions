@@ -73,6 +73,18 @@ class VM:
     lebih dulu adalah URUTAN peristiwanya terhadap rujukan VRAM. Kalau
     urutannya salah, langsung menggambar hanya menyembunyikan letak salahnya.
 
+    ⭐ PENYELARASAN FRAME, kalau dipakai untuk menggambar. Bola dan part TIDAK
+    tertinggal sejauh yang sama dari peristiwa VM:
+
+        bola  = peristiwa ke n-2      part = peristiwa ke n-1
+
+    Sebabnya halaman ganda, bukan penyetelan sembarang: `drawball()` menulis
+    lewat `page`/`page2` yang BERTUKAR tiap panggilan, sedangkan `f278e()`
+    mem-blit part LANGSUNG ke halaman tampak. Jadi bola tertinggal satu langkah
+    lebih banyak daripada part. Terukur pada rujukan goal 1: pasangan (2,1)
+    memberi 101/135 frame identik dan 99,9920% piksel; pasangan (1,1) hanya
+    13/136, (2,2) 92/135.
+
     ⚠ Skripnya diambil dari `animvm.parse()`, BUKAN dipindai byte per byte di
     sini. Alasannya mahal: opcode 0x04 (bunyi) panjangnya VARIABEL -- mode 1
     membawa 6 byte, mode 2/3 mengalir sampai penanda GANDA 0xFF 0xFF. Memindai
@@ -82,13 +94,94 @@ class VM:
     """
 
     def __init__(self, parts, aktif=0):
-        self.parts = parts
+        self.parts = parts               # URUT RANTAI (lihat contrap `state`)
         self.aktif = aktif
         self.simpul = list(parts[aktif].simpul)
         self.n = 0                       # simpul ke berapa
         self.k = 0                       # elemen ke berapa di dalam simpul
         self.bx = 0
         self.by = 0
+        self.terbang = []                # sisa titik lemparan yang belum keluar
+        self.gelung = 0                  # simpul awal badan gelung (op0d)
+        self.sisa = -1                   # pencacah gelung (u5a)
+        self.tunggu = False              # mode tunggu tombol (op0e)
+
+    def _pindah(self, ke):
+        """Kursor skrip pindah ke part lain. Satu kursor, bukan banyak."""
+        self.aktif = ke
+        self.simpul = list(self.parts[ke].simpul)
+        self.n = 0
+        self.k = 0
+        self.gelung = 0
+        self.sisa = -1
+
+    def _tujuan(self, ke):
+        """Titik mendarat di part berikutnya.
+
+        `op03` membaca opcode PERTAMA skrip part tujuan; kalau ia titik jalur
+        (0x00/0x08/0x0a/0x0b), titik pertamanya dipakai sebagai tempat mendarat.
+        Jadi lemparan diarahkan ke tempat part itu memang menunggu bola --
+        bukan ke titik tengah part atau sudutnya.
+        """
+        p = self.parts[ke]
+        for nama, data in ((s[0], s[1] if len(s) > 1 else None) for s in p.simpul):
+            if nama == "waypoints" and data:
+                a, b = data[0]
+            elif nama in ("op08", "op0a", "op0b") and data:
+                a, b = data[0], data[1]
+            else:
+                continue
+            return p.y + sgn(a), p.x + sgn(b)
+        return p.y, p.x
+
+    def _lempar(self, nama, data):
+        """op03 / op0c -> deretan titik parabola (f2823).
+
+        f2823(A, fx, fy, tx, ty, N, 1) dgn fx = ballx = Y LAYAR. Jadi lendutan
+        parabolanya jatuh di sumbu TEGAK -- yang memang seharusnya, karena itu
+        gravitasi. Interpolatornya dipakai ULANG dari cc/animvm.py yang sudah
+        eksak 42/42; jangan tulis ulang di sini.
+
+        ⚠ op03 MENYIMPAN BALIK nilai A yang sudah dipulihkan tandanya, op0c
+        MEMBUANGNYA -- di biner, AX yang memuat nilai terpulihkan langsung
+        ditimpa `mov ax,si` tanpa pernah disimpan balik, jadi f2823 menerima
+        byte MENTAH. Itu tampak seperti bug di gim aslinya; kita meniru apa
+        adanya, karena yang dikejar adalah tampilan yang SAMA, bukan yang benar.
+        Menyeragamkan kedua case juga sudah diuji di src_c dan menurunkan
+        penjajaran biner.
+        """
+        from ..animvm import interp_2823
+        N = data[1]
+        if nama == "op03":
+            A = sgn(data[0])
+            ke = self.aktif + 1
+            if ke >= len(self.parts):
+                return None
+            ty, tx = self._tujuan(ke)
+        else:
+            # op0c: sasarannya dibaca dari operan opcode BERIKUTNYA di skrip
+            # yang SAMA, relatif ke posisi PART -- bukan ke posisi bola:
+            #     u54 = scrptr; u54++;            <- lewati byte opcode
+            #     u4c = sgn(*u54++) + u22;        <- + Y part
+            #     u50 = sgn(*u54++) + u24;        <- + X part
+            # `scrptr` sendiri TIDAK dimajukan, jadi opcode itu tetap dijalankan
+            # sesudahnya. Kelihatan mubazir, dan memang begitu adanya.
+            A = data[0]                  # ⚠ MENTAH, lihat catatan di bawah
+            p = self.part
+            lanjut = self.simpul[self.n] if self.n < len(self.simpul) else None
+            if lanjut is None or len(lanjut) < 2 or not lanjut[1]:
+                return None
+            d = lanjut[1]
+            a, b = (d[0] if not isinstance(d[0], tuple) else d[0][0],
+                    d[1] if not isinstance(d[0], tuple) else d[0][1])
+            ty, tx = p.y + sgn(a), p.x + sgn(b)
+            ke = self.aktif
+        if N <= 0:
+            return None
+        titik = interp_2823(self.by, self.bx, ty, tx, N, A)
+        self.terbang = list(titik)
+        self.lempar_ke = ke
+        return True
 
     @property
     def part(self):
@@ -107,6 +200,12 @@ class VM:
 
     def langkah(self):
         """Peristiwa berikutnya, atau None kalau skripnya habis."""
+        if self.terbang:                 # bola sedang melayang
+            y, x = self.terbang.pop(0)
+            self.by, self.bx = y, x
+            if not self.terbang and self.lempar_ke != self.aktif:
+                self._pindah(self.lempar_ke)
+            return ("bola", self.bx, self.by)
         while self.n < len(self.simpul):
             nama = self.simpul[self.n][0]
             data = self.simpul[self.n][1] if len(self.simpul[self.n]) > 1 else None
@@ -133,7 +232,34 @@ class VM:
                 return ("jeda", data[0])
             if nama == "op04":
                 continue                 # bunyi: tidak menggambar apa pun
+            if nama == "op05":
+                continue                 # putmsk(): gambar ulang mask bola
+            if nama == "op06":
+                continue                 # prevtop = prevx = 0x140: jangan hapus
+            if nama == "op0d":           # awal badan gelung
+                self.gelung = self.n
+                self.sisa = -1
+                continue
+            if nama == "op0e":           # aktifkan mode tunggu tombol
+                self.tunggu = True
+                continue
+            if nama == "op0f":           # akhir gelung
+                # u5a == -1  -> ambil pencacah, balik ke awal badan
+                # u5a  > 0   -> kurangi, balik ke awal badan
+                # u5a == 0   -> keluar dari gelung
+                if self.sisa == -1:
+                    self.sisa = data[0] if data else 0
+                elif self.sisa > 0:
+                    self.sisa -= 1
+                else:
+                    continue
+                self.n = self.gelung
+                continue
+            if nama == "op10":           # akhir goal
+                return ("selesai", None)
             if nama in ("op03", "op0c"):
-                return ("lempar", nama, data)
+                if self._lempar(nama, data) is None:
+                    return ("selesai", None)
+                return self.langkah()
             return ("belum", nama, data)
         return None
