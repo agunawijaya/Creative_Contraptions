@@ -33,6 +33,18 @@ load = bytearray(b[hdrpar * 16:imgsize])
 
 uc = Uc(UC_ARCH_X86, UC_MODE_16)
 uc.mem_map(0, 0x110000)  # ~1MB+
+
+# Font 8x8 ROM BIOS di F000:FA6E.
+# Game menggambar teks lewat text() @0x644A, yang untuk karakter < 0x80 membaca
+# glif dari F000:FA6E -- alamat ROM mesin, BUKAN dari berkas game. Selama wilayah
+# ini kosong, semua glif terbaca nol dan emulator tidak pernah merender teks
+# (itulah "emulator merender sprite tapi tidak teks" di catatan lama).
+# Dengan tabel ini terpasang, tangkapan VRAM memuat teks juga, sehingga bisa
+# dipakai sebagai kebenaran dasar untuk menguji font di port.
+_ROM8 = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     "..", "port", "cc", "core", "rom8x8.bin")
+if os.path.exists(_ROM8):
+    uc.mem_write(0xFFA6E, open(_ROM8, "rb").read())
 # tulis load module
 base = LOAD_SEG * 16
 uc.mem_write(base, bytes(load))
@@ -882,6 +894,11 @@ if OBSERVE:
 for off, fn in hooks:
     uc.hook_add(UC_HOOK_CODE, fn, None, CODE + A(off), CODE + A(off))
 
+# CC_VRAMOUT=<berkas.png> -- tulis isi VRAM saat emulasi berhenti.
+# Dipakai untuk mendapat tangkapan layar NYATA (termasuk teks, sesudah font ROM
+# dipasang) sebagai pembanding bagi port.
+_VRAMOUT = os.environ.get("CC_VRAMOUT")
+
 start = uc.reg_read(UC_X86_REG_CS) * 16 + uc.reg_read(UC_X86_REG_IP)
 try:
     uc.emu_start(start, 0, 0, 60000000)
@@ -1019,6 +1036,9 @@ for (xs, ys, w, h, data) in draws672:
         with open(os.path.join(OUT, "ball_sprite_5e6.bin"), "wb") as f:
             f.write(bytes(data))
         break
+if _VRAMOUT:
+    capture_cga(_VRAMOUT)
+    print("VRAM -> %s" % _VRAMOUT)
 print("2823 CALLS: %d" % len(c2823))
 for c in c2823[:9]:
     print("  ", c.get("trig"), "=>", c["params"])
