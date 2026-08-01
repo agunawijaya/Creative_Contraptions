@@ -201,8 +201,13 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
 - Animasi judul rakitan tangan (`build_title_anim`) DIBUANG — tak satu pun pikselnya terbukti.
 
 **Berikutnya untuk jalur PORT:**
-1. Interpreter generate part-frame sendiri (op 01/07/09 → record ANIMATE) — agar lepas dari
-   data capture emulator.
+1. Jalankan opcode `animvm()` supaya indeks frame part + posisi bola dibangkitkan sendiri.
+   Dua prasyaratnya SUDAH selesai (2026-08-01):
+   - **frame animasi part** = record GRAPH/MECHS yang berbagi `(id, row)` dengan record
+     diamnya (`Archive.kelompok()`). Frame animasi TIDAK ada di ANIMATE.
+   - **skrip part** ditemukan di ANIMATE lewat `(id, row)` record gambar yang terpilih
+     (`port/cc/core/skrip.py`) — **68/68 skrip untuk 6 goal**, tanpa tangkapan emulator.
+     Lewat indeks tabel hanya slot pertama yang benar; kesejajarannya kebetulan.
 2. ~~Turunkan transform logis→layar `FUN_1000_5e3b`~~ — **SELESAI: transformnya TIDAK ADA.**
    @0x25e = X layar, @0x260 = Y layar, langsung. Lihat `port/cc/core/render.py:bola`.
 3. Hapus jejak bola: `prep`/`blend`/`putmsk`/`draw` (halaman ganda) — belum diturunkan.
