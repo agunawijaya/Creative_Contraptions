@@ -70,3 +70,4 @@ src_c/build/_*.conf
 
 # Keluaran emu.py saat menjalankan EXE REKONSTRUKSI (bukan ground truth).
 work/emu_caps_recon/
+work/emu_caps_ref/

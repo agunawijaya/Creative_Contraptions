@@ -298,6 +298,27 @@ if CC_TRACE:
 
     uc.hook_add(UC_HOOK_CODE, hook_trace, None, CODE, CODE + 0x9064)
 
+# CC_REGS=0x8754[,0x876e] -- cetak register + isi memori yang ditunjuk SI/BX
+# setiap kali offset itu dieksekusi. Untuk menjawab "nilainya yang beda, atau
+# tabelnya?" tanpa menebak.
+CC_REGS = [int(x, 0) for x in os.environ.get("CC_REGS", "").split(",") if x.strip()]
+if CC_REGS:
+    def hook_regs(uc, addr, size, user):
+        si = uc.reg_read(UC_X86_REG_SI)
+        ds = uc.reg_read(UC_X86_REG_DS)
+        try:
+            mem = bytes(uc.mem_read(ds * 16 + si, 16))
+        except Exception:
+            mem = b""
+        print("  [regs %04x] ax=%04x bx=%04x cx=%04x si=%04x ds=%04x [ds:si]=%s |%s|"
+              % (addr - CODE, uc.reg_read(UC_X86_REG_AX), uc.reg_read(UC_X86_REG_BX),
+                 uc.reg_read(UC_X86_REG_CX), si, ds,
+                 " ".join("%02x" % c for c in mem),
+                 "".join(chr(c) if 32 <= c < 127 else "." for c in mem)))
+
+    for _a in CC_REGS:
+        uc.hook_add(UC_HOOK_CODE, hook_regs, None, CODE + _a, CODE + _a)
+
 uc.hook_add(UC_HOOK_CODE, hook_code, None, CODE + 0x2692, CODE + 0x2692)
 uc.hook_add(UC_HOOK_CODE, hook_code, None, CODE + 0x27b4, CODE + 0x27b4)
 
@@ -338,7 +359,11 @@ import sys
 import json
 GOAL = int(sys.argv[1]) if len(sys.argv) > 1 else 1
 MODE = int(sys.argv[2]) if len(sys.argv) > 2 else 2
-OUT = r"C:\Projects\Creative_Contraptions\work\emu_caps"
+# ⚠ work/emu_caps adalah GROUND TRUTH (dirujuk port/*.py dan work/*.py).
+# Saat menjalankan EXE REKONSTRUKSI, WAJIB arahkan CC_OUT ke folder lain --
+# kalau tidak, keluaran parsialnya menimpa sumber kebenaran.
+OUT = os.environ.get("CC_OUT") or \
+    r"C:\Projects\Creative_Contraptions\work\emu_caps"
 os.makedirs(OUT, exist_ok=True)
 
 # --- OBSERVE mode: navigasi ke mode game & tangkap layar asli (ground truth) ---

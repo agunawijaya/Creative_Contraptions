@@ -2133,7 +2133,7 @@ spill selektif.
 `&&` menghasilkan awalan instruksi yang SAMA di reproduksi mini, tapi `.OBJ`
 lengkapnya BERBEDA — dua-duanya 64 byte, hash tidak sama.
 
-## ⚠⚠ DGROUP KITA 1.004 BYTE TERLALU BESAR — data pustaka DIPANCARKAN DUA KALI
+## ✅ [SELESAI 2026-08-01] DGROUP: data pustaka DIPANCARKAN DUA KALI
 
 Ditemukan lewat verifikasi PERILAKU (menjalankan EXE rekonstruksi di harness
 `work/emu.py` yang sama dengan biner asli), bukan lewat perbandingan byte.
@@ -2192,3 +2192,72 @@ harness-nya yang meleset.
 
 Membandingkan jejak dua biner (sesudah dinormalkan) langsung menunjuk instruksi
 DIVERGEN pertama — itu cara temuan DGROUP di atas ditemukan.
+
+## ✅ PERBAIKAN DGROUP — dan MENGAPA "DATA 100%" DULU PALSU
+
+Tiga cacat terpisah, semuanya tersembunyi di balik angka "DATA 9.556/9.556".
+
+**1. `gdata.c` memancarkan data MC.LIB.** `gendata.py` merekonstruksi seluruh
+0..0x2554, termasuk byte milik modul pustaka; lalu modul MC.LIB yang asli ikut
+di-link dan menyumbang DATA-nya lagi. Peta DATA pustaka (dicari dengan
+`libmatch.find` di DGROUP asli):
+
+| modul | byte | DGROUP |
+|---|---|---|
+| IOS1 | 200 | 0x2178 |
+| _MAIN | 159 | 0x2240 |
+| _PFMT | 16 | 0x2484 |
+| XCFINT | 170 | 0x2496 |
+
+Urutan DATA-nya SAMA dengan urutan kodenya. Jadi **seluruh 0x2178..0x2554 milik
+MC.LIB**, dan `gendata.py` cukup dijalankan dengan batas `0x2178`.
+
+**2. `stubs.OBJ` yang BASI.** Sesudah `sndbuf` dihapus, `stubs.c` jadi kosong,
+MC1 gagal — tapi `buildall.ps1` hanya MENCETAK "GAGAL kompilasi" dan membiarkan
+`.OBJ` LAMA di `out/`, sehingga LINK memakainya dan menambah 16 byte DGROUP.
+Sekarang objek lamanya DIHAPUS dan build-nya `throw`.
+
+**3. ⭐ DGROUP tidak selaras PARAGRAF — ini yang paling mahal.** PROG berakhir di
+0x9064, bukan 0x9070. LINK menaruh DATA tepat di situ, `DS` jadi **0x0A16**
+(asli 0x0A17), dan **setiap offset DGROUP meleset +4**. Gejalanya bukan crash:
+`open("misc")` membaca string yang salah, `XCFINT` mengambil cabang berbeda, dan
+program keluar bersih tanpa menggambar apa pun.
+
+Perbaikannya `src_c/asm/dgalign.asm` — modul KOSONG yang di-link PALING AWAL dan
+cuma mendeklarasikan `DATA SEGMENT PARA`. Atribut PARA membuat LINK memadatkan
+ujung PROG; karena kontribusi DATA-nya kosong dan jatuh di offset 0, tak ada byte
+tersisip. Tiga cara lain sudah dicoba dan GAGAL — daftarnya di kepala berkas itu.
+
+⚠ Urutan deklarasi segmen di modul PERTAMA menentukan urutan segmen di `.EXE`.
+`dgalign.asm` WAJIB mendeklarasikan `BASE` dulu (seperti `C.OBJ`): dengan `DATA`
+dulu seluruh DGROUP pindah ke depan kode, dengan `PROG` dulu segmen `BASE`
+terdorong ke ujung dan semua kode bergeser −14.
+
+⭐ `link.ps1` sekarang MEMERIKSA hasilnya dan `throw` kalau DGROUP tidak mulai di
+batas paragraf. Cacat sekelas ini tidak boleh lolos diam-diam lagi.
+
+## ✅ EXE REKONSTRUKSI SETARA SECARA PERILAKU (2026-08-01)
+
+Sesudah ketiga perbaikan di atas:
+
+- header MZ **identik**: muatan 46.532 byte, `nreloc`=4, `cs:ip`=0000:000E,
+  `ss:sp`=0B5D:0100 — sama persis dengan biner asli
+- segmen DATA **9.556/9.556 (100%)**, diukur dari `.EXE` hasil link
+- **4.010 instruksi pertama COCOK** (sesudah menormalkan +2 milik `pickvar`)
+- satu putaran penuh `emu.py` menghasilkan **14/14 berkas tangkapan
+  BYTE-IDENTIK** dengan putaran biner asli: `draw672=211 cocok=75`,
+  `MAXFRAME 56`, 13 sprite statis, jalur bola 122 titik, 9 panggilan `2823`,
+  10 skrip part — angka yang sama persis.
+
+Cara mengulanginya:
+
+```
+python work/emu.py 1 2                                   # asli -> work/emu_caps
+CC_OUT=<dir-ref> python work/emu.py 1 2                  # asli -> folder segar
+CC_EXE=src_c/out/CONTRAP.EXE CC_SHIFT_AT=0x4515 CC_SHIFT_BY=2 \
+  CC_OUT=<dir-rekon> python work/emu.py 1 2              # rekonstruksi
+```
+
+⚠ **WAJIB pakai `CC_OUT` saat menjalankan EXE rekonstruksi.** `work/emu_caps`
+adalah GROUND TRUTH yang dirujuk `port/*.py` dan `work/*.py`; tanpa `CC_OUT`
+keluaran rekonstruksi menimpanya.

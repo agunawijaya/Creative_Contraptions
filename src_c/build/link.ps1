@@ -32,17 +32,21 @@ Get-Content "$root\src_c\src\manifest.txt" | ForEach-Object {
 $objs = @()
 $code = Get-ChildItem "$out\*.OBJ" | Where-Object {
     $n = $_.BaseName
-    $n -notlike "probe*" -and $n -ne "gdata" -and $n -ne "stubs"
+    $n -notlike "probe*" -and $n -ne "gdata" -and $n -ne "stubs" -and $n -ne "dgalign"
 } | Sort-Object @{Expression={ if ($order.ContainsKey($_.BaseName)) { $order[$_.BaseName] } else { 0x7FFF } }}, BaseName
 foreach ($f in $code) { $objs += $f.BaseName }
 $objs += "gdata"
-$objs += "stubs"
+# `stubs` sudah TIDAK ADA lagi (penghuni terakhirnya, `sndbuf`, ternyata ISR
+# `sndisr` di keyio.asm). Tetap didukung kalau suatu saat dibutuhkan lagi.
+if (Test-Path "$out\stubs.OBJ") { $objs += "stubs" }
 
-foreach ($n in @($objs)) { Copy-Item "$out\$n.OBJ" "$dos\$n.OBJ" -Force }
+foreach ($n in @($objs) + @("dgalign")) { Copy-Item "$out\$n.OBJ" "$dos\$n.OBJ" -Force }
 
 # Susun masukan LINK: potong daftar objek jadi baris <=60 char, akhiri "+".
 $lines = @()
-$cur = "y:C"
+# dgalign HARUS pertama: atribut PARA-nya menyelaraskan segmen DATA, dan
+# kontribusi DATA-nya yang kosong di offset 0 tidak menyisipkan byte apa pun.
+$cur = "dgalign+y:C"
 foreach ($n in $objs) {
     if (($cur.Length + $n.Length + 1) -gt 60) { $lines += ($cur + "+"); $cur = $n }
     else { $cur = $cur + "+" + $n }
@@ -75,7 +79,21 @@ if (Test-Path "$dos\link.log") { Copy-Item "$dos\link.log" "$out\link.log" -Forc
 if (Test-Path "$dos\CONTRAP.EXE") {
     Copy-Item "$dos\CONTRAP.EXE" "$out\CONTRAP.EXE" -Force
     if (Test-Path "$dos\CONTRAP.MAP") { Copy-Item "$dos\CONTRAP.MAP" "$out\CONTRAP.MAP" -Force }
-    "EXE: src_c/out/CONTRAP.EXE  ($((Get-Item "$dos\CONTRAP.EXE").Length) byte)"
+    # PENJAGA: DGROUP HARUS mulai di batas paragraf. Kalau tidak, DS menunjuk ke
+# paragraf di bawahnya dan SETIAP offset DGROUP meleset -- gejalanya bukan crash
+# melainkan program yang "jalan lalu keluar", sangat mahal untuk didiagnosa.
+# Perbaikannya: sesuaikan jumlah DB di src_c/asm/dgalign.asm.
+$mapTxt = Get-Content "$out\CONTRAP.MAP"
+$dataRow = $mapTxt | Where-Object { $_ -match "^\s*([0-9A-F]+)H\s+([0-9A-F]+)H\s+([0-9A-F]+)H\s+DATA\s" }
+if ($dataRow -match "^\s*([0-9A-F]+)H") {
+    $dataStart = [Convert]::ToInt32($Matches[1], 16)
+    if ($dataStart % 16 -ne 0) {
+        throw ("DGROUP mulai di 0x{0:X} -- BUKAN batas paragraf. Tambah/kurangi DB di src_c/asm/dgalign.asm sebanyak {1} byte." -f $dataStart, (16 - $dataStart % 16))
+    }
+    "DGROUP mulai 0x{0:X} (selaras paragraf, DS akan benar)" -f $dataStart
+}
+
+"EXE: src_c/out/CONTRAP.EXE  ($((Get-Item "$dos\CONTRAP.EXE").Length) byte)"
 } else {
     "GAGAL: CONTRAP.EXE tidak terbentuk -- lihat link.log di atas."
     exit 1

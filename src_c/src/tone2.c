@@ -7,13 +7,13 @@
 extern int  sndmode;        /* @0x722 */
 extern int *sndptr;         /* @0x720 */
 extern int  tune2[];        /* deskriptor nada @0x1ddb */
-extern int  sndbuf[];       /* buffer konteks @0x670e */
+extern      sndisr();       /* @0x670e -- ISR timer (keyio.asm), bukan buffer */
 
 tone2()
 {
     int unused;
 
-    sndsave(sndbuf);
+    sndsave(sndisr);
     sndoff();
     sndptr = tune2;
     sndmode = 2;

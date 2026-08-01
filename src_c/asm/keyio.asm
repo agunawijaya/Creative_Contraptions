@@ -15,6 +15,7 @@ PROG    SEGMENT BYTE PUBLIC 'PROG'
         ASSUME  CS:PGROUP, DS:DGROUP
 
         PUBLIC  F66FD
+        PUBLIC  sndisr
         EXTRN   tone3:NEAR
 
 F66FD:  PUSH	BP                     ; 66FD  55
@@ -26,7 +27,13 @@ F66FD:  PUSH	BP                     ; 66FD  55
         INT	10H                     ; 670A  cd 10
         POP	BP                      ; 670C  5d
         RET                         ; 670D  c3
-        PUSH	AX                     ; 670E  50
+
+; ISR timer yang dipasang sndsave() ke vektor 0:70h (lihat snd1.asm 5A7F:
+; argumennya ditulis ke ES:[DI] dengan CS sebagai segmen -- jadi ia alamat
+; KODE, bukan penyangga data). Dulu keliru dinamai `sndbuf` dan disediakan
+; sebagai `char sndbuf[16]` di stubs.c, sehingga yang dipasang ke vektor
+; adalah offset DGROUP sebuah larik kosong -- bukan penangan ini.
+sndisr: PUSH	AX                     ; 670E  50
         PUSH	DS                     ; 670F  1e
         MOV	AX, DGROUP                ; 6710  b8 07 09   <- SEG, bukan literal
         MOV	DS, AX                  ; 6713  8e d8

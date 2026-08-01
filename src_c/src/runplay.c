@@ -43,7 +43,7 @@ extern char *recbase;       /* @0x73c -- char* DI SINI: biner memuatnya
                                langsung ke SI ("mov si,[73ch] / add si,ax").
                                Sebagai int, penjumlahannya lewat CX lalu
                                "mov si,cx" -- 2 byte kelebihan. */
-extern char sndbuf[];       /* @0x670e */
+extern      sndisr();       /* @0x670e -- ISR timer (keyio.asm), bukan buffer */
 
 runplay(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11,
         p12, p13, p14, p15, p16, p17, p18, p19, p20, p21)
@@ -70,7 +70,7 @@ int  p18, p19, p20, p21;
     int a2, chg2, key;
 
     sel = 0;
-    sndsave(sndbuf);
+    sndsave(sndisr);
     timer = -1;
     lvl6 = nmax;
     chg1 = 0;

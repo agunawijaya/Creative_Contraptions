@@ -54,12 +54,24 @@ for ($s = 0; $s -lt $files.Count; $s += $chunk) {
 
 if (Test-Path "$dos\build.log") { Copy-Item "$dos\build.log" "$out\build.log" -Force }
 $ok = 0
+$failed = @()
 foreach ($f in $files) {
     $n = $f.BaseName
     if (Test-Path "$dos\$n.OBJ") { Copy-Item "$dos\$n.OBJ" "$out\$n.OBJ" -Force; $ok++ }
-    else { Write-Host "GAGAL kompilasi: $n" }
+    else {
+        # ⚠ WAJIB menghapus .OBJ LAMA di $out. Kalau tidak, LINK memakai objek
+        # BASI dan build "berhasil" dengan isi yang sudah tidak sesuai sumber.
+        # Kasus nyata (2026-08-01): stubs.c dikosongkan -> MC1 gagal -> objek
+        # basi berisi `sndbuf` tetap ikut di-link dan menambah 16 byte DGROUP.
+        Remove-Item "$out\$n.OBJ" -ErrorAction SilentlyContinue
+        $failed += $n
+        Write-Host "GAGAL kompilasi: $n (objek lama dihapus)"
+    }
 }
 "terkompilasi $ok/$($files.Count)"
+if ($failed.Count -gt 0) {
+    throw "GAGAL kompilasi: $($failed -join ', ') -- objek lamanya sudah dihapus, jadi LINK akan gagal juga. Perbaiki sumbernya dulu."
+}
 $errs = Select-String -Path "$out\build.log" -Pattern "Error|Warning" -ErrorAction SilentlyContinue
 if ($errs) { "--- pesan kompiler ---"; $errs | ForEach-Object { "  " + $_.Line } }
 
@@ -69,7 +81,7 @@ if ($errs) { "--- pesan kompiler ---"; $errs | ForEach-Object { "  " + $_.Line }
 # HANYA modul yang sudah TERVERIFIKASI byte-per-byte yang dirakit ke out/.
 # Draf yang belum cocok masih memakai EXTRN "X...." bikinan asmgen.py dan
 # akan membuat LINK gagal dengan "Unresolved Externals".
-$asmOk = @("snd1","snd2","line","vbio","shftl","text","blitmsk","keyio","blit","fillrec","prep","setup","mode4")
+$asmOk = @("snd1","snd2","line","vbio","shftl","text","blitmsk","keyio","blit","fillrec","prep","setup","mode4","dgalign")
 $asm = Get-ChildItem "$root/src_c/asm/*.asm" -ErrorAction SilentlyContinue |
         Where-Object { $asmOk -contains $_.BaseName }
 foreach ($a in $asm) {

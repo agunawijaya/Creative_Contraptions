@@ -41,7 +41,9 @@ extern int  mode;               /* @0x792 */
 extern int  failed;             /* @0x842 */
 extern int  both;               /* @0x844 */
 extern char hdrspr[];           /* @0x526 -- 3 sprite 96 byte: +0, +96, +192 */
-extern char sndbuf[];           /* @0x670e */
+extern      sndisr();          /* @0x670e -- ISR timer di keyio.asm, BUKAN
+                                  penyangga: sndsave() menulisnya ke vektor
+                                  0:70h dengan CS sebagai segmen */
 extern int  curz;               /* @0x2e6 */
 extern int  sub;                /* @0x3b2 */
 extern int  slot;               /* @0x51a */
@@ -140,7 +142,7 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
     /* mode 0 dan 1 tidak membersihkan separuh bawah layar. */
     if (mode != 0 && mode != 1)
         fillrect(0, 0xa8, 0x13f, 0xc7, 0);
-    sndsave(sndbuf);
+    sndsave(sndisr);
     if (keyhit() == 0x1b) {
         failed = -1;
         goto quit;
