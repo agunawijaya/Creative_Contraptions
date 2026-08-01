@@ -4,8 +4,26 @@
  * mengubah koordinat LOGIS bola (ballx@0x260, bally@0x25e) jadi posisi layar
  * sungguhan, memakai tabel sub-pixel ber-indeks (bally % 4).
  *
- *   tblA @0x2cc, tblB @0x2d4  = tabel geser sub-pixel, 4 entri masing-masing
- *   sx @0x2dc, sy @0x2de      = hasil geser yang dipakai penggambar
+ *   tblA @0x2cc, tblB @0x2d4  = masing-masing 4 PENUNJUK, bukan nilai geser.
+ *   sx @0x2dc, sy @0x2de      = penunjuk terpilih yang diteruskan ke draw()
+ *
+ * ⭐ ISI TABELNYA SUDAH DIBACA (2026-08-01) dari DGROUP yang byte-exact:
+ *   tblA -> 0x1fb2/0x1fca/0x1fe2/0x1ffa   tblB -> 0x2012/0x202a/0x2042/0x205a
+ *   Delapan tabel berjarak 24 byte, menempati 0x1fb2..0x2072 (192 byte).
+ *   24 byte = 8 baris x 3 byte = 8 baris x 12 piksel. Dirender, isinya jelas:
+ *     tblA = SPRITE BOLA (bulat 8x8 dengan sorotan), 4 salinan
+ *     tblB = MASK-nya, 4 salinan
+ *   Antar-fase, polanya bergeser SATU PIKSEL ke kanan. Itu trik klasik CGA:
+ *   satu byte memuat 4 piksel, jadi penulis menyiapkan 4 salinan ter-geser
+ *   supaya bola bisa diposisikan per-piksel tanpa menggeser bit saat runtime.
+ *
+ * ⚠ PERTANYAAN TERBUKA yang penting untuk jalur PORT: indeks fasenya diambil
+ *   dari `bally % 4` (@0x25e). Tapi pra-geser 4 fase di CGA HARUS mendatar --
+ *   satu byte = 4 piksel MENDATAR. Jadi entah 0x25e sebenarnya koordinat X
+ *   (bukan Y seperti namanya sekarang), atau ada hal lain yang belum dipahami.
+ *   Ini sejalan dengan temuan bahwa urutan argumen blit adalah (spr, Y, X, H, W)
+ *   dan CONTRAP menyimpan (y, x) -- proyek ini beberapa kali menemukan sumbu
+ *   tertukar. BELUM DIVERIFIKASI; jangan dipakai sebagai fakta.
  *   page @0x2e0, page2 @0x2e2 = pasangan halaman gambar
  *   buf1 @0x29c, buf2 @0x2b4  = buffer baris
  *   prep()=6939, blend()=5ea6, putmsk()=6524, draw()=657c   (semuanya assembly)
