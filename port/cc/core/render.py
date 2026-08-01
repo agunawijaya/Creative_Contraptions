@@ -206,3 +206,78 @@ def to_surface(fb, pygame=None):
             buf[x, y] = surf.map_rgb(PALETTE[row[x]])
     del buf
     return surf
+
+
+# ---- kanvas: satu antarmuka, dua sasaran --------------------------------
+class KanvasFB:
+    """Kanvas di atas framebuffer indeks-warna."""
+
+    def __init__(self, fb):
+        self.fb = fb
+
+    def fillrect(self, x0, y0, x1, y1, c):
+        fillrect(self.fb, x0, y0, x1, y1, c)
+
+    def teks(self, s, x, y, c, skx=1, sky=1):
+        from . import font
+        font.gambar(self.fb, s, x, y, c, W, H, skx, sky)
+
+    def blit(self, arc, rec, x, y):
+        blit(self.fb, arc, rec, x, y)
+
+    def xor(self, x0, y0, x1, y1, c):
+        for yy in range(max(0, y0), min(y1 + 1, H)):
+            baris = self.fb[yy]
+            for xx in range(max(0, x0), min(x1 + 1, W)):
+                baris[xx] ^= c
+
+
+class KanvasSurface:
+    """Kanvas di atas pygame.Surface, untuk menggambar LANGSUNG ke layar.
+
+    Ada supaya `hud.py` tidak perlu dua versi: aturan penempatan dan
+    percabangannya ditulis SEKALI, sasarannya yang berganti. Glifnya tetap
+    dari `font.baris_piksel()`, jadi bentuk hurufnya juga satu sumber.
+    """
+
+    def __init__(self, surf, pygame):
+        self.surf = surf
+        self.pygame = pygame
+
+    def _w(self, c):
+        return PALETTE[c]
+
+    def fillrect(self, x0, y0, x1, y1, c):
+        self.surf.fill(self._w(c), (x0, y0, x1 - x0 + 1, y1 - y0 + 1))
+
+    def teks(self, s, x, y, c, skx=1, sky=1):
+        from . import font
+        warna = self._w(c)
+        cx = x
+        for ch in s:
+            g = font.baris_piksel(ord(ch))
+            for r in range(8):
+                for ry in range(sky):
+                    ty = y + r * sky + ry
+                    if not (0 <= ty < H):
+                        continue
+                    for k in range(8):
+                        if not g[r][k]:
+                            continue
+                        for rx in range(skx):
+                            tx = cx + k * skx + rx
+                            if 0 <= tx < W:
+                                self.surf.set_at((tx, ty), warna)
+            cx += 8 * skx
+
+    def blit(self, arc, rec, x, y):
+        self.surf.blit(sprite_surface(arc, rec, self.pygame), (x, y))
+
+    def xor(self, x0, y0, x1, y1, c):
+        buf = self.pygame.PixelArray(self.surf)
+        for yy in range(max(0, y0), min(y1 + 1, H)):
+            for xx in range(max(0, x0), min(x1 + 1, W)):
+                lama = self.surf.unmap_rgb(buf[xx, yy])[:3]
+                idx = PALETTE.index(lama) if lama in PALETTE else 0
+                buf[xx, yy] = self.surf.map_rgb(PALETTE[idx ^ c])
+        del buf

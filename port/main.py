@@ -18,7 +18,7 @@ import pygame
 from cc import cga, assets, text, anim
 from cc.core import archive as _arc, contrap as _con, render as _rend
 from cc.core import pick as _pick, rng as _rng, adegan as _adg
-from cc.core import resensi as _res
+from cc.core import resensi as _res, hud as _hud
 
 
 GOAL_NAMES = {1: "Up and At 'Em", 2: "Hair Care", 3: "Easy Eating",
@@ -416,8 +416,14 @@ class Game:
                              178, color=2, size=12)
             text.draw_center(fb, "ESC = keep building", 190, color=3, size=10)
         elif done and self.anim_from_play:           # MENANG
-            text.draw_center(fb, "IT WORKS!  Score: %d" % self.score, 178, color=3, size=12)
-            text.draw_center(fb, "SPACE = watch again  -  ESC = pick goal", 190, color=2, size=10)
+            # Pesan akhir goal memakai `prompts()` gim asli: teks, posisi, dan
+            # percabangannya dari DGROUP + prompts.c, bukan karangan port.
+            k = _rend.KanvasSurface(fb, pygame)
+            self.nbola = _hud.prompts(k, self.mode_asli, self.chosen_goal,
+                                      0, self.level + 1, self.nbola)
+            self._hud(fb)
+            if self.mode_asli == 4 and self.nbola <= 0:
+                _hud.showhint(k, self.k_misc, self.mode_asli)
         else:
             msg = "SPACE = replay  -  ESC = menu" if done else "Running..."
             text.draw_center(fb, msg, 190, color=3, size=10)
@@ -504,6 +510,19 @@ class Game:
         self.part_word = "Object" if fill == "zany" else "Part"
         # timer hanya utk Mix Up (Apprentice ~5.5mnt / Master ~2.5mnt)
         self.timer = (330.0 if self.level == 0 else 150.0) if fill == "both" else None
+        # Keadaan penilaian, nama & nilai awal dari main_.c dan gdata.c:
+        #   mode_asli  penomoran gim asli = indeks menu + 1 (4 = Mix Up)
+        #   nbola      global `goal` @0x718 -- JUMLAH BOLA; 6 di Mix Up
+        #   zcnt       @0x7e6 penghitung kesalahan untuk SELURUH kontraption
+        #   tx         @0x7ee waktu TERSISA dalam piksel; main_ menyetel 0x140
+        #   range/count/cur2  keadaan petunjuk Master (pickmax/hintmark)
+        self.mode_asli = self.mode + 1
+        self.nbola = 6 if fill == "both" else 1
+        self.zcnt = 0
+        self.tx = 0x140 if fill == "both" else 0
+        self.range_ = 0x140 - 0x14
+        self.count = 4
+        self.cur2 = 0
         self.cur_slot = 0
         self.cur_part = 0
         self.score = 0
@@ -528,10 +547,22 @@ class Game:
                 return i
         return None
 
+    def _hud(self, fb):
+        """Bilah status gim asli: skor di pita atas + bilah timer Mix Up.
+
+        Digambar lewat `render.KanvasSurface` supaya `cc/core/hud.py` tidak
+        perlu versi kedua -- aturan penempatannya satu, sasarannya dua.
+        """
+        k = _rend.KanvasSurface(fb, pygame)
+        _hud.showsc(k, self.score)
+        if self.mode_asli == 4:
+            _hud.timedrw(k, self.tx, self.mode_asli, self.nbola, self.chosen_goal)
+
     def _play(self, fb):
         gid = self.chosen_goal
         # part TETAP tampil (mech mode: zany scenery; zany: mekanisme; both: tidak ada)
         self._blit_scene(fb, gid, archs=self.fixed_archs)
+        self._hud(fb)
         inbox = (self.fill_mode == "zany")   # Zany: kandidat berputar DI DALAM kotak
         for i, s in enumerate(self.slots):
             arch = self._arch(s["arch"])
@@ -620,6 +651,11 @@ class Game:
         # Mix Up: timer berjalan mundur saat membangun (bukan saat bola jalan)
         if self.state == PLAY and self.timer is not None and not self.running:
             self.timer -= 1.0 / 30.0
+            # `tx` @0x7ee = waktu TERSISA dalam piksel (0x140 = penuh), bukan
+            # detik. `timebar()` di gim asli menguranginya satu tiap tik; di
+            # sini diturunkan dari sisa detik supaya lajunya sama.
+            _total = 330.0 if self.level == 0 else 150.0
+            self.tx = max(0, int(0x140 * max(0.0, self.timer) / _total))
             if self.timer <= 0:
                 self.timer = 0
                 self.message = "TIME'S UP! ESC for menu."
@@ -659,9 +695,13 @@ class Game:
                 return
             wrong = [i for i, s in enumerate(self.slots) if s["filled"] != s["correct"]]
             if not wrong:
-                # lengkap & benar -> MENANG. Bonus waktu (Mix Up): 1000/detik tersisa.
-                if self.timer is not None:
-                    self.score += int(self.timer) * 1000
+                # lengkap & benar -> MENANG. Penilaian mengikuti animvm.c case
+                # 0x10: SATU penilaian per kontraption dari `zcnt`, dan HANYA
+                # di mode 4 (Contraption Mix Up). Fill in Mechanisms dan Fill
+                # in Zany Objects memang latihan tanpa skor di gim asli.
+                self.score, self.nbola, _tampil = _hud.skor_akhir(
+                    self.score, self.zcnt, self.mode_asli, self.level + 1,
+                    self.chosen_goal, self.cur2, self.tx, self.nbola)
                 self.anim_fail = None
                 self.anim_limit = None
                 self.start_review(self.chosen_goal, from_play=True)
@@ -709,19 +749,20 @@ class Game:
             return
         pname, pids, parch, pidx = self.palette[self.cur_part]
         if s["correct"] in pids:          # mech: cocok by-KATEGORI; zany: id eksak
-            pts = (10000, 5000)[min(s["tries"], 1)] if s["tries"] < 2 else 2500
-            self.score += pts
             s["filled"] = s["correct"]    # simpan id jawaban
             if pidx >= 0:
                 s["sprite"] = pidx        # tempatkan gambar EKSAK yg tampil di palet
-            self.message = "Correct! +%d" % pts
+            self.message = "Correct!"
             empties = [i for i, sl in enumerate(self.slots) if sl["filled"] is None]
             if empties:
                 self.cur_slot = empties[0]
             else:
-                self.score += 100000
-                self.message = "GREAT! Contraption complete! +100000"
+                self.message = "GREAT! Contraption complete."
         else:
+            # `zcnt` @0x7e6 = penghitung kesalahan untuk SELURUH kontraption.
+            # Skornya dihitung SEKALI di akhir goal dari angka ini, bukan
+            # per kotak -- lihat cc/core/hud.py:skor_akhir().
+            self.zcnt += 1
             s["tries"] += 1
             self.message = "%s %c does not work." % (self.part_word, 0x41 + self.cur_slot)
 

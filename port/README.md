@@ -85,6 +85,9 @@ python work/test_nav.py        # regresi navigasi menu
    (timer + bonus waktu). Level Apprentice / Master Builder tersedia.
 ✅ **Layar judul ASLI dan bergerak**, termasuk teks "CREATIVE CONTRAPTIONS" — teks itu
    digambar opcode `0x11` di dalam skrip animasi, bukan oleh layar statis.
+✅ **Bilah status, skor, timer, petunjuk, dan pesan akhir goal** dari fungsi aslinya
+   (`cc/core/hud.py`). Skoring dibetulkan: satu penilaian per kontraption dari penghitung
+   kesalahan, dan **hanya di Contraption Mix Up** — dua mode isian lain memang tanpa skor.
 ✅ **Navigasi sesuai hierarki asli**: selesai/ESC di contraption → kembali ke pilihan GOAL
    (bukan menu depan); hanya GOAL-ESC yang ke menu depan.
 
@@ -94,7 +97,7 @@ python work/test_nav.py        # regresi navigasi menu
       interaksi hapus-bola dengan blit yang datang sesudahnya.
       ⚠ Enam percobaan di sumbu itu sudah gagal; hipotesis "salinan latar basi" bahkan
       menurunkan hasil 381/402 → 57/402. Baca catatan di `cc/core/adegan.py` dulu.
-- [ ] Status bar/skor lengkap + suara PC-speaker (op `0x04` sudah diparse).
+- [ ] Suara PC-speaker (op `0x04` sudah diparse, belum dibunyikan).
 - [ ] Dua sisa data tangkapan, keduanya ANTARMUKA bukan render kontraption:
       `cc/anim/review_layout.json` (tata letak Review Mechanisms) dan `cc/anim/icons/`.
 

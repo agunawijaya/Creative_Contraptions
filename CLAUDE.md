@@ -209,6 +209,20 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   tidak dipakai sama sekali — layar, animasi, slot, palet, jalur bola, dan "reach"
   semuanya dari `port/cc/core/`. Keduanya kini hanya PEMBANDING.
 
+- **Bilah status, skor, timer, petunjuk, dan pesan akhir goal SUDAH ADA** (2026-08-01):
+  `port/cc/core/hud.py` = padanan `showsc`/`timedrw`/`showhint`/`prompts`/`pickmax`
+  (+ `timebar`). Teks, koordinat, dan percabangannya dari DGROUP dan `src_c`, bukan karangan.
+  Diuji `python work/test_hud.py`.
+- **SKORING DIPERBAIKI** — port lama memberi 10000/5000/2500 ke TIAP kotak dan menghitung
+  skor di semua mode. Gim asli: **satu penilaian per kontraption** dari `zcnt`, dan **hanya
+  di mode 4** (Contraption Mix Up); Fill in Mechanisms dan Fill in Zany Objects memang
+  latihan tanpa skor. Bonus waktu `tx * 100` (sisa waktu, Master, goal 6), bonus bola
+  `(bola-1) * 2500`, bonus Master `cur2 * 1000`.
+- ⭐ **Skor disimpan DIBAGI SEPULUH**: format `" %7ld0"` menempelkan nol harfiah, jadi
+  `sclo += 10000` terbaca "100000". Dan `sclo` itu satu `long` di @0x730 — `schi` @0x732
+  hanyalah nama paruh atasnya (terbukti dari `showsc(sclo, 2)` yang memberi DUA argumen ke
+  fungsi bertiga parameter).
+
 **Berikutnya untuk jalur PORT:**
 1. **21 frame animasi** (goal 1, 2, 3) belum byte-identik. Bedanya kecil dan terpusat;
    record dan posisinya sudah terbukti BENAR. Yang belum diturunkan adalah
@@ -216,7 +230,8 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
    sesudahnya. ⚠ **Enam percobaan di sumbu itu sudah gagal**; hipotesis "salinan latar
    basi" bahkan menurunkan hasil 381/402 → 57/402. Baca catatan panjang di
    `port/cc/core/adegan.py` sebelum mencoba lagi.
-2. Status bar/skor lengkap + suara PC-speaker (op `0x04` sudah diparse).
+2. Suara PC-speaker (op `0x04` sudah diparse, belum dibunyikan). Nada juga dipakai
+   `showsc` saat kedip dan `timedrw` saat bilah timer terisi di awal.
 3. Sisa pemakaian tangkapan, keduanya data ANTARMUKA bukan render kontraption:
    `cc/anim/review_layout.json` (tata letak Review Mechanisms) dan `cc/anim/icons/`.
 
