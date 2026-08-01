@@ -41,9 +41,27 @@ Jadi di hampir semua frame gim aslinya justru memakai latar TERKINI, dan
 entah lubangnya lahir dari `blend()`/`putmsk()` yang menggabungkan mask lama
 dan baru dengan cara yang belum kita turunkan.
 
-Enam percobaan di sumbu hapus-jejak, semuanya gagal. Dicatat di sini supaya
-tidak diulang: yang masih belum diturunkan adalah `prep`/`blend`/`putmsk`/
-`draw` (assembly + blend.c), bukan urutan gambarnya.
+Percobaan KEDUA, kali ini diturunkan langsung dari assembly-nya, bukan dikira:
+
+    prep.asm    menyalin 8 baris x 3 byte dari VRAM ke penyangga halaman
+                -- ia memang MENYIMPAN latar di bawah bola;
+    xform()     urutannya prep(posisi BARU) -> blend -> putmsk(posisi LAMA)
+                -> draw, jadi penyimpanan terjadi SEBELUM penghapusan;
+    blend.c     menandai sel yang beririsan antara kotak lama dan baru
+                supaya putmsk tidak memulihkannya dua kali.
+
+Diterapkan persis dengan urutan itu: 23/402 frame identik. Lebih buruk lagi.
+
+Jadi DUA implementasi model "salinan tersimpan", dengan urutan yang berbeda
+dan salah satunya diturunkan dari assembly, sama-sama jauh di bawah model
+sederhana "pulihkan dari latar terkini" (381/402). Kesimpulan yang paling
+sesuai bukti: `page`/`page2` bukan salinan latar yang dikembalikan mentah --
+`putmsk`/`draw` menyusun bola lewat MASK terhadap isi layar yang hidup,
+sehingga efeknya setara memulihkan latar terkini. Yang belum diturunkan
+adalah kedua rutin itu (`blitmsk.asm`), bukan `prep` atau `blend`.
+
+Tujuh percobaan di sumbu ini. Dicatat supaya tidak diulang: jangan
+memodelkan ulang penyimpanan latar; baca `blitmsk.asm` kalau mau lanjut.
 """
 from . import contrap, pick, render as rend, skrip, vm, font
 from .rng import Rng
