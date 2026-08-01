@@ -301,6 +301,30 @@ if CC_TRACE:
 # CC_REGS=0x8754[,0x876e] -- cetak register + isi memori yang ditunjuk SI/BX
 # setiap kali offset itu dieksekusi. Untuk menjawab "nilainya yang beda, atau
 # tabelnya?" tanpa menebak.
+# CC_RNGLOG=<berkas> -- catat setiap panggilan rnd() @0x5A5B: seed sebelum,
+# argumen n, dan hasilnya. Dipakai untuk MEMBUKTIKAN bahwa tiruan RNG di port
+# menghasilkan urutan yang sama, bukan cuma rumus yang mirip.
+CC_RNGLOG = os.environ.get("CC_RNGLOG")
+if CC_RNGLOG:
+    _rl = open(CC_RNGLOG, "w")
+    _rpend = []
+
+    def _seed():
+        return rdw(uc.reg_read(UC_X86_REG_DS) * 16 + 0x71A)
+
+    def hook_rnd_masuk(uc, addr, size, user):
+        sp = uc.reg_read(UC_X86_REG_SP)
+        n = rdw(SS_() * 16 + sp + 2)          # argumen: [SP+2] sesudah call near
+        _rpend.append((_seed(), n))
+
+    def hook_rnd_keluar(uc, addr, size, user):
+        if _rpend:
+            s0, n = _rpend.pop()
+            _rl.write("%04x %d %d\n" % (s0, n, uc.reg_read(UC_X86_REG_DX)))
+
+    uc.hook_add(UC_HOOK_CODE, hook_rnd_masuk, None, CODE + 0x5A5B, CODE + 0x5A5B)
+    uc.hook_add(UC_HOOK_CODE, hook_rnd_keluar, None, CODE + 0x5A71, CODE + 0x5A71)
+
 CC_REGS = [int(x, 0) for x in os.environ.get("CC_REGS", "").split(",") if x.strip()]
 if CC_REGS:
     def hook_regs(uc, addr, size, user):
