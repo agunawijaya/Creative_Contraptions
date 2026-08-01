@@ -95,8 +95,23 @@ src_c/README.md         RULEBOOK: 17 aturan kompiler MS C 1.04 (baca sebelum men
 src_c/JOURNAL.md        jurnal KEPUTUSAN + jalan buntu + pertanyaan terbuka
 ```
 
-Dokumen: `CODE_MAP.md` (paling akurat & terkini), `ARCHITECTURE.md`, `GAME_GUIDE.md`,
-`DECOMPILE_PLAN.md`, `TARGET_LANGUAGE.md`, `RESUME_EXACT.md` (peta jalur pixel-exact).
+Dokumen root — ⚠ ketiganya ditulis untuk PEMBACA, bukan sebagai catatan kerja
+(ditulis ulang 2026-08-01). Kalau menambah temuan, jaga nadanya:
+
+| berkas | untuk siapa | isinya |
+|---|---|---|
+| `ARCHITECTURE.md` | orang yang BELAJAR pemrograman | bagaimana program 1985 dirancang, dan kenapa |
+| `CODE_MAP.md` | orang yang BELAJAR membaca kode | peta kode + format data, per alamat |
+| `GAME_GUIDE.md` | pemain / pembaca umum | brosur: mode, skenario, sejarah |
+
+⚠ **Tiap gambar WAJIB punya paragraf "Penjelasan gambar."** tepat di bawahnya —
+itu permintaan eksplisit user. Diagramnya dibangkitkan `python work/gendocimg.py`
+(angkanya dibaca dari data nyata, jadi tidak bisa basi diam-diam) dan disimpan di
+`work/doc/`. Periksa dengan:
+`python -c "import re,os;[print(p,os.path.exists(p)) for _,p in re.findall(r'!\[([^\]]*)\]\(([^)]+)\)',open('CODE_MAP.md',encoding='utf-8').read())]"`
+
+Dokumen kerja (boleh berupa catatan mentah): `DECOMPILE_PLAN.md`,
+`TARGET_LANGUAGE.md`, `RESUME_EXACT.md`, `src_c/README.md`, `src_c/JOURNAL.md`.
 Catatan: bagian "Belum" di `port/README.md` **sudah basi** — percayai `CODE_MAP.md`.
 
 ## Menjalankan
