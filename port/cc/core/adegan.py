@@ -98,35 +98,75 @@ Isi penyangga `page2` juga dibuang dari emulator (`CC_VSPTR=2e2:24`) dan
 dibandingkan dengan `latar` di sini: pada frame 10 keduanya IDENTIK
 (`555555` delapan baris). Jadi bedanya bukan pada isi latarnya.
 
-── PETUNJUK TERAKHIR, diukur dari tangkapan gim ──────────────────────────
+── Dua kesimpulan saya sendiri yang TERBANTAH ────────────────────────────
 
-Uji satu langkah: ambil frame gim sebagai MASUKAN, jalankan satu drawball,
-adu dengan frame berikutnya. Dibatasi ke kotak bola supaya blit part tidak
-mengacaukan. Hasilnya 23/118 -- jadi modelnya memang salah, bukan
-akumulasinya.
+1. "Uji satu langkah membuktikan modelnya salah." TIDAK SAHIH. Uji itu
+   mengambil frame gim sebagai masukan, menjalankan satu drawball, lalu
+   mengadu dengan frame berikutnya (dibatasi ke kotak bola). Model setia
+   dapat 23/118. Tapi KONTROL-nya -- model sederhana yang sudah terbukti
+   381/402 -- dapat 26/118 di uji yang sama. Ujinya tidak membedakan apa
+   pun, karena blit part sering jatuh DI DALAM kotak bola di antara dua
+   frame. Jangan pakai lagi tanpa menyaring frame yang bersih dari blit.
 
-Dan inilah yang terlihat pada langkah paling sederhana (frame 5..9, bola
-DIAM di X=51, Y=24 sepanjang itu):
+2. "Bola dihapus lalu digambar ulang bergantian padahal diam." BUKAN
+   misteri. Pada frame 5..9 bola memang diam di X=51, Y=24, dan memang
+   hilang di f007 lalu kembali di f008 -- tetapi yang menghapusnya adalah
+   BLIT PART, bukan penghapusan bola: bingkai part 0 saat itu GRAPH 3,
+   lebar 52 piksel dari x=8, yaitu x 8..59, yang menutupi seluruh kotak
+   bola (48..59). Model sederhana menghasilkan pola yang sama, dan memang
+   ketiga frame itu cocok.
 
-    f005 -> f006   54 piksel   (bingkai part berubah)
-    f006 -> f007   85 piksel   bola DIHAPUS
-    f007 -> f008   52 piksel   bola DIGAMBAR LAGI di tempat yang sama
-    f008 -> f009    0 piksel
+Yang tersisa benar-benar hanya dua gejala, keduanya di goal 1:
+    f089        hapus-jejak separuh tinggi (26 piksel)
+    f121..f136  sisa 7 piksel tetap di (139..145, 34..35)
 
-Bola dihapus di satu panggilan lalu dikembalikan di panggilan berikutnya,
-BERGANTIAN, padahal posisinya tidak berubah sama sekali. Tidak satu pun
-model yang dicoba menghasilkan pola itu: baik "gambar tiap panggilan"
-maupun "(page AND mask) OR sprite" akan meninggalkan bola di tempatnya.
+Yang SUDAH pasti dan tidak perlu diuji ulang:
+  - VM eksak: posisi bola 136/136, bendera hapus 135/136 vs gim
+    (`python work/test_vm_vs_gim.py <folder CC_VRAMSEQ>`);
+  - isi latar port sama dengan penyangga gim (`page2` frame 10 identik);
+  - 0x26AE memang alamat MASUK drawball (offset +0), penyelarasan frame benar;
+  - model "salinan tersimpan" yang diturunkan dari blitmsk.asm memberi
+    23/402 -- jauh di bawah 381/402 -- dan sebabnya BELUM diketahui.
 
-Pola berselang-seling itu berbau halaman ganda yang SESUNGGUHNYA -- dua
-penyangga yang bergantian tampil -- bukan sekadar dua salinan latar. Itu
-arah yang belum diperiksa, dan memeriksanya perlu menelusuri ke mana
-`draw()` benar-benar menulis pada tiap panggilan (bukan mengandalkan
-ES = 0xB800 di teks assembly-nya).
+Penyaringan itu SUDAH dijalankan: dari 136 peristiwa bola, 107 tidak diikuti
+blit part. Model setia hanya dapat 19/106 di antaranya -- jadi ia memang
+salah, bukan korban gangguan blit.
 
-Sembilan percobaan. Yang SUDAH pasti dan tidak perlu diuji ulang:
-VM-nya eksak (posisi 136/136, bendera 135/136), dan isi latar port sama
-dengan penyangga gim (`page2` frame 10 identik).
+Dan inilah pernyataan setepat yang bisa dibuat, dari f011 -> f012 (bola
+(55,24) -> (57,25), kotak lama x=52.., kotak baru x=56..):
+
+    DAERAH TUMPANG-TINDIH KELUAR BERSIH DI GIM. Baris 25 di f012 cyan pada
+    x=56..58; tidak ada sisa bola lama sama sekali.
+
+Model setia meninggalkan noda persis di situ, dan alasannya terbaca dari
+assembly-nya: `blend()` menandai sel tumpang-tindih supaya `putmsk()` TIDAK
+memulihkannya, lalu `draw()` menyusun bola di atas `page` -- salinan yang
+`prep()` ambil SEBELUM penghapusan, jadi masih memuat bola lama. Di mana
+mask bola baru mempertahankan latar, bola lama seharusnya tembus.
+
+Gim tidak menunjukkannya. Ketiga kemungkinan sudah dipersempit dengan
+membuang isi penyangga `page` tepat sesudah `prep` berjalan (hook di masuk
+`blend` @0x5EA6, `CC_VSPTR=2e0:24`):
+
+    panggilan 11, bola (57,25), page=0x0284
+    snapshot: aaa555 aba955 aae955 aaa955 aaa955 aaa555 6a9555 155555
+
+`0xaa` = empat piksel magenta -- BOLA LAMA MEMANG IKUT TERSALIN. Jadi:
+
+  (a) GUGUR -- prep menyalin VRAM yang masih memuat bola lama;
+  (b) tidak mungkin -- `putmsk` jelas melewati sel ber-mask bukan-nol, dan
+      `blend` jelas menandai daerah tumpang-tindih dengan 0xff;
+  (c) rumus `draw` terbaca langsung: VRAM = (page AND mask) OR sprite.
+
+Dengan mask fase 1 baris 0 = `fc 03 ff` dan sprite = `02 a8 00`, byte
+pertamanya menghasilkan (0xaa & 0xfc) | 0x02 = 0xaa -- empat piksel magenta.
+Gim menuliskan cyan di situ.
+
+Jadi salah satu dari ketiga bacaan itu keliru pada tingkat yang tidak
+terlihat dari teks assembly-nya. Langkah berikutnya BUKAN model baru
+melainkan penelusuran tingkat-instruksi di dalam `draw` (@0x657C): rekam
+SI, DI, DL, dan byte yang benar-benar ditulis ke ES:[SI] untuk satu
+panggilan. Semua bahan sudah ada; yang kurang cuma jejak itu.
 """
 from . import contrap, pick, render as rend, skrip, vm, font
 from .rng import Rng
