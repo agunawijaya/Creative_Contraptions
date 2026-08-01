@@ -19,7 +19,7 @@ from cc import cga, assets, text, anim
 from cc.core import archive as _arc, contrap as _con, render as _rend
 from cc.core import pick as _pick, rng as _rng, adegan as _adg
 from cc.core import resensi as _res, hud as _hud, palet as _pal
-from cc.core import menu as _menu
+from cc.core import menu as _menu, bunyi as _bunyi
 
 
 GOAL_NAMES = {1: "Up and At 'Em", 2: "Hair Care", 3: "Easy Eating",
@@ -108,6 +108,10 @@ class Game:
         self.k_misc = _arc.Archive(os.path.join(data_dir, "MISC"))
         self.k_goals = _con.parse(os.path.join(data_dir, "CONTRAP"))
         self.k_anim = _arc.Archive(os.path.join(data_dir, "ANIMATE"))
+        # Suara PC-speaker. Angka di skrip adalah FREKUENSI dalam Hz --
+        # terbaca dari `1193182 / CX` di snd2.asm, bukan pembagi PIT dan bukan
+        # nomor not. Diam sendiri kalau mixer tak tersedia (mis. headless).
+        self.bunyi = _bunyi.Pemutar(pygame)
         # Ikon keempat mode = MISC record 7, 8, 9, 10 -- berurutan, persis
         # urutan menu (Review, Fill Mechanisms, Fill Zany, Mix Up). Dulu empat
         # PNG hasil crop dari render gim; diperiksa piksel per piksel terhadap

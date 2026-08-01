@@ -236,7 +236,11 @@ class VM:
             if nama == "op02":
                 return ("jeda", data[0])
             if nama == "op04":
-                continue                 # bunyi: tidak menggambar apa pun
+                # Bunyi. Tidak menggambar apa pun, tapi TETAP dipancarkan
+                # supaya pemutar bisa mengikutinya; penggambar frame
+                # mengabaikannya. Simpulnya ("op04", mode, payload).
+                simpul = self.simpul[self.n - 1]
+                return ("bunyi", simpul[1], simpul[2] if len(simpul) > 2 else b"")
             if nama == "op05":
                 continue                 # putmsk(): gambar ulang mask bola
             if nama == "op06":

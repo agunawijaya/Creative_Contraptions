@@ -60,8 +60,30 @@ sesuai bukti: `page`/`page2` bukan salinan latar yang dikembalikan mentah --
 sehingga efeknya setara memulihkan latar terkini. Yang belum diturunkan
 adalah kedua rutin itu (`blitmsk.asm`), bukan `prep` atau `blend`.
 
-Tujuh percobaan di sumbu ini. Dicatat supaya tidak diulang: jangan
-memodelkan ulang penyimpanan latar; baca `blitmsk.asm` kalau mau lanjut.
+`blitmsk.asm` akhirnya dibaca, dan semantiknya jelas:
+
+    putmsk(dmask, page2)  di kotak LAMA: tulis byte `page2` HANYA di sel yang
+                          byte mask-nya nol; lewati seluruhnya kalau
+                          prevx == 0x140 ("jangan hapus").
+    draw(page, sy, sx)    di kotak BARU: VRAM = (page AND mask) OR sprite.
+
+⭐ `draw` TIDAK MEMBACA VRAM. Basisnya `page`, salinan yang baru saja diambil
+`prep` -- dan `prep` mengambilnya SEBELUM bola lama dihapus. Kalau kedua kotak
+beririsan, salinan itu masih memuat piksel bola lama.
+Gelung pertama `blend()` hanya menol-kan kedua mask (`*p++ = *q++ = 0`), jadi
+`page2` memang salinan basi, bukan disegarkan.
+
+Model itu diterapkan PERSIS, dan hasilnya tetap 23/402 -- sama dengan
+percobaan sebelumnya, jauh di bawah 381/402. Karena semantiknya kini terbaca
+langsung dari assembly, yang tersisa sebagai tersangka bukan lagi rumusnya
+melainkan URUTAN PANGGILANNYA: `drawball` juga dipanggil di luar VM (mis.
+`setball()` untuk ikon di pita atas), dan tiap panggilan MEMUTAR page/page2.
+Kalau rotasinya bergeser satu, `page2` menunjuk salinan yang salah --
+sedangkan model sederhana kebal terhadap itu karena selalu memakai latar
+terkini.
+
+Delapan percobaan di sumbu ini. Untuk melanjutkan, yang dibutuhkan bukan
+rumus melainkan urutan panggilan `drawball` yang lengkap dari emulator.
 """
 from . import contrap, pick, render as rend, skrip, vm, font
 from .rng import Rng
@@ -153,6 +175,8 @@ def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
                 font.gambar(buf, e[1]["teks"], e[1]["x"], e[1]["y"],
                             e[1]["warna"], rend.W, rend.H, e[1]["w"], e[1]["h"])
             continue
+        if e[0] == "bunyi":
+            continue                       # tak ada efek visual
         if e[0] != "bola":
             continue
         # 1) inilah yang terlihat saat drawball ini DIMASUKI
@@ -193,6 +217,8 @@ def jalur_bola(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
         e = mesin.langkah()
         if e is None or e[0] in ("selesai", "belum"):
             break
+        if e[0] == "bunyi":
+            continue                       # tak ada efek visual
         if e[0] != "bola":
             continue
         p = parts[mesin.aktif]

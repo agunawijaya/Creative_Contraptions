@@ -239,8 +239,11 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
    sesudahnya. ⚠ **Enam percobaan di sumbu itu sudah gagal**; hipotesis "salinan latar
    basi" bahkan menurunkan hasil 381/402 → 57/402. Baca catatan panjang di
    `port/cc/core/adegan.py` sebelum mencoba lagi.
-2. Suara PC-speaker (op `0x04` sudah diparse, belum dibunyikan). Nada juga dipakai
-   `showsc` saat kedip dan `timedrw` saat bilah timer terisi di awal.
+2. ~~Suara PC-speaker~~ — **SELESAI**: `port/cc/core/bunyi.py`. Angka di skrip adalah
+   **frekuensi dalam Hz** (dari `1193182 / CX` di `snd2.asm`), bukan pembagi PIT.
+   Tiap not 3 byte: `u16 frekuensi + u8 durasi` (tik INT 1Ch, ~18,2/detik), diakhiri
+   `FFFF`; mode 2 sekali jalan, mode 3 BERULANG, mode 1 sapuan tiga word.
+   Diuji `python work/test_bunyi.py`. 117 not terdekode dari skrip goal 1.
 3. Sisa pemakaian tangkapan, keduanya data ANTARMUKA bukan render kontraption:
    `cc/anim/review_layout.json` (tata letak Review Mechanisms) dan `cc/anim/icons/`.
 

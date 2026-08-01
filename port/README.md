@@ -97,7 +97,7 @@ python work/test_nav.py        # regresi navigasi menu
       interaksi hapus-bola dengan blit yang datang sesudahnya.
       ⚠ Enam percobaan di sumbu itu sudah gagal; hipotesis "salinan latar basi" bahkan
       menurunkan hasil 381/402 → 57/402. Baca catatan di `cc/core/adegan.py` dulu.
-- [ ] Suara PC-speaker (op `0x04` sudah diparse, belum dibunyikan).
+- [x] Suara PC-speaker — `cc/core/bunyi.py`; nada = frekuensi Hz, not 3 byte.
 - [ ] Dua sisa data tangkapan, keduanya ANTARMUKA bukan render kontraption:
       `cc/anim/review_layout.json` (tata letak Review Mechanisms) dan `cc/anim/icons/`.
 
