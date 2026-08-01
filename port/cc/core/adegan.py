@@ -67,7 +67,8 @@ from . import contrap, pick, render as rend, skrip, vm, font
 from .rng import Rng
 
 
-def susun(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0, varian=None):
+def susun(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0, varian=None,
+          sub=None, isi=True, nbola=0):
     """-> (var, parts, latar) untuk satu goal.
 
     `parts` sudah URUT RANTAI sesuai `state` di CONTRAP; `latar` adalah layar
@@ -91,12 +92,19 @@ def susun(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0, varian=Non
     tm = pick.tabel(mechs, jm)
     selm = pick.fillans(tm, jm)
 
-    latar = rend.setupscr(rend.new_fb(), mode, nbola=0, misc=misc)
+    # `sub` = nomor goal. Ia menentukan strip cyan di dasar layar:
+    #     if (sub == 1 && mode != 0 && mode != 1)
+    #         fillrect(0x10, 0xc0, 0x12f, 199, 1);
+    latar = rend.setupscr(rend.new_fb(), mode, nbola=nbola, misc=misc,
+                          sub=goal if sub is None else sub)
     rend.apply(latar, contrap.draw_list(
-        var, graph, mechs, None, isi_mekanisme=True, corong=False,
+        var, graph, mechs, None, isi_mekanisme=isi, corong=False,
         pilihan={"zany": [tz[i]["idx"] for i in selz],
                  "mech": [None if i is None else tm[i]["idx"] for i in selm]}))
     rend.labels(latar, var["pos"])
+    # f171f(): pojok kanan pita atas -- nama goal (atau skor di mode 4).
+    from . import hud
+    hud.judul_atau_skor(rend.KanvasFB(latar), mode, goal if sub is None else sub)
 
     parts = []
     c_m = c_z = 0
@@ -119,10 +127,10 @@ def susun(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0, varian=Non
 
 
 def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
-           maks=400, varian=None):
+           maks=400, varian=None, sub=None):
     """-> daftar framebuffer indeks-warna, satu per panggilan drawball."""
     var, parts, latar = susun(goal, graph, mechs, misc, animate, kontrap,
-                              seed, mode, varian)
+                              seed, mode, varian, sub)
     if not parts:
         return []
     tampil = [row[:] for row in latar]

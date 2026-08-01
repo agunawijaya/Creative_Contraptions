@@ -114,8 +114,19 @@ class Game:
         self.menu_icons = [_rend.sprite_surface(self.k_misc, self.k_misc.recs[i], pygame)
                            for i in (7, 8, 9, 10)]
         self._scene_cache = {}
-        # `mode` di setupscr.c menentukan warna pita bawah; mode 0/1 = cyan.
-        # Terukur: layar design mode Fill in Mechanisms memakai cabang ini.
+        # `mode` di setupscr.c menentukan warna pita bawah:
+        #     col = (mode == 0 || mode == 1) ? 1 : 0
+        # Mode 0 (attract/judul) dan 1 (Review) -> cyan; 2, 3, 4 -> BIRU TUA.
+        # Nilai bawaan 0 dipakai layar judul dan pembanding attract; layar
+        # permainan mengoper mode aslinya sendiri.
+        #
+        # ⚠ Ini sempat dipatok 0 untuk SEMUA layar. Tangkapan rujukan kami
+        # memang mode 0 -- emulator menambal nomor goal pada `loadcon` PERTAMA,
+        # yang terjadi saat layar judul -- jadi kecocokan 100% itu diukur
+        # terhadap layar attract, bukan layar permainan. Diperiksa terhadap
+        # tangkapan mode 2 sungguhan (OBSERVE=fillmech): baris 160..199
+        # cocok 12.800/12.800 dengan setupscr(mode=2, sub=1), dan 2.304 piksel
+        # meleset kalau `sub` tidak dioper.
         self.mode_latar = 0
         self.last_variant = {}    # gid -> varian terakhir (agar tak berulang, spt 0x1e30)
         self.cur_variant = 0
@@ -270,6 +281,13 @@ class Game:
             text.draw_center(fb, opt, yy, color=col, size=13)
         text.draw_center(fb, "Up/Down to move, ENTER to choose", 186, color=2, size=10)
 
+    def _mode_layar(self):
+        """Nomor mode gim asli untuk layar yang sedang tampil.
+
+        Menu port berindeks 0..3; gim asli memakai 1..4 (0 = attract/judul).
+        """
+        return getattr(self, "mode_asli", 0) if self.state in (PLAY, PLAYANIM) else 0
+
     def _blit_scene(self, fb, gid, draw_mech=True, archs=None):
         """Gambar contraption. Dibangkitkan dari berkas aset, bukan dari daftar
         draw hasil tangkapan emulator.
@@ -279,11 +297,11 @@ class Game:
         if archs is not None:
             draw_mech = "MECHS" in archs
         vi = getattr(self, "cur_variant", 0)
-        surf = self._scene_surface(gid, vi, draw_mech)
+        surf = self._scene_surface(gid, vi, draw_mech, mode=self._mode_layar())
         if surf is not None:
             fb.blit(surf, (0, 0))
 
-    def _scene_surface(self, gid, vi, isi_mekanisme, seed=0):
+    def _scene_surface(self, gid, vi, isi_mekanisme, seed=0, mode=None):
         """Layar contraption DIBANGKITKAN dari CONTRAP+GRAPH+MECHS+MISC.
 
         Urutan panggilannya meniru game asli: loadcon() mengundi varian
@@ -295,33 +313,21 @@ class Game:
         `vi` dipakai hanya kalau pemanggil memang ingin varian tertentu
         (mis. navigasi menu); kalau None, undian yang menentukan.
         """
-        key = (gid, vi, bool(isi_mekanisme), seed)
+        mode = self.mode_latar if mode is None else mode
+        key = (gid, vi, bool(isi_mekanisme), seed, mode)
         if key in self._scene_cache:
             return self._scene_cache[key]
-        vs = self.k_goals.get(gid)
-        if not vs:
+        # Disusun oleh cc/core/adegan.susun() -- SAMA dengan yang dipakai
+        # penggenerasi animasi. Dulu blok ini menyalin logikanya sendiri, dan
+        # itu langsung menggigit: nama goal di pita atas ditambahkan di
+        # adegan.susun() tapi layar ini tidak ikut berubah karena jalurnya beda.
+        _var, _parts, fb = _adg.susun(
+            gid, self.k_graph, self.k_mechs, self.k_misc, self.k_anim,
+            self.k_goals, seed=seed, mode=mode, varian=vi, sub=gid,
+            isi=bool(isi_mekanisme), nbola=1)
+        if fb is None:
             self._scene_cache[key] = None
             return None
-        rng = _rng.Rng(seed)
-        undi = _pick.loadcon_pick(rng, len(vs))
-        var = vs[min(vi, len(vs) - 1)] if vi is not None else vs[undi]
-
-        jz = [t for (y, x, t) in var["zany"]]
-        tz = _pick.tabel(self.k_graph, jz)
-        zs = [tz[i]["idx"] for i in _pick.pickpart(rng, tz, jz, sub=gid)]
-
-        jm = [t for (y, x, t) in var["mech"]]
-        tm = _pick.tabel(self.k_mechs, jm)
-        ms = [None if i is None else tm[i]["idx"]
-              for i in _pick.fillans(tm, jm)]
-
-        fb = _rend.setupscr(_rend.new_fb(), self.mode_latar, nbola=1,
-                            misc=self.k_misc)
-        dl = _con.draw_list(var, self.k_graph, self.k_mechs, None,
-                            isi_mekanisme=bool(isi_mekanisme), corong=False,
-                            pilihan={"zany": zs, "mech": ms})
-        _rend.apply(fb, dl)
-        _rend.labels(fb, var["pos"])
         surf = _rend.to_surface(fb, pygame)
         self._scene_cache[key] = surf
         return surf

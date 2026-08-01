@@ -49,6 +49,8 @@ S_ULANG = 0xAFE          # "Press SPACE BAR to see it work again."
 S_HINT = 0xA26           # "GAME OVER"
 
 HINT_REC = 19            # load(miscfh, level_, 0x13, hintspr) -> MISC record 19
+TBL_NAMA = 0x922         # tabel nama goal, diindeks `sub` (1..6)
+TBL_MEK = 0x8CA          # tabel nama mekanisme; indeks 0 = " " (kosong)
 
 
 def _str(addr):
@@ -56,6 +58,52 @@ def _str(addr):
     dg = dgtab.dgroup()
     akhir = dg.find(b"\0", addr)
     return dg[addr:akhir if akhir >= 0 else addr].decode("latin-1")
+
+
+def nama_goal(sub):
+    """Nama goal dari tabel DGROUP @0x922, diindeks `sub`.
+
+    Bukan daftar yang ditulis tangan di port: string ini memang ada di segmen
+    data gim. tab[0] adalah " " (spasi), jadi indeks 0 sengaja tidak
+    menggambar apa pun.
+    """
+    from . import dgtab
+    if not (0 <= sub < 7):
+        return ""
+    return _str(dgtab.word(TBL_NAMA + 2 * sub))
+
+
+def judul_atau_skor(k, mode, sub, skor=0, rev=None):
+    """`f171f()` — pojok kanan pita atas.
+
+        if (mode == 4) showsc(sclo, schi, 0);
+        else { t = tab[idx]; text(t, 0xc8, 0, 1, 1, 2); }
+
+    ⭐ Satu tempat, isi berganti menurut layarnya. Yang menentukan bukan cuma
+    `mode` melainkan TABEL dan INDEKS yang dioper pemanggilnya:
+
+        layar judul   f171f(2, 0x8ca, 0, ...)        -> tab[0] = " ", kosong
+        Review        f171f(mode, 0x8ca, cur+1, ...) -> nama MEKANISME
+        Fill/Zany     f171f(2, 0x922, sub, ...)      -> nama GOAL
+        Mix Up        mode == 4                       -> SKOR
+
+    ⚠ Memukul rata "selain mode 4 tampilkan nama goal" langsung meleset 1.102
+    piksel di layar judul: di situ indeksnya 0, yang isinya spasi.
+    """
+    if mode == 4:
+        return showsc(k, skor, 0)
+    if mode == 0:
+        return False                     # tab[0] = " ": tidak menggambar apa pun
+    if mode == 1:
+        from . import dgtab
+        if rev is None:
+            return False
+        nm = _str(dgtab.word(TBL_MEK + 2 * (rev + 1)))
+    else:
+        nm = nama_goal(sub)
+    if nm.strip():
+        k.teks(nm, 0xC8, 0, 2)
+    return False
 
 
 def skor_teks(nilai):
