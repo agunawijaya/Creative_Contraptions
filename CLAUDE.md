@@ -200,11 +200,20 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
    Layar judul memakai JALUR KODE YANG SAMA dgn layar design, hanya `sub = 0x80`.
 - Animasi judul rakitan tangan (`build_title_anim`) DIBUANG — tak satu pun pikselnya terbukti.
 
-- **ANIMASI dibangkitkan sendiri** (2026-08-01): mesin `animvm()` di
-  `port/cc/core/vm.py` menjalankan skrip dari berkas aset. Terukur vs tangkapan VRAM
-  emulator: **396/402 frame byte-identik, 99,99920% piksel**. Goal 4, 5, 6 dan layar
-  judul **100% frame**. Sisa 6: goal 1 f089 & f121, goal 2 f034, goal 3 f021/023/026. Judul "CREATIVE CONTRAPTIONS" ternyata digambar opcode `0x11`
-  DI DALAM skrip animasi, bukan oleh layar statis.
+- ⭐ **ANIMASI 100% IDENTIK** (2026-08-01): mesin `animvm()` di `port/cc/core/vm.py`
+  menjalankan skrip dari berkas aset. Terukur vs tangkapan VRAM emulator, animasi
+  PENUH ketujuh layar dari frame pertama sampai habis:
+  **1.210/1.210 frame byte-identik, 77.440.000/77.440.000 piksel (100,000000%)**.
+  Uji mandiri (membuat tangkapannya sendiri): `python work/test_anim_vs_gim.py`.
+  Rinciannya: goal 1 136, goal 2 71, goal 3 88, goal 4 79, goal 5 66, goal 6 95,
+  layar judul 675 frame.
+  Tiga hal yang membuka sisanya, dan ketiganya DIUKUR bukan dibaca:
+  - opcode `0x05` = **hapus bola** (`putmsk(buf9c5, page2)` dgn mask nol), bukan no-op;
+  - `end` (0xFF) = akhir skrip **satu part**, bukan akhir animasi — gelung luar
+    `animvm.c` memajukan ke part berikutnya;
+  - opcode `0x11` memanggil `bounce()` LEBIH DULU: bola memantul enam kali ke tepi
+    layar acak, teks "CREATIVE CONTRAPTIONS" baru muncul sesudahnya. Undiannya cocok
+    karena seed port sesudah pemilihan part = `0xa6b8`, sama dgn @0x71a di emulator.
 - **Port TIDAK lagi membaca rekaman.** `port/cc/anim/*.dat` dan `port/cc/draws/*.json`
   tidak dipakai sama sekali — layar, animasi, slot, palet, jalur bola, dan "reach"
   semuanya dari `port/cc/core/`. Keduanya kini hanya PEMBANDING.
@@ -230,6 +239,27 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   alamat RET (0x3C4E) isinya langsung muncul. Alat diagnosisnya di `work/emu.py`:
   `CC_VSWORD` (word DGROUP per frame), `CC_VSMEM` (byte dari alamat tetap),
   `CC_VSPTR` (baca word sebagai alamat lalu buang isinya), `CC_MAXINSN`, `CC_OBSKEYS`.
+- **Strip di mode ISIAN juga terukur** (2026-08-01). "Terhalang emulator" untuk KEDUA
+  kalinya berarti "terhalang harness kita sendiri": `work/emu.py` mem-bypass gelung
+  penempatan part (`hook_2e90`) dan `drawpal()` hidup di dalamnya. Saklar baru
+  `CC_NOSKIP=1` mematikan bypass-nya. Hasil: aturan jendela-geser + urutan-dibalik +
+  isian hitam berlaku sama di mode ISIAN, pada posisi piksel yang sama.
+- ⭐ **BERAPA pilihan yang ditawarkan tergantung MODE** (2026-08-01). `nmech` @0x3ac
+  terukur 3, 4, 3 untuk goal 1, 2, 4 — jumlah JENIS yang DIBUTUHKAN kontraption itu,
+  bukan sembilan kategori seperti yang selalu diberikan port lama. Sebabnya di
+  `mkpal()` @0x3909: `if (lvl3 != 1 || base[i*0xc] == tab[j*3+2])`, dan `lvl3 == 1` di
+  mode 1/2/3 sedangkan `lvl3 == 3` di mode 4. Jadi Fill in Mechanisms hanya menawarkan
+  part yang memang dipakai — soalnya "taruh di kotak yang benar" — sementara
+  Contraption Mix Up menawarkan seluruh daftar, dan itulah yang membuatnya lebih sulit.
+- ⭐ **CONTRAPTION MIX UP = RENTETAN 6 KONTRAPTION** (2026-08-01), bukan satu yang
+  dipilih lewat layar goal. `main_.c` case 4 tidak pernah memanggil `goalmenu()`; ia
+  memasang `sub = 0; goal = 6; pickmax();` lalu tiap putaran `sub++`. Master Builder =
+  enam ronde lalu keluar; Apprentice tak berujung (`goal++` dan `goal--` saling
+  meniadakan). Skor terkumpul lintas ronde. Diuji `python work/test_mixup.py`.
+- **`hintmark()` ADA** (2026-08-01): `hud.Petunjuk`. Penanda huruf pindah ke slot acak
+  tiap pewaktu habis; warna 0 = petunjuk sungguhan dan menyalakan `mflag` (syarat bonus
+  bola), warna 2 = penanda biasa. `count` menyusut tiap `pickmax()`, jadi petunjuknya
+  makin sempit seiring permainan.
 - **Layar menu, level, pemilih goal, dan Review dari TABEL DGROUP** (2026-08-01):
   `port/cc/core/menu.py` (`mtabmn` @0x1D48, `mtablv` @0x1B74, `menu` @0x1C28) dan
   `resensi.py`. Menu utama **64.000/64.000 piksel**, layar Review **64.000/64.000**
@@ -240,19 +270,11 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   arenanya belum cocok karena keadaan RNG saat itu bukan seed 0.
 
 **Berikutnya untuk jalur PORT:**
-1. **21 frame animasi** (goal 1, 2, 3) belum byte-identik. ⚠ **VM-nya sendiri sudah
-   TERBUKTI EKSAK**: diadu langsung dengan keadaan bola gim yang dibaca dari DGROUP
-   (`python work/test_vm_vs_gim.py <folder CC_VRAMSEQ>`) — **posisi bola 136/136**,
-   **bendera hapus 135/136** (satu-satunya beda di frame 1 = keadaan awal `prevx=0x140`
-   dari setupscr, bukan opcode). Sisa bedanya SEPENUHNYA soal isi yang dipulihkan saat
-   menghapus. Isi penyangga `page2` juga sudah dibuang (`CC_VSPTR=2e2:24`) dan pada
-   frame 10 IDENTIK dengan latar port. Sembilan percobaan; baca catatan panjang di
-   `port/cc/core/adegan.py` sebelum menyentuhnya lagi. Bedanya kecil dan terpusat;
-   record dan posisinya sudah terbukti BENAR. Yang belum diturunkan adalah
-   `prep`/`blend`/`putmsk`/`draw` — interaksi hapus-bola dengan blit yang datang
-   sesudahnya. ⚠ **Enam percobaan di sumbu itu sudah gagal**; hipotesis "salinan latar
-   basi" bahkan menurunkan hasil 381/402 → 57/402. Baca catatan panjang di
-   `port/cc/core/adegan.py` sebelum mencoba lagi.
+1. ~~Frame animasi yang belum byte-identik~~ — **SELESAI**: 1.210/1.210 frame,
+   100,000000% piksel (`python work/test_anim_vs_gim.py`). Catatan panjang tentang
+   sembilan percobaan yang gagal tetap disimpan di `port/cc/core/adegan.py`: yang
+   akhirnya membuka semuanya adalah MEREKAM (`CC_TRACEWR`) lalu MENYAPU kombinasi
+   secara terukur, bukan menafsirkan assembly.
 2. ~~Suara PC-speaker~~ — **SELESAI**: `port/cc/core/bunyi.py`. Angka di skrip adalah
    **frekuensi dalam Hz** (dari `1193182 / CX` di `snd2.asm`), bukan pembagi PIT.
    Tiap not 3 byte: `u16 frekuensi + u8 durasi` (tik INT 1Ch, ~18,2/detik), diakhiri
@@ -260,6 +282,13 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
    Diuji `python work/test_bunyi.py`. 117 not terdekode dari skrip goal 1.
 3. Sisa pemakaian tangkapan, keduanya data ANTARMUKA bukan render kontraption:
    `cc/anim/review_layout.json` (tata letak Review Mechanisms) dan `cc/anim/icons/`.
+4. **Strip palet di mode Mix Up belum terukur.** Di mode 4 `runplay` memanggil
+   `pickvar`, bukan `review`, jadi `drawpal` tidak lewat RET 0x3C4E; empat percobaan
+   menangkapnya gagal. Model "seluruh daftar ditawarkan di mode 4" diturunkan dari
+   `mkpal.c` yang byte-exact — belum diadu piksel. Jangan catat sebagai terverifikasi.
+5. **Antarmuka bermain port masih karangan sendiri.** Yang sudah terukur adalah layar,
+   animasi, strip palet, HUD, dan struktur mode; kotak sorotan/panah/pesan di
+   `_play()` belum pernah diadu piksel dengan gim asli.
 
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
 
@@ -270,6 +299,17 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   frame-0) sudah dibuang: adegan dan animasi kini lahir dari data yang sama, oleh undian
   yang sama, jadi tidak ada yang perlu dicocokkan. Bug "layar design ≠ layar run" tidak
   bisa terjadi lagi **secara konstruksi**, bukan karena diperbaiki.
+- **"TERHALANG EMULATOR" DUA KALI TERNYATA "TERHALANG HARNESS SENDIRI".** Pertama:
+  tangkapan `drawpal` diambil di alamat MASUK, bukan RET. Kedua: `work/emu.py` sengaja
+  mem-bypass gelung penempatan part (`hook_2e90`) dan `drawpal` hidup di dalamnya —
+  saklar `CC_NOSKIP=1` menyelesaikannya. Sebelum menyimpulkan "emulator tidak bisa",
+  periksa dulu hook dan stub milik sendiri.
+- **UJI YANG BASI GAGAL DIAM-DIAM, ATAU LEBIH BURUK: TETAP LULUS.** `test_fill`,
+  `test_zany`, `test_review` sudah lama gagal karena melewatkan layar LEVEL yang
+  ditambahkan belakangan. `test_mixup` lebih licin: ia menavigasi lewat layar GOAL, dan
+  sesudah layar itu dihapus untuk Mix Up ia TETAP "lulus" karena tombol berlebihnya
+  cuma terserap gelung PLAY. Jalankan seluruh berkas `work/test_*.py`, jangan hanya
+  yang sedang dikerjakan.
 - **ALAT UKUR BISA MEMBATASI TEMUAN.** Jumlah varian sempat diambil dari `len(draws_var[gid])`
   — yaitu dari berapa banyak berkas TANGKAPAN yang kebetulan ada, sehingga varian yang belum
   sempat direkam tak pernah terpilih. Yang membuatnya sulit terlihat: `work/test_allgoals.py`

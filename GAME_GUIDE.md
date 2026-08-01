@@ -66,6 +66,20 @@ di dalam kotak yang berkedip, bukan di strip bawah layar.
 Berwaktu. Berskor. Kedua jenis part hilang sekaligus, dan **sebagian part yang
 ditawarkan memang salah.** Ini mode yang membuat orang mengulang.
 
+Dan ia bukan satu kontraption, melainkan **rentetan**. Kamu tidak memilih tujuan di
+sini: keenam kontraption datang berurutan, satu demi satu, dengan skor yang terus
+menumpuk. Di tingkat *Master Builder* rentetan itu berhenti sesudah kontraption keenam;
+di tingkat *Apprentice* ia berputar terus sampai kamu menekan ESC.
+
+Bedanya dengan dua mode isian bukan cuma waktu. Di *Fill in Mechanisms* kamu hanya
+ditawari mekanisme yang memang dipakai kontraption itu — tugasmu menaruh masing-masing di
+kotak yang benar. Di Mix Up tawarannya **seluruh daftar**, jadi kamu harus tahu mekanisme
+mana yang seharusnya ada di situ, bukan sekadar di mana ia duduk.
+
+Di *Master Builder* ada satu bantuan lagi: sebuah huruf penanda yang berpindah-pindah ke
+kotak acak. Kadang ia cuma penanda; kadang — kalau warnanya berubah — ia petunjuk
+sungguhan, dan menyelesaikan kotak itu memberimu bola tambahan.
+
 ---
 
 ## Berapa banyak yang sebenarnya bisa dimainkan?

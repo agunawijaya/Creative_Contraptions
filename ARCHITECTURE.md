@@ -315,20 +315,32 @@ yang berbeda: menulis ulang mesin animasinya dalam bahasa lain, memberinya berka
 yang sama, dan membandingkan **setiap bingkai** dengan memori layar gim aslinya.
 
 ```
-tujuh layar (6 kontraption + layar judul)
-  layar diam  : 448.000 / 448.000 piksel   identik
-  animasi     : 381 / 402 bingkai          byte-identik
+tujuh layar (6 kontraption + layar judul), animasi PENUH sampai habis
+  bingkai     : 1.210 / 1.210          byte-identik
+  piksel      : 77.440.000 / 77.440.000   (100,000000 %)
 ```
 
-Tiga tujuan terakhir dan layar judul cocok **seluruh bingkainya**. Yang membuat uji ini
-berbeda: implementasi ulangnya tidak berbagi satu baris kode pun dengan aslinya, jadi
-kecocokan bingkai per bingkai hanya mungkin kalau *aturannya* memang sudah dipahami —
-bukan sekadar byte-nya disalin.
+Setiap layar cocok **seluruh bingkainya**, dari yang pertama sampai yang terakhir. Yang
+membuat uji ini berbeda: implementasi ulangnya tidak berbagi satu baris kode pun dengan
+aslinya, jadi kecocokan bingkai per bingkai hanya mungkin kalau *aturannya* memang sudah
+dipahami — bukan sekadar byte-nya disalin.
 
-Dua puluh satu bingkai yang tersisa juga informatif, dan sengaja tidak kami sembunyikan.
-Bedanya kecil dan terpusat di satu tempat: cara potongan latar disimpan dan dikembalikan
-saat bola dihapus. Komponen yang dipilih dan posisinya sudah terbukti benar; yang belum
-diturunkan adalah tiga rutin assembly yang mengurus penghapusan itu.
+Perjalanan menuju angka itu justru bagian yang paling banyak mengajarkan, dan sengaja
+tidak kami sembunyikan. Selama sembilan percobaan, sisa bingkai yang tidak cocok kami
+serang dengan cara yang salah: membaca kode assembly-nya lalu **menyimpulkan** apa yang
+ia lakukan. Setiap kesimpulan masuk akal, dan setiap kali hasilnya lebih buruk — satu
+hipotesis bahkan menjatuhkan angkanya dari 381 ke 57 bingkai.
+
+Yang akhirnya berhasil adalah berhenti menafsirkan dan mulai **merekam**: emulatornya
+diminta mencatat setiap penulisan memori selama satu pemanggilan tertentu. Rekaman itu
+langsung memperlihatkan sesuatu yang tak terbaca dari kodenya — sesudah bola digambar,
+ia **dihapus lagi** oleh sebuah instruksi skrip yang selama ini kami anggap tidak
+melakukan apa-apa. Dua salah baca serupa menyusul: penanda "akhir" di skrip ternyata
+hanya akhir bagian satu komponen, bukan akhir animasi; dan instruksi yang menulis judul
+gim ternyata memantulkan bola ke seluruh tepi layar lebih dulu.
+
+Pelajarannya bisa dipakai di mana saja: **angka yang membaik bukan bukti bahwa
+penjelasannya benar**, dan bacaan yang meyakinkan bukan pengganti pengukuran.
 
 **Kenapa ini penting untuk dokumen belajar?** Karena tidak ada satu kalimat pun di sini
 yang berasal dari tebakan. Kalau pemahaman kami tentang format record salah, gambarnya

@@ -315,14 +315,14 @@ ini **dihasilkan kompiler** dari sebuah `switch` — jadi tiap "handler" sebenar
 | `0x03` | lempar bola ke part **berikutnya** (parabola `f2823`) | 2 byte |
 | `0x0C` | lempar bola ke koordinat **relatif** | 2 byte |
 | `0x04` | ganti sumber bunyi | **panjang berubah-ubah** |
-| `0x05` | `putmsk()` — gambar ulang mask bola | — |
+| `0x05` | **hapus bola** (`putmsk()` dgn mask nol) | — |
 | `0x06` | reset "jangan hapus" | — |
 | `0x0D` | tandai **awal badan gelung** | — |
 | `0x0E` | aktifkan mode tunggu-tombol | — |
 | `0x0F` | akhir gelung / tunggu tombol | 1 byte pencacah |
 | `0x10` | akhir tujuan: bonus + skor | — |
 | `0x11` | **tulis teks** berparameter dari skrip | 8 byte + string |
-| `0xFF` | akhir skrip | — |
+| `0xFF` | akhir skrip **satu part** — lanjut ke part berikutnya | — |
 
 Beberapa hal di tabel ini mahal didapat dan mudah salah:
 
@@ -335,7 +335,19 @@ Beberapa hal di tabel ini mahal didapat dan mudah salah:
   yang salah, padahal kursor skripnya yang tergelincir.
 - **`0x11` membawa panjang string secara EKSPLISIT**, bukan penanda NUL. Justru opcode
   inilah yang menggambar judul `CREATIVE CONTRAPTIONS` di layar pembuka — teks itu bagian
-  dari *animasi*, bukan dari layar diam.
+  dari *animasi*, bukan dari layar diam. Dan sebelum satu pun parameternya dibaca, ia
+  memanggil `bounce()`: bola dilempar **enam kali** ke tepi layar yang berputar searah
+  jarum jam, masing-masing ke titik acak. Judulnya baru muncul sesudah itu — ratusan
+  bingkai kemudian.
+- **`0x05` menghapus bola, bukan menggambarnya.** Ia memanggil `putmsk()` dengan sebuah
+  penyangga mask yang isinya nol, dan `putmsk` melewati sel yang mask-nya *bukan* nol —
+  jadi mask nol berarti seluruh kotak dikembalikan ke isi sebelum bola digambar. Selama
+  lama opcode ini dibaca sebagai "gambar ulang mask" dan diperlakukan seolah tidak
+  melakukan apa-apa.
+- **`0xFF` bukan akhir animasi.** Ia hanya menghentikan gelung yang menjalankan skrip
+  satu komponen; gelung di luarnya lalu memasang kursor ke skrip komponen berikutnya.
+  Salah membacanya membuat animasi berhenti di tengah jalan — pada satu tujuan hanya 22
+  dari 66 bingkai yang pernah dijalankan.
 - **`0x0C` membaca sasarannya dari operan opcode BERIKUTNYA** di skrip yang sama, relatif
   ke posisi **part** (bukan posisi bola), dan **tidak** memajukan kursor skrip — jadi opcode
   itu tetap dijalankan lagi sesudahnya. Parameter lengkungnya juga dipakai **mentah**:
