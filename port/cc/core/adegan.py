@@ -98,52 +98,44 @@ Isi penyangga `page2` juga dibuang dari emulator (`CC_VSPTR=2e2:24`) dan
 dibandingkan dengan `latar` di sini: pada frame 10 keduanya IDENTIK
 (`555555` delapan baris). Jadi bedanya bukan pada isi latarnya.
 
-── Apa yang AKHIRNYA terbukti, lewat jejak instruksi ────────────────────
+── Bagaimana model ini didapat, dan apa yang tersisa ────────────────────
 
-Berhenti membaca assembly lalu MENYIMPULKAN, dan mulai merekam apa yang
-benar-benar terjadi (`CC_TRACEWR` + `CC_TRACERD` di work/emu.py). Hasilnya
-langsung, pada satu panggilan `draw()`:
+Sembilan percobaan gagal karena MEMBACA assembly lalu menyimpulkan. Yang
+akhirnya berhasil: MEREKAM (`CC_TRACEWR`/`CC_TRACERD` di work/emu.py).
 
-    65b5  baca page    -> 55 55 55 55 ...   (latar BERSIH)
-    65bb  baca mask    -> ff c0 3f ...      (fase 3, sesuai dugaan)
-    65c3  baca sprite  -> 00 2a 80 ...      (fase 3, sesuai dugaan)
-    65c5  tulis VRAM   -> 55 6a 95 ...
+Satu panggilan `draw()`:
+    65b5 baca page   -> 55 55 55 ...   LATAR, bukan snapshot berbola
+    65bb baca mask   -> ff c0 3f ...   fase 3
+    65c3 baca sprite -> 00 2a 80 ...   fase 3
+    65c5 tulis VRAM  -> 55 6a 95 ...
+dan (0x55&0xff)|0x00=0x55, (0x55&0xc0)|0x2a=0x6a, (0x55&0x3f)|0x80=0x95 --
+cocok byte per byte. Rumus `draw` benar; anggapan bahwa `page` memuat bola
+lama yang salah.
 
-dan (0x55 & 0xff) | 0x00 = 0x55, (0x55 & 0xc0) | 0x2a = 0x6a,
-(0x55 & 0x3f) | 0x80 = 0x95 -- COCOK byte per byte.
+`blend()` ternyata MENULIS ke `page` (offset kode 5f60). Pada panggilan
+tumpang-tindih PARSIAL ia menulis tepat 16 byte = 8 baris x 2 kolom yang
+beririsan -- bukan 24. Jadi baris `dst = dst + 1` di blend.c bukan kode mati;
+catatan itu juga ditempel di src_c/src/blend.c.
 
-Jadi rumus `draw` = (page AND mask) OR sprite memang benar. Yang keliru
-selama sembilan percobaan adalah anggapan bahwa `page` memuat bola lama.
-Ia TIDAK: `prep` memang menyalin bola lama ke situ (terekam: 5a a5 55),
-tetapi `draw` membaca 55 55 55 dari penyangga yang SAMA. Satu-satunya yang
-berjalan di antaranya adalah `blend()`.
+Sumber tiap bagian ditentukan dengan SAPUAN TERUKUR, bukan tafsir:
 
-⭐ Jadi `blend()` MENULIS ke `dst`. Di rekonstruksi C-nya baris
-`dst = dst + 1` tampak seperti aritmetika penunjuk mati -- ternyata tidak.
-Catatan ini juga sudah ditempelkan di `src_c/src/blend.c`: rekonstruksinya
-tetap byte-identik, yang perlu dikoreksi TAFSIRNYA.
+    prep   blend   putmsk   hasil
+    latar  page2   page2    176/402
+    latar  page2   latar    359/402
+    latar  latar   page2    396/402   <- dipakai
+    latar  latar   latar    381/402
 
-Jejak `blend()` ITU JUGA sudah direkam (0x5EA6..0x5F90). Yang ditulisnya:
+⭐ `putmsk` memulihkan dari SALINAN TERTINGGAL (`page2`), bukan latar terkini.
+Itulah yang meninggalkan "lubang" berwarna latar lama di dalam part yang baru
+digambar -- artefak yang memang terlihat di gim asli, dan yang selama ini
+tidak bisa direproduksi.
 
-    5edc/5ee0  nol ke kedua mask            (gelung `*p++ = *q++ = 0`)
-    5f60       24 byte 0x55 ke `page`       <- inilah yang selama ini hilang
-    5f67/5f6e  0xff ke kedua mask           (penanda tumpang-tindih)
+⚠ Panggilan `setball()` dari setupscr TIDAK ikut dihitung: menyertakannya
+memberi 0/402, karena rujukan tidak memperlihatkan bola di pita atas saat
+animasi berjalan.
 
-`0x55` = empat piksel warna 1 (latar arena). Dan `page2` saat itu berisi
-`6a 95 55 aa a5 55 ...`, jadi itu BUKAN salinan dari page2 -- blend
-mengisinya. Penyederhanaan pembuat gimnya: di daerah tumpang-tindih ia
-menganggap latarnya polos, tidak repot mengambil yang sebenarnya.
-
-⚠ Panggilan yang ditelusuri kebetulan tumpang-tindih PENUH (kotak lama dan
-baru sama, x0 = 52), jadi seluruh 24 byte terisi. Menggeneralisasikan
-"isi sel beririsan dengan warna latar" ke semua panggilan justru
-MENURUNKAN hasil: 233/402. Menyalin page2 ke sel beririsan: 359/402.
-Memakai latar bersih sebagai `page`: 381/402 -- yang dipakai sekarang.
-
-Jadi arah dan tempatnya sudah pasti; NILAI yang ditulis blend untuk
-tumpang-tindih SEBAGIAN belum. Untuk menutupnya: telusuri beberapa
-panggilan dengan tumpang-tindih PARSIAL (kotak lama != kotak baru) dan
-lihat byte apa yang masuk ke `page` di sel yang beririsan saja.
+SISA 6 FRAME: goal 1 f089 & f121, goal 2 f034, goal 3 f021/f023/f026.
+Goal 4, 5, 6 dan layar judul sudah SELURUH frame-nya identik.
 """
 from . import contrap, pick, render as rend, skrip, vm, font
 from .rng import Rng
@@ -220,13 +212,31 @@ def susun(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0, varian=Non
 
 
 def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
-           maks=400, varian=None, sub=None):
+           maks=400, varian=None, sub=None, seed_setball=True):
     """-> daftar framebuffer indeks-warna, satu per panggilan drawball."""
     var, parts, latar = susun(goal, graph, mechs, misc, animate, kontrap,
                               seed, mode, varian, sub)
     if not parts:
         return []
     tampil = [row[:] for row in latar]
+    # Panggilan `setball(0, i*10)` dari setupscr adalah drawball PERTAMA, dan
+    # ia sudah memutar page/page2 sebelum VM mulai. Tanpa menghitungnya,
+    # seluruh rantai penyangga bergeser satu.
+    if False:   # panggilan setball awal TIDAK ikut dihitung: rujukan tidak
+                # memperlihatkan bola di pita atas saat animasi berjalan
+                # (diukur: menyertakannya memberi 0/402).
+        _x0 = 0
+        page2 = (_x0, 0, [[latar[yy][xx] for xx in range(_x0, _x0 + 12)]
+                          for yy in range(0, 8)])
+        _s, _m = _fase()
+        for _r in range(8):
+            for _cb in range(3):
+                _sb, _mb = _s[0][_r * 3 + _cb], _m[0][_r * 3 + _cb]
+                for _p in range(4):
+                    _xx = _x0 + _cb * 4 + _p
+                    _g = 6 - 2 * _p
+                    tampil[_r][_xx] = (page2[2][_r][_cb * 4 + _p] &
+                                       ((_mb >> _g) & 3)) | ((_sb >> _g) & 3)
     mesin = vm.VM(parts)
     keluar = []
     page2 = None
@@ -275,6 +285,8 @@ def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
         jangan_hapus = e[3] if len(e) > 3 else False
         bx, by = e[1], e[2]
         x0 = (bx >> 2) * 4                     # bola = 3 byte = 12 piksel
+        # prep() + blend(): basis `draw` adalah LATAR TERKINI di kotak baru.
+        # (Sapuan kombinasi: blend dari latar 396/402, dari page2 hanya 176.)
         page = [[latar[yy][xx] if 0 <= yy < rend.H and 0 <= xx < rend.W else BG_
                  for xx in range(x0, x0 + 12)]
                 for yy in range(by, by + 8)]
@@ -284,15 +296,13 @@ def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
                 for c, xx in enumerate(range(px0, px0 + 12)):
                     tumpang = (x0 <= xx < x0 + 12 and by <= yy < by + 8)
                     if tumpang:
-                        # blend() menulis ke sel ini -- lihat catatan di kepala
-                        # berkas. Nilai yang ditulis BELUM tergeneralisasi:
-                        # mengisinya dengan warna latar cocok untuk panggilan
-                        # yang ditelusuri tapi menurunkan hasil keseluruhan
-                        # (233/402). Sementara dibiarkan memakai latar bersih,
-                        # yang terukur paling baik.
-                        pass
-                    elif not jangan_hapus and 0 <= yy < rend.H and 0 <= xx < rend.W:
-                        tampil[yy][xx] = latar[yy][xx]            # putmsk()
+                        continue                                  # blend()
+                    if not jangan_hapus and 0 <= yy < rend.H and 0 <= xx < rend.W:
+                        # putmsk(): dipulihkan dari SALINAN TERTINGGAL, bukan
+                        # latar terkini. Itulah yang meninggalkan "lubang"
+                        # berwarna latar lama di dalam part yang baru digambar
+                        # -- artefak yang memang terlihat di gim asli.
+                        tampil[yy][xx] = tambalan[r][c]           # putmsk()
         spr, msk = _fase()
         fase = bx & 3
         sb, mb = spr[fase], msk[fase]

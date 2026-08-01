@@ -202,8 +202,8 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
 
 - **ANIMASI dibangkitkan sendiri** (2026-08-01): mesin `animvm()` di
   `port/cc/core/vm.py` menjalankan skrip dari berkas aset. Terukur vs tangkapan VRAM
-  emulator: **381/402 frame byte-identik, 99,9988% piksel**. Goal 4, 5, 6 dan layar
-  judul **100% frame**. Judul "CREATIVE CONTRAPTIONS" ternyata digambar opcode `0x11`
+  emulator: **396/402 frame byte-identik, 99,99920% piksel**. Goal 4, 5, 6 dan layar
+  judul **100% frame**. Sisa 6: goal 1 f089 & f121, goal 2 f034, goal 3 f021/023/026. Judul "CREATIVE CONTRAPTIONS" ternyata digambar opcode `0x11`
   DI DALAM skrip animasi, bukan oleh layar statis.
 - **Port TIDAK lagi membaca rekaman.** `port/cc/anim/*.dat` dan `port/cc/draws/*.json`
   tidak dipakai sama sekali — layar, animasi, slot, palet, jalur bola, dan "reach"
