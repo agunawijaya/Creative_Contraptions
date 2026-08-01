@@ -98,13 +98,35 @@ Isi penyangga `page2` juga dibuang dari emulator (`CC_VSPTR=2e2:24`) dan
 dibandingkan dengan `latar` di sini: pada frame 10 keduanya IDENTIK
 (`555555` delapan baris). Jadi bedanya bukan pada isi latarnya.
 
-Yang tersisa sebagai penjelasan hanyalah URUTAN pemanggilan. `xform()`
-menjalankan prep -> blend -> putmsk -> draw, dan `prep` menyalin dari VRAM
-SEBELUM bola lama dihapus. Kalau kotak lama dan baru berbagi kolom byte yang
-sama, `draw` semestinya menuliskan balik piksel bola lama -- dan tangkapan
-gim TIDAK menunjukkan noda itu. Berarti ada panggilan yang belum terhitung
-di antara keduanya. Sembilan percobaan; jangan ulangi tanpa merekam urutan
-panggilan `drawball` yang LENGKAP (termasuk yang di luar VM) lebih dulu.
+── PETUNJUK TERAKHIR, diukur dari tangkapan gim ──────────────────────────
+
+Uji satu langkah: ambil frame gim sebagai MASUKAN, jalankan satu drawball,
+adu dengan frame berikutnya. Dibatasi ke kotak bola supaya blit part tidak
+mengacaukan. Hasilnya 23/118 -- jadi modelnya memang salah, bukan
+akumulasinya.
+
+Dan inilah yang terlihat pada langkah paling sederhana (frame 5..9, bola
+DIAM di X=51, Y=24 sepanjang itu):
+
+    f005 -> f006   54 piksel   (bingkai part berubah)
+    f006 -> f007   85 piksel   bola DIHAPUS
+    f007 -> f008   52 piksel   bola DIGAMBAR LAGI di tempat yang sama
+    f008 -> f009    0 piksel
+
+Bola dihapus di satu panggilan lalu dikembalikan di panggilan berikutnya,
+BERGANTIAN, padahal posisinya tidak berubah sama sekali. Tidak satu pun
+model yang dicoba menghasilkan pola itu: baik "gambar tiap panggilan"
+maupun "(page AND mask) OR sprite" akan meninggalkan bola di tempatnya.
+
+Pola berselang-seling itu berbau halaman ganda yang SESUNGGUHNYA -- dua
+penyangga yang bergantian tampil -- bukan sekadar dua salinan latar. Itu
+arah yang belum diperiksa, dan memeriksanya perlu menelusuri ke mana
+`draw()` benar-benar menulis pada tiap panggilan (bukan mengandalkan
+ES = 0xB800 di teks assembly-nya).
+
+Sembilan percobaan. Yang SUDAH pasti dan tidak perlu diuji ulang:
+VM-nya eksak (posisi 136/136, bendera 135/136), dan isi latar port sama
+dengan penyangga gim (`page2` frame 10 identik).
 """
 from . import contrap, pick, render as rend, skrip, vm, font
 from .rng import Rng
