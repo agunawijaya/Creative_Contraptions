@@ -181,9 +181,14 @@ def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
             continue
         # 1) inilah yang terlihat saat drawball ini DIMASUKI
         keluar.append([row[:] for row in tampil])
-        # 2) drawball: hapus bola sebelumnya, lalu gambar yang baru
+        # 2) drawball: hapus bola sebelumnya, lalu gambar yang baru.
+        #
+        # `e[3]` = bendera "jangan hapus" (prevx = 0x140) yang dipasang
+        # op06/op07/op0a. `putmsk()` melewati penghapusan seluruhnya kalau
+        # benderanya menyala, sehingga bola sebelumnya TETAP di layar.
+        jangan_hapus = e[3] if len(e) > 3 else False
         riwayat.append((e[1], e[2]))
-        if len(riwayat) > 1:
+        if len(riwayat) > 1 and not jangan_hapus:
             px, py = riwayat[-2]
             x0 = (px >> 2) * 4                 # bola menempati 3 byte = 12 piksel
             for yy in range(py, min(py + 8, rend.H)):

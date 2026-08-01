@@ -107,6 +107,11 @@ class VM:
         self.bx = 0
         self.by = 0
         self.terbang = []                # sisa titik lemparan yang belum keluar
+        # `prevtop = prevx = 0x140` yang dipasang op06/op07/op0a. Dibaca
+        # `putmsk()`: kalau prevx == 0x140 penghapusan DILEWATI seluruhnya,
+        # jadi bola sebelumnya TETAP di layar. Berlaku untuk drawball
+        # BERIKUTNYA, lalu direset oleh drawball itu sendiri.
+        self.jangan_hapus = False
         self.gelung = 0                  # simpul awal badan gelung (op0d)
         self.sisa = -1                   # pencacah gelung (u5a)
         self.tunggu = False              # mode tunggu tombol (op0e)
@@ -192,11 +197,13 @@ class VM:
     def part(self):
         return self.parts[self.aktif]
 
-    def _titik(self, a, b):
+    def _titik(self, a, b, jangan=False):
         p = self.part
         self.by = p.y + sgn(a)           # ballx @0x260 = Y layar
         self.bx = p.x + sgn(b)           # bally @0x25e = X layar
-        return ("bola", self.bx, self.by)
+        jh = self.jangan_hapus or jangan
+        self.jangan_hapus = False
+        return ("bola", self.bx, self.by, jh)
 
     def _bingkai(self, v):
         p = self.part
@@ -208,9 +215,11 @@ class VM:
         if self.terbang:                 # bola sedang melayang
             y, x = self.terbang.pop(0)
             self.by, self.bx = y, x
+            jh = self.jangan_hapus
+            self.jangan_hapus = False
             if not self.terbang and self.lempar_ke != self.aktif:
                 self._pindah(self.lempar_ke)
-            return ("bola", self.bx, self.by)
+            return ("bola", self.bx, self.by, jh)
         while self.n < len(self.simpul):
             nama = self.simpul[self.n][0]
             data = self.simpul[self.n][1] if len(self.simpul[self.n]) > 1 else None
@@ -230,8 +239,12 @@ class VM:
             if nama == "end":
                 return ("selesai", None)
             if nama in ("op08", "op0a"):
-                return self._titik(data[0], data[1])
+                # 0x0a JATUH TEMBUS ke 0x08 sesudah memasang "jangan hapus",
+                # jadi benderanya berlaku untuk titik ini juga.
+                return self._titik(data[0], data[1], nama == "op0a")
             if nama in ("op09", "op07"):
+                if nama == "op07":
+                    self.jangan_hapus = True
                 return self._bingkai(data[0])
             if nama == "op02":
                 return ("jeda", data[0])
@@ -244,7 +257,8 @@ class VM:
             if nama == "op05":
                 continue                 # putmsk(): gambar ulang mask bola
             if nama == "op06":
-                continue                 # prevtop = prevx = 0x140: jangan hapus
+                self.jangan_hapus = True
+                continue
             if nama == "op0d":           # awal badan gelung
                 self.gelung = self.n
                 self.sisa = -1

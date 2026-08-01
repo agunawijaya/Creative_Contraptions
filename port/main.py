@@ -228,14 +228,20 @@ class Game:
 
         k = _rend.KanvasSurface(fb, pygame)
 
+        # Urutan strip dari `rowtab` @0x870, BUKAN dari daftar kategori yang
+        # ditulis tangan: rowtab memakai 141 untuk Lever, kategori memakai 140,
+        # dan thumbnail keduanya berbeda.
+        rt = _pal.rowtab()
+
         def isi(i):
-            tipe = MECH_CATEGORIES[i][1][0]
+            if i is None:
+                return None
             for r in self.k_mechs.recs:
-                if self.k_mechs.cocok(r, tipe):
+                if self.k_mechs.cocok(r, rt[i]):
                     return self.k_mechs, r
             return None
 
-        _pal.drawpal(k, self.rev_i, isi, len(MECH_CATEGORIES))
+        _pal.drawpal(k, self.rev_i, isi, len(rt))
         _pal.penunjuk(k, self.k_misc, (self.title_tick // _pal.PENUNJUK_TIK) & 1)
 
     def _review_detail(self, fb):

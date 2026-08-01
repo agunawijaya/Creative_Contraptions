@@ -223,6 +223,13 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   hanyalah nama paruh atasnya (terbukti dari `showsc(sclo, 2)` yang memberi DUA argumen ke
   fungsi bertiga parameter).
 
+- **Strip palet `drawpal()` 7.680/7.680 piksel** (2026-08-01). Urutannya `rowtab` @0x870
+  = `[100,110,115,120,130,132,135,141,150]` — perhatikan **141** untuk Lever, bukan 140.
+  ⚠ Sempat dikira terhalang emulator; penyebabnya sepele: tangkapan diambil di alamat
+  MASUK `drawpal`, sehingga selalu memperlihatkan keadaan SEBELUM ia menggambar. Di
+  alamat RET (0x3C4E) isinya langsung muncul. Alat diagnosisnya di `work/emu.py`:
+  `CC_VSWORD` (word DGROUP per frame), `CC_VSMEM` (byte dari alamat tetap),
+  `CC_VSPTR` (baca word sebagai alamat lalu buang isinya), `CC_MAXINSN`, `CC_OBSKEYS`.
 - **Layar menu, level, pemilih goal, dan Review dari TABEL DGROUP** (2026-08-01):
   `port/cc/core/menu.py` (`mtabmn` @0x1D48, `mtablv` @0x1B74, `menu` @0x1C28) dan
   `resensi.py`. Menu utama **64.000/64.000 piksel**, layar Review **64.000/64.000**

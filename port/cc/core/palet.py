@@ -29,6 +29,21 @@ Mechanisms. Ia gelung pemilih part yang dipakai saat BERMAIN juga: di dalamnya
 ada `hintmark()`, `timebar()`, dan pemeriksaan `mode == 4 && tx <= 0` untuk
 waktu habis. Namanya di rekonstruksi menyesatkan.
 """
+ROWTAB = 0x870                   # 9 id mekanisme, urutan layar Review
+N_MEK = 9
+
+
+def rowtab():
+    """Sembilan id mekanisme untuk strip Review, dari DGROUP @0x870.
+
+    ⚠ Isinya `[100, 110, 115, 120, 130, 132, 135, 141, 150]` -- perhatikan
+    **141**, bukan 140, untuk Lever. Daftar kategori yang ditulis tangan di
+    port memakai 140 sebagai wakil kategori itu, dan thumbnail-nya berbeda.
+    """
+    from . import dgtab
+    return list(dgtab.blok(ROWTAB, N_MEK))
+
+
 SEL_W, SEL_H = 0x20, 0x18        # 32 x 24
 SEL_Y = 0xA8                     # 168
 SEL_X0 = 0x110                   # sel i berada di SEL_X0 - i*SEL_W
@@ -90,4 +105,15 @@ def penunjuk(k, misc, fase=0):
 #      `drawpal` NOL kali -- emulator berputar di gelung gambar ulang;
 #   4. di jalur Review yang berhasil dijangkau, `nmech` bernilai 0 sehingga
 #      kesembilan sel mengambil cabang HITAM. Artefak emulator, bukan gim.
-# Yang terverifikasi baru ATURANNYA (dari sumber), bukan pikselnya.
+# TERPECAHKAN. Penyebabnya sepele dan bukan pada gimnya: tangkapan diambil di
+# ALAMAT MASUK `drawpal`, sehingga yang terlihat selalu keadaan SEBELUM ia
+# menggambar -- dan di antara dua panggilan, strip itu memang dibersihkan
+# hitam. Ditangkap di alamat RET (0x3C4E) isinya langsung muncul.
+#
+# Diukur: strip `drawpal(sel=-1)` dengan urutan `rowtab` @0x870
+# = 7.680/7.680 piksel vs tangkapan VRAM emulator.
+#
+# Alat yang dipakai untuk mendiagnosisnya, semuanya di work/emu.py:
+#   CC_VSWORD=3ac,51c   catat word DGROUP tiap frame (nmech, cur, lo, hi)
+#   CC_VSMEM=7fa:12     buang byte mentah dari alamat tetap (urutan palet)
+#   CC_VSPTR=84a:24     baca sebuah word sebagai ALAMAT lalu buang isinya

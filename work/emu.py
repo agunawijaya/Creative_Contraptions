@@ -939,7 +939,33 @@ if _VRAMSEQ:
         # ⚠ Nama di dekompilasi TERTUKAR: @0x260 memegang Y, @0x25e memegang X.
         a = struct.unpack_from("<h", bytes(uc.mem_read(DGROUP * 16 + 0x260, 2)), 0)[0]
         b = struct.unpack_from("<h", bytes(uc.mem_read(DGROUP * 16 + 0x25e, 2)), 0)[0]
-        _vs_glob.append({"frame": _vs_n[0], "g260": a, "g25e": b})
+        # CC_VSWORD=3ac,51c,... -- word DGROUP tambahan yang ikut dicatat tiap
+        # frame. Dipakai untuk mendiagnosis kenapa sebuah penggambar tidak
+        # menghasilkan apa-apa (mis. `nmech` @0x3ac bernilai 0 saat drawpal).
+        rec = {"frame": _vs_n[0], "g260": a, "g25e": b}
+        for _w in (os.environ.get("CC_VSWORD") or "").split(","):
+            _w = _w.strip()
+            if _w:
+                _ad = int(_w, 16)
+                rec["w%s" % _w] = struct.unpack_from(
+                    "<H", bytes(uc.mem_read(DGROUP * 16 + _ad, 2)), 0)[0]
+        # CC_VSPTR=84a:24 -- baca word @84a sebagai ALAMAT, lalu buang 24 byte
+        # dari sana. Untuk memeriksa isi penyangga yang ditunjuk sebuah global.
+        # CC_VSMEM=7fa:12 -- buang byte mentah dari alamat DGROUP tetap.
+        _sm = os.environ.get("CC_VSMEM")
+        if _sm:
+            _ma, _, _mn = _sm.partition(":")
+            rec["mem2"] = bytes(uc.mem_read(
+                DGROUP * 16 + int(_ma, 16), int(_mn or "16"))).hex()
+        _sp = os.environ.get("CC_VSPTR")
+        if _sp:
+            _pa, _, _pn = _sp.partition(":")
+            _ptr = struct.unpack_from(
+                "<H", bytes(uc.mem_read(DGROUP * 16 + int(_pa, 16), 2)), 0)[0]
+            rec["ptr"] = _ptr
+            rec["mem"] = bytes(uc.mem_read(
+                DGROUP * 16 + _ptr, int(_pn or "16"))).hex()
+        _vs_glob.append(rec)
         _vs_n[0] += 1
 
 hooks = [(0x5035, hook_5035), (0x5a5b, hook_5a5b), (0x1791, hook_input), (0x1814, hook_input),
