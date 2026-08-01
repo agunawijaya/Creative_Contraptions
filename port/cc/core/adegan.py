@@ -21,6 +21,29 @@ Angka yang membaik bukan bukti bahwa penjelasannya benar.
 Terukur terhadap tangkapan VRAM emulator, tujuh layar (goal 1..6 + judul 128):
 381/402 frame byte-identik, 99,9988% piksel. Goal 4, 5, 6 dan layar judul
 100% frame.
+
+── 21 frame yang BELUM cocok, dan satu hipotesis yang sudah DIUJI dan GAGAL ──
+
+Sisa bedanya kecil dan terpusat. Contoh terjelas, goal 1 frame 121: di situ
+part 5 mem-blit GRAPH 40, dan baris 32, 33, 36, 37, 38, 39 sprite itu cocok
+PERSIS dengan rujukan -- hanya baris 34 dan 35 yang berbeda, dan di situ
+rujukan justru punya LEBIH SEDIKIT piksel part. Bentuknya seperti lubang
+berwarna latar yang ditinju ke dalam part yang baru digambar, tepat di kotak
+tempat bola tadi berada.
+
+Hipotesis yang tampak pas: `prep()` menyalin latar di bawah bola SEBELUM bola
+digambar, jadi penghapusan berikutnya mengembalikan salinan yang sudah BASI
+dan menimpa balik part yang di-blit sesudahnya.
+
+Sudah dicoba. Hasilnya JAUH lebih buruk: 381/402 -> 57/402 frame identik.
+Jadi di hampir semua frame gim aslinya justru memakai latar TERKINI, dan
+"salinan basi" bukan aturan umum. Entah salinannya diperbarui di suatu tempat,
+entah lubangnya lahir dari `blend()`/`putmsk()` yang menggabungkan mask lama
+dan baru dengan cara yang belum kita turunkan.
+
+Enam percobaan di sumbu hapus-jejak, semuanya gagal. Dicatat di sini supaya
+tidak diulang: yang masih belum diturunkan adalah `prep`/`blend`/`putmsk`/
+`draw` (assembly + blend.c), bukan urutan gambarnya.
 """
 from . import contrap, pick, render as rend, skrip, vm, font
 from .rng import Rng
