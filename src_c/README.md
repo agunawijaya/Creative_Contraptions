@@ -2261,3 +2261,26 @@ CC_EXE=src_c/out/CONTRAP.EXE CC_SHIFT_AT=0x4515 CC_SHIFT_BY=2 \
 ⚠ **WAJIB pakai `CC_OUT` saat menjalankan EXE rekonstruksi.** `work/emu_caps`
 adalah GROUND TRUTH yang dirujuk `port/*.py` dan `work/*.py`; tanpa `CC_OUT`
 keluaran rekonstruksi menimpanya.
+
+## ⭐⭐ TIPE PENUNJUK memilih REGISTER vs OPERAN MEMORI pada PERBANDINGAN
+
+Situs terakhir `pickvar` (0x44fd) selama berbulan-bulan dibaca sebagai "kapan
+MC2 membuang satu register untuk mendapat operan-register". Bukan itu.
+
+```c
+int  q;   ...  if (idx == q)          /* cmp ax,[bp+0ah]  -- operan MEMORI  */
+char *q;  ...  if (q == (char *)idx)  /* mov bx,[bp+0ah] / cmp bx,ax        */
+```
+
+Dengan `q` bertipe **penunjuk** dan ditulis di sisi KIRI, MC2 memuatnya ke BX.
+Untuk membebaskan BX ia lebih dulu meng-commit simpanan tertunda `dy3` — jadi
+"spill selektif" yang dikira aturan tersendiri ternyata AKIBAT, bukan sebab.
+Enam byte 0x44fa..0x4503 langsung identik dengan asli.
+
+⚠ KEDUANYA diperlukan: `char *q` saja tidak cukup, dan `q == idx` dengan `q`
+bertipe int memberi byte yang SAMA PERSIS dengan `idx == q`. Tipe menentukan
+apakah nilainya layak register; posisi operan menentukan yang mana yang dimuat.
+
+⭐ Ini kali KETIGA sumbu TIPE membayar setelah semua sumbu BENTUK buntu
+(`main_` 0x0c83, `pickvar` rb/rp2, dan sekarang `q`). Kalau sebuah situs
+bertahan melewati belasan varian bentuk pernyataan, **periksa tipenya**.

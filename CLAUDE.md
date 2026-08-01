@@ -175,12 +175,11 @@ python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
   basi ikut di-link, dan DGROUP tidak selaras paragraf (DS meleset satu
   paragraf sehingga SETIAP offset DGROUP salah +4). Rinciannya di
   `src_c/README.md`.
-- Sisa yang belum eksak tinggal DUA, dan keduanya SATU SITUS 2 byte:
-  `place` 501/503 dan `pickvar` 1.703/1.730 (98,4%, diukur `shiftcmp.py`).
-  Dua-duanya kelas yang SAMA: kompiler asli meng-COMMIT simpanan tertunda
-  sebelum sebuah perbandingan sehingga register bebas dan nilainya dipakai
-  ulang; kita menunda simpanan dan memakai operan memori. Lihat
-  `src_c/README.md` dan kepala `pickvar.c`/`place.c`.
+- Sisa yang belum eksak tinggal SATU: `pickvar` **1.721/1.730 (99,5%)**,
+  diukur `shiftcmp.py`. Satu situs, 4 byte, di uji kedua 0x4510: asli
+  mempertahankan AX dan BX melintasi cabang `jne`, kita memuat ulang keduanya.
+  Uji PERTAMA sudah identik sejak `q` dijadikan `char *`. Rinciannya di kepala
+  `pickvar.c`.
 - ⭐ **Alat penentu: `src_c/verify/sweep.py` (ORACLE BATCH).** Satu peluncuran
   DOSBox memuat puluhan pasang MC1+MC2, jadi 16 varian selesai sekali langkah
   alih-alih 16 iterasi. Ini yang membuka `main_` dan `loadcon`.

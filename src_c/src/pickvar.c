@@ -59,7 +59,11 @@ int  n, idx, flag;
     /* bp+08h TIDAK dipakai di biner, tapi itu TEMP KELIMA (temp menempati
        bp+00..09), bukan lokal. Memberinya pengganjal menggeser SEMUA slot
        2 byte dan membuat bingkai 54h. */
-    int  q;             /* 0Ah  = idx + 141h */
+    char *q;            /* 0Ah  = idx + 141h -- PENUNJUK, bukan int. Hanya
+                           dengan tipe penunjuk kompiler memuatnya ke BX
+                           (`mov bx,[bp+0ah]`) alih-alih memakai operan
+                           MEMORI; itu yang membuat simpanan tertunda `dy3`
+                           ter-commit lebih dulu, persis seperti asli. */
     int  dy3;           /* 0Ch  geser y record UTAMA, BERTANDA */
     int  dx3;           /* 0Eh  geser x record UTAMA, BERTANDA */
     int  oy;            /* 10h */
@@ -127,7 +131,7 @@ int  n, idx, flag;
        `if (param_7 + 0x141 != param_7)` -- sebenarnya PENUGASAN biasa. */
     k2 = list[idx];
     k = k2;
-    q = idx + 0x141;
+    q = (char *)(idx + 0x141);
     sel = -1;
     if (idx + 1 < n) {
         /* Pola "row berselisih 100 = bagian lanjutan", sama seperti drawpair
@@ -187,11 +191,15 @@ again:
        harus ditulis. Jangan "diperbaiki". */
     /* `idx == q`, BUKAN `q == idx`: aslinya memuat idx ke AX lebih dulu dan
        memakainya ULANG di perbandingan berikutnya (add ax,141h). */
-    if (idx == q)
+    /* ⭐ `q` di KIRI dan `idx` di-cast: menghasilkan
+         mov ax,[idx] / mov [dy3],bx / mov bx,[q] / cmp bx,ax
+       -- IDENTIK dengan asli 0x44fa..0x4503. Bentuk `idx == q` dengan `q`
+       bertipe int memberi `cmp ax,[q]` (operan memori) dan menunda simpanan. */
+    if (q == (char *)idx)
         goto part2;
     /* BLOK MATI: `idx + 141h != q` selalu salah karena q diset = idx + 141h.
        Byte-nya ada di biner (0x451A..0x45DC) jadi tetap ditulis apa adanya. */
-    if (idx + 0x141 != q) {
+    if ((char *)idx + 0x141 != q) {
         /* Bentuk PENUNJUK (aturan 3), BUKAN offset ((char*)recbase)[k*0xc+3]:
            yang offset memaksa recbase dimuat DUA KALI (+15 byte). Bentuk
            struct `[k].h` memberi instruksi yang benar tapi menuntut temp
@@ -210,7 +218,7 @@ again:
         }
     }
     /* Pola yang SAMA berulang di 0x45DD, tapi `q = idx` (bukan idx+141h). */
-    q = idx;
+    q = (char *)idx;
     sel = -1;
     if (idx + 1 < n) {
         if ((0xc * list[idx + 1] + recbase)[1] - 100 ==
@@ -374,15 +382,28 @@ inner:
  * ⏸ DIPARKIR (2026-08-01) -- SATU situs, 2 byte, sebabnya SUDAH DIPAHAMI tapi
  *   levernya belum ada. Syarat membuka lagi ada di ujung catatan ini.
  *
- * ⏳ SISA SATU SITUS: 0x44fd, +2 byte (geseran +2 di 0x4515).
- *   asli : mov [bp+0ch],bx / mov bx,[bp+0ah] / cmp bx,ax ... add ax,141h / cmp ax,bx
- *   kita : cmp ax,[bp+0ah]        ... mov [bp+0ch],bx ... cmp ax,[bp+0ah]
+ * ⏳ SISA SATU SITUS: 0x4510, +4 byte (geseran +4 di 0x4515). SETARA 1.721/1.730.
+ *   UJI PERTAMA (0x44fa..0x4503) SUDAH IDENTIK sejak `q` dijadikan `char *`
+ *   dan ditulis `if (q == (char *)idx)`:
+ *       mov ax,[bp+62h] / mov [bp+0ch],bx / mov bx,[bp+0ah] / cmp bx,ax
+ *   Yang tersisa cuma UJI KEDUA di 0x4510:
+ *       asli : add ax,141h / cmp ax,bx                       (5 byte)
+ *       kita : mov ax,[bp+62h] / add ax,141h / cmp ax,[bp+0ah] (9 byte)
+ *   Asli MEMPERTAHANKAN ax (=idx) DAN bx (=q) melintasi cabang `jne`; kita
+ *   memuat ulang keduanya. Struktur cabangnya identik (satu pendahulu), jadi
+ *   ini soal kapan MC2 membuang cache registernya di sebuah label.
  *   Asli meng-COMMIT simpanan tertunda `dy3` (slot 0Ch, hasil ternary yang
  *   masih di BX) SEBELUM perbandingan, sehingga BX bebas dan `q` masuk
  *   register lalu DIPAKAI ULANG di uji kedua. Kita menahan BX dan memakai
  *   operan memori dua kali. Kelas yang SAMA dengan loadcon 0x5115.
  *   Diukur di prefiks sejajar 0x42ca..0x4600: semua varian di bawah IDENTIK
  *   (806/822), jadi tak satu pun menyentuh situsnya.
+ *   DICOBA & GAGAL untuk UJI KEDUA (2026-08-01, 8 varian): `idx + 141h != q`
+ *   dengan/ tanpa cor, `0x141 + (char *)idx != q`, `(char *)(idx + 0x141) != q`,
+ *   `q != (char *)idx + 0x141`, `q - (char *)idx != 0x141`, `(int)q` di kedua
+ *   sisi. Tiga bentuk memberi byte IDENTIK (1.644); sisanya lebih buruk.
+ *   Juga tidak berpengaruh: `register` pada q, label telanjang di enam posisi.
+ *
  *   DICOBA & GAGAL (2026-07-31, 32 varian lewat sweep.py --cmp):
  *     uji-1  : idx==q | q==idx | idx-q==0 | !(idx!=q) | `if (idx!=q) goto`
  *     uji-2  : idx+141h!=q | q!=idx+141h | q-idx!=141h | idx-q+141h!=0 |
@@ -404,10 +425,10 @@ inner:
  *   uji): tak satu pun memberi spill selektif. `q == idx` memberi byte IDENTIK
  *   dengan `idx == q` di berkas nyata (di reproduksi mini justru BERBEDA).
  *
- * ⏸ SYARAT MEMBUKA LAGI: begitu diketahui aturan SPILL SELEKTIF -- kapan MC2
- *   membuang SATU register tertua untuk mendapat operan-register bagi sebuah
- *   perbandingan, alih-alih memakai operan MEMORI. Itu satu-satunya keputusan
- *   yang memisahkan kita dari asli di situs ini.
+ * ⏸ SYARAT MEMBUKA LAGI: begitu diketahui kapan MC2 MEMPERTAHANKAN cache
+ *   registernya melintasi label yang cuma punya SATU pendahulu. Aturan SPILL
+ *   SELEKTIF yang dulu dicari ternyata BUKAN masalahnya -- itu sudah terpecah
+ *   lewat tipe penunjuk; yang tersisa murni soal umur cache di label.
  *
  * ⚠ SUDAH DICOBA & GAGAL untuk perbandingan `idx == q` (5 bentuk):
  *   idx==q | q==idx | idx-q==0 | q-idx==0 | !(idx!=q)
