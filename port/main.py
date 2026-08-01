@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import pygame
 from cc import cga, assets, text, anim
 from cc.core import archive as _arc, contrap as _con, render as _rend
+from cc.core import pick as _pick, rng as _rng
 
 
 def decode_dat(fp, maxframes=None):
@@ -240,6 +241,9 @@ class Game:
         self.k_misc = _arc.Archive(os.path.join(data_dir, "MISC"))
         self.k_goals = _con.parse(os.path.join(data_dir, "CONTRAP"))
         self._scene_cache = {}
+        # `mode` di setupscr.c menentukan warna pita bawah; mode 0/1 = cyan.
+        # Terukur: layar design mode Fill in Mechanisms memakai cabang ini.
+        self.mode_latar = 0
         # daftar gambar DETERMINISTIK (diekstrak dari eksekusi game asli via emulator):
         # per goal, daftar {arch, idx, x, y} = record & posisi EKSAK. Tanpa tebakan.
         self.draws = {}
@@ -477,23 +481,45 @@ class Game:
         if surf is not None:
             fb.blit(surf, (0, 0))
 
-    def _scene_surface(self, gid, vi, isi_mekanisme):
+    def _scene_surface(self, gid, vi, isi_mekanisme, seed=0):
         """Layar contraption DIBANGKITKAN dari CONTRAP+GRAPH+MECHS+MISC.
 
-        Memakai lapisan inti yang sama dengan alat bukti, jadi hasilnya identik
-        piksel dengan work/screens_gen/*.png. Di-cache per (gid, varian, isi).
+        Urutan panggilannya meniru game asli: loadcon() mengundi varian
+        struktur, pickpart() mengundi varian tiap objek zany, fillans()
+        mencocokkan mekanisme lewat id. Dari `seed` yang sama, part yang
+        terpilih SAMA dengan game asli -- terukur 384.000/384.000 piksel
+        identik terhadap VRAM emulator untuk keenam goal.
+
+        `vi` dipakai hanya kalau pemanggil memang ingin varian tertentu
+        (mis. navigasi menu); kalau None, undian yang menentukan.
         """
-        key = (gid, vi, bool(isi_mekanisme))
+        key = (gid, vi, bool(isi_mekanisme), seed)
         if key in self._scene_cache:
             return self._scene_cache[key]
         vs = self.k_goals.get(gid)
         if not vs:
             self._scene_cache[key] = None
             return None
-        var = vs[min(vi, len(vs) - 1)]
-        dl = _con.draw_list(var, self.k_graph, self.k_mechs, self.k_misc,
-                            0, bool(isi_mekanisme))
-        fb = _rend.apply(_rend.new_fb(), dl)
+        rng = _rng.Rng(seed)
+        undi = _pick.loadcon_pick(rng, len(vs))
+        var = vs[min(vi, len(vs) - 1)] if vi is not None else vs[undi]
+
+        jz = [t for (y, x, t) in var["zany"]]
+        tz = _pick.tabel(self.k_graph, jz)
+        zs = [tz[i]["idx"] for i in _pick.pickpart(rng, tz, jz, sub=gid)]
+
+        jm = [t for (y, x, t) in var["mech"]]
+        tm = _pick.tabel(self.k_mechs, jm)
+        ms = [None if i is None else tm[i]["idx"]
+              for i in _pick.fillans(tm, jm)]
+
+        fb = _rend.setupscr(_rend.new_fb(), self.mode_latar, nbola=1,
+                            misc=self.k_misc)
+        dl = _con.draw_list(var, self.k_graph, self.k_mechs, None,
+                            isi_mekanisme=bool(isi_mekanisme), corong=False,
+                            pilihan={"zany": zs, "mech": ms})
+        _rend.apply(fb, dl)
+        _rend.labels(fb, var["pos"])
         surf = _rend.to_surface(fb, pygame)
         self._scene_cache[key] = surf
         return surf
