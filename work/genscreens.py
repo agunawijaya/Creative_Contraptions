@@ -175,6 +175,14 @@ def contrap(path):
     return goals
 
 
+# Elemen TETAP di puncak layar: corong tempat bola mulai, 48x8 di (136,0).
+# Muncul di SEMUA goal dan SEMUA varian. Sumbernya arsip MISC, dan record mana
+# yang dipakai sudah dipastikan lewat tangkapan VRAM asli: MISC id=2 punya DUA
+# record 48x8 (idx 2 dan 3, dua warna berbeda); idx 2 cocok 384/384 piksel di
+# setiap tangkapan, idx 3 hanya 140/384. Jadi bukan tebakan.
+CORONG = dict(arch="misc", rec_idx=2, x=136, y=0)
+
+
 def draws(var, graph, mechs, pilih=0, isi_mekanisme=False):
     """Daftar blit untuk SATU varian struktur.
 
@@ -202,7 +210,14 @@ def draws(var, graph, mechs, pilih=0, isi_mekanisme=False):
     return out
 
 
-def render(dl, graph, mechs):
+def tambah_corong(out, misc):
+    r = misc.recs[CORONG["rec_idx"]]
+    out.append(dict(kind="blit", arch="misc", rec=r,
+                    x=CORONG["x"], y=CORONG["y"], w=r["w"], h=r["h"]))
+    return out
+
+
+def render(dl, graph, mechs, misc=None):
     fb = [[BG] * W for _ in range(H)]
     for d in dl:
         if d["kind"] == "slot":
@@ -215,7 +230,7 @@ def render(dl, graph, mechs):
                     if 0 <= xx < W and 0 <= yy < H:
                         fb[yy][xx] = 3
             continue
-        arc = graph if d["arch"] == "zany" else mechs
+        arc = {"zany": graph, "mech": mechs, "misc": misc}[d["arch"]]
         px = arc.pixels(d["rec"])
         for yy, line in enumerate(px):
             ty = d["y"] + yy
@@ -239,6 +254,7 @@ def main():
     verif = "--verifikasi" in sys.argv
     graph = Archive(os.path.join(DATA, "GRAPH"))
     mechs = Archive(os.path.join(DATA, "MECHS"))
+    misc = Archive(os.path.join(DATA, "MISC"))
     cs = contrap(os.path.join(DATA, "CONTRAP"))
     os.makedirs(OUT, exist_ok=True)
     print("GRAPH %d record, MECHS %d record" % (len(graph.recs), len(mechs.recs)))
@@ -246,8 +262,8 @@ def main():
     for goal in sorted(cs):
         for vi, var in enumerate(cs[goal]):
             for isi, tag in ((False, "kosong"), (True, "penuh")):
-                dl = draws(var, graph, mechs, 0, isi)
-                fb = render(dl, graph, mechs)
+                dl = tambah_corong(draws(var, graph, mechs, 0, isi), misc)
+                fb = render(dl, graph, mechs, misc)
                 p = os.path.join(OUT, "fillmech_goal%d_v%d_%s.png" % (goal, vi, tag))
                 simpan(fb, p)
                 total += 1
@@ -257,10 +273,10 @@ def main():
     print("%d PNG -> %s" % (total, OUT))
 
     if verif:
-        verifikasi(cs, graph, mechs)
+        verifikasi(cs, graph, mechs, misc)
 
 
-def verifikasi(cs, graph, mechs):
+def verifikasi(cs, graph, mechs, misc):
     """Setiap blit yang DITANGKAP emulator harus bisa dijelaskan oleh mesin ini.
 
     Varian part diundi acak saat runtime, jadi kita tidak bisa menebak pilihan
@@ -288,9 +304,11 @@ def verifikasi(cs, graph, mechs):
                 for v in arc.variants(tipe):
                     for r in arc.chain(v):
                         bisa.add((x + r["dx"], y + r["dy"], r["w"], r["h"]))
+        # Corong MISC di (136,0): emulator tidak mengenali arsipnya (arch=None),
+        # tapi kita TAHU record mana -- jadi ikut diverifikasi, bukan dilewati.
+        rc = misc.recs[CORONG["rec_idx"]]
+        bisa.add((CORONG["x"], CORONG["y"], rc["w"], rc["h"]))
         for e in json.load(open(f)):
-            if e.get("arch") is None:
-                continue                      # teks judul, bukan sprite arsip
             tot += 1
             if (e["x"], e["y"], e["w"], e["h"]) in bisa:
                 ok += 1

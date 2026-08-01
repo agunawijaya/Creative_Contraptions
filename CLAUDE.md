@@ -158,6 +158,15 @@ tetap dilaporkan COCOK. `execmp.py` menemukan 24 byte semacam itu di `main_`,
 
 Aturan & jebakan lengkap: **`src_c/README.md`**.
 
+**Sweep perilaku LENGKAP**: 6 goal × 4 mode = **24 skenario**, semuanya 14/14
+tangkapan byte-identik dan log identik. Tanpa pemetaan alamat.
+
+**Bukti dekompilasi tanpa menjalankan program**: `python work/genscreens.py`
+menyusun layar Fill in Mechanisms dari berkas aset saja (CONTRAP+GRAPH+MECHS+MISC)
+— 20 PNG untuk goal 1..6 di `work/screens_gen/`, lembar kontak
+`work/fillmech_semua_varian.png`. `--verifikasi`: **197/197 blit** yang ditangkap
+emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
+
 ## Status port (per 2026-07-21)
 
 **Selesai & terbukti:**

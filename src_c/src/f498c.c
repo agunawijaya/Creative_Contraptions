@@ -6,13 +6,11 @@
  *
  *   nvar()=4094  drawpair()=4a31  printf()=6a48
  *
- * ⏳ NEAR-MISS: 162 dari 165 byte cocok, bingkai 0x74 TEPAT, panjang TEPAT.
- * Tiga byte yang beda (+49, +52, +58) semuanya pilihan REGISTER: aslinya
- * `mov si,[bp+7Ch] / add si,ax / push [si]`, kita memakai BX. Sekelas dengan
- * near-miss `place` (SI vs DI) yang sudah lama terbuka.
- * SUDAH DICOBA & GAGAL: tab[i*3+2] | *(tab+i*3+2) | tab[2+i*3] | tab[3*i+2]
- * -- bentuk indeks TIDAK mempengaruhi pilihan register (yang bentuk penunjuk
- * malah merusak 108 byte).
+ * ✅ COCOK BYTE-PER-BYTE (165/165). Tiga byte terakhir (+49, +52, +58) dulu
+ * memakai BX di tempat aslinya memakai SI; yang menutupnya adalah PENJAGA
+ * POSITIF berblok (`if (sel[i] >= 0) { ... }`) menggantikan dua `continue` --
+ * lihat catatan di badan fungsi. Bentuk indeks (`tab[i*3+2]` vs
+ * `*(tab+i*3+2)` vs `tab[3*i+2]`) TIDAK berpengaruh sama sekali.
  */
 
 extern int fh;                  /* @0x72c */

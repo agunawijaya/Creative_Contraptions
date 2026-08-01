@@ -531,6 +531,12 @@ cocok biner) tapi dengan 0xC8 tetap +155 dan mendarat di luar layar.
 — blok PENUH warna 3, 30×24 piksel. Itu satu-satunya yang digambar untuk slot
 yang belum diisi.
 
+**Elemen TETAP di puncak layar**: corong tempat bola mulai, 48×8 di (136,0),
+muncul di SEMUA goal dan SEMUA varian. Sumbernya **arsip MISC record idx 2**.
+MISC id=2 punya DUA record 48×8 (idx 2 dan 3, warnanya bertukar); yang dipakai
+dipastikan lewat tangkapan VRAM asli — idx 2 cocok **384/384 piksel** di setiap
+tangkapan, idx 3 hanya 140/384.
+
 ⚠ Varian part untuk tiap slot **diundi acak** oleh `pickpart()`, jadi satu varian
 struktur tetap bisa tampil berbeda tiap load. `genscreens.py` memakai varian ke-0
 untuk semua slot supaya keluarannya bisa diulang.
