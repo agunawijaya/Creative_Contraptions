@@ -96,7 +96,14 @@ def read_omf(path):
 
 
 def pick_code_segment(segs):
-    """Segmen kode = yang paling besar (modul MS C: PROG jauh lebih besar dari DATA)."""
+    """Segmen kode = yang paling besar (modul MS C: PROG jauh lebih besar dari DATA).
+
+    Modul bisa KOSONG dan itu sah: `dgalign.asm` sengaja tidak memancarkan byte
+    apa pun (ia cuma memberi atribut PARA pada segmen DATA). Dulu kasus ini
+    melempar `max() arg is an empty sequence` dan menjatuhkan symcheck.
+    """
+    if not segs:
+        return (None, (b"", set()))
     return max(segs.items(), key=lambda kv: len(kv[1][0]))
 
 
