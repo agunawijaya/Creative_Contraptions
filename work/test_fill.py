@@ -8,19 +8,35 @@ import main
 pygame.init()
 g = main.Game(assets.find_data_dir())
 fb = cga.make_framebuffer()
+# ⚠ Layar LEVEL ditambahkan belakangan; uji ini sempat MELEWATKANNYA dan
+# gagal diam-diam. `MECH_TYPES` juga sudah berganti nama jadi MECH_CATEGORIES.
 g.key(pygame.K_RETURN)                 # TITLE->MENU
-g.key(pygame.K_DOWN); g.key(pygame.K_RETURN)   # Fill in Mechanisms -> GOAL
+g.key(pygame.K_DOWN); g.key(pygame.K_RETURN)   # Fill in Mechanisms -> LEVEL
+g.key(pygame.K_RETURN)                 # Apprentice -> GOAL
 g.key(pygame.K_RETURN)                 # goal1 -> PLAY (Fill)
 assert g.state == main.PLAY
 print("Masuk Fill. Slot:", [(chr(0x41+i), s["correct"]) for i, s in enumerate(g.slots)])
 
-typ_to_partidx = {t: i for i, (t, _) in enumerate(main.MECH_TYPES)}
+# Entri palet = (nama, ids, arsip, sprite). Slot dicocokkan lewat `ids`,
+# bukan lewat indeks tetap -- paletnya DIKOCOK tiap muat.
+def pal_of(idm):
+    for i, entry in enumerate(g.palette):
+        if idm in entry[1]:
+            return i
+    return None
 
 
 def place(slot_i, typ, correct=True):
     g.cur_slot = slot_i
-    use_typ = typ if correct else next(t for t, _ in main.MECH_TYPES if t != typ)
-    g.cur_part = typ_to_partidx[use_typ]
+    if correct:
+        c = pal_of(typ)
+    else:
+        c = next(i for i, e in enumerate(g.palette) if typ not in e[1])
+    if c is None:
+        print("  (tak ada entri palet untuk tipe %d)" % typ)
+        return
+    use_typ = g.palette[c][1][0]
+    g.cur_part = c
     g.key(pygame.K_RETURN)
     print("  place slot %c type %d -> %s" % (0x41 + slot_i, use_typ, g.message))
 

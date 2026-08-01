@@ -164,6 +164,11 @@ class Game:
         self.level = 0                # 0=Apprentice, 1=Master Builder
         self.timer = None             # detik tersisa (Mix Up); None = tanpa timer
         self.fill_mode = "mech"
+        # Contraption Mix Up: rentetan kontraption 1..6 (lihat _mix_mulai)
+        self.mix_sub = 0
+        self.mix_sisa = None
+        self.mix_skor = 0
+        self.petunjuk = None          # hud.Petunjuk (hintmark), hanya mode 4 Master
         self.chosen_goal = 1
         self.slots = []       # slot mekanisme yg diisi saat PLAY
         self.cur_slot = 0
@@ -477,6 +482,53 @@ class Game:
         self.last_variant[gid] = vi
         return vi
 
+    # ---------- Contraption Mix Up: RENTETAN kontraption, bukan satu ----------
+    #
+    # `main_.c` case 4 tidak pernah memanggil `goalmenu()`. Ia memasang
+    # `sub = 0; goal = 6; pickmax();` lalu gelung `while (goal > 0)` yang tiap
+    # putaran menaikkan `sub` dan memuat kontraption berikutnya. Jadi Mix Up
+    # memainkan kontraption 1..6 BERURUTAN.
+    #
+    # Level menentukan panjangnya, dan bentuknya halus: di puncak gelung ada
+    # `if (lvl == 1) goal = 1;` dan di ekornya `if (lvl == 1) goal++;` sebelum
+    # `goal--`. Pada Apprentice (lvl 1) keduanya saling meniadakan sehingga
+    # gelungnya TAK BERUJUNG; pada Master (lvl 2) `goal` menghitung mundur 6
+    # putaran.
+
+    def _mix_mulai(self):
+        self.mix_sub = 0
+        self.mix_sisa = None if self.level == 0 else 6
+        self.mix_skor = 0
+        self.petunjuk = None
+        self._mix_ronde()
+
+    def _mix_ronde(self):
+        self.mix_sub += 1
+        if self.mix_sub > 6:
+            self.mix_sub = 1                  # Apprentice: berputar lagi
+        skor = self.mix_skor
+        self.start_play(self.mix_sub, fill="both")
+        self.score = skor                     # skor TERKUMPUL lintas ronde
+        # pickmax() dipanggil SEKALI saat mode dimasuki di main_.c, tapi
+        # `count` yang dikurangi tiap panggilan ikut lintas ronde -- karena itu
+        # objeknya dibuat sekali lalu dipakai ulang.
+        if self.petunjuk is None:
+            self.petunjuk = _hud.Petunjuk(_rng.Rng(random.randrange(0x10000)),
+                                          max(1, len(self.slots)))
+        else:
+            self.petunjuk.nmax = max(1, len(self.slots))
+
+    def _mix_ronde_selesai(self):
+        """SPACE sesudah animasi menang: lanjut ke kontraption berikutnya."""
+        self.mix_skor = self.score
+        if self.mix_sisa is not None:
+            self.mix_sisa -= 1
+            if self.mix_sisa <= 0:
+                self.state = MENU
+                self.sel = 0
+                return
+        self._mix_ronde()
+
     # ---------- mode PLAY: Fill Mechanisms / Fill Zany / Mix Up (both) ----------
     def start_play(self, gid, fill="mech"):
         vi = self._pick_variant(gid)
@@ -570,6 +622,19 @@ class Game:
         self.review_demo = False
         self.state = PLAY
 
+    def _postab(self):
+        """`postab[]` @0x3b6 kontraption yang sedang dimainkan.
+
+        Isinya pasangan (a, b) posisi label huruf, satu per slot -- sumber yang
+        SAMA dengan `render.labels()`. Di gim ia diisi `loadcon()`; di port ia
+        `countA` hasil `contrap.parse()`, tersimpan sebagai `var["pos"]`.
+        """
+        vs = self.k_goals.get(self.chosen_goal) or []
+        if not vs:
+            return []
+        var = vs[self.cur_variant] if self.cur_variant < len(vs) else vs[0]
+        return var.get("pos") or []
+
     def _arch(self, name):
         return self.mechs if name == "MECHS" else self.graph
 
@@ -615,6 +680,14 @@ class Game:
                 text.draw(fb, ">", s["x"] + 34, s["y"] + 8, color=2, size=10)
             else:
                 color = 2 if i == self.cur_slot else 3
+                # Penanda petunjuk Master (`hintmark()`): slot yang sedang
+                # ditunjuk digambar dgn warna yang dipilih fungsi itu -- 0
+                # berarti petunjuk sungguhan (dan menyalakan `mflag`, syarat
+                # bonus bola di animvm case 0x10), 2 hanya penanda biasa.
+                if self.petunjuk is not None and self.petunjuk.mflag is not None \
+                        and self.mode_asli == 4 and self.level == 1 \
+                        and i == self.petunjuk.cur2:
+                    color = self.petunjuk.warna
                 pygame.draw.rect(fb, cga.PALETTE[color], (s["x"], s["y"], 32, 24), 1)
                 text.draw(fb, chr(0x41 + i), s["x"] + 12, s["y"] + 7, color=color, size=11)
         # bola saat "run" (di AREA MAIN, di atas contraption) — magenta spt bola asli
@@ -692,6 +765,12 @@ class Game:
             if self.timer <= 0:
                 self.timer = 0
                 self.message = "TIME'S UP! ESC for menu."
+            # `hintmark()` dipanggil dari gelung pemilih part (review.c), yaitu
+            # tempat yang sama dengan `timebar()` -- bukan dari penggambar.
+            # Ia hanya berbuat sesuatu di mode 4 level Master Builder.
+            if self.petunjuk is not None:
+                self.petunjuk.tik(self.mode_asli, self.level + 1, self.tx,
+                                  self._postab())
         if self.state != PLAY or self.ball_i < 0 or self.ball_pos is None:
             return
         tx, ty = self.ball_path[self.ball_i]
@@ -719,7 +798,10 @@ class Game:
 
     def _play_key(self, k):
         if k == pygame.K_ESCAPE:
-            self._back_to_goal()             # ESC saat main -> kembali ke pilihan tema (GOAL)
+            if self.mode_asli == 4:
+                self.state = MENU; self.sel = 0   # Mix Up tidak punya layar GOAL
+            else:
+                self._back_to_goal()         # ESC saat main -> pilihan tema (GOAL)
             return
         if k == pygame.K_SPACE:               # RUN: bola keluar & jalan (spt game asli)
             if self.running:
@@ -834,13 +916,23 @@ class Game:
                     self.state = PLAY
                     self.message = "Try again - fix Box %c." % (0x41 + self.anim_fail)
                     self.anim_fail = None
-                elif self.anim_from_play:        # MENANG di Fill/Mix Up -> kembali ke tema (GOAL)
+                elif self.anim_from_play and self.mode_asli == 4:
+                    # Mix Up tidak punya pemilih goal untuk dituju: ESC di
+                    # main_.c case 4 memasang cursel = -1 dan keluar ke menu.
+                    self.state = MENU; self.sel = 0
+                elif self.anim_from_play:        # MENANG di Fill -> kembali ke tema (GOAL)
                     self._back_to_goal()
                 else:                            # demo dari CONTRAPTION -> menu
                     self.state = MENU; self.sel = 0
-            elif k == pygame.K_SPACE:            # replay
-                self.anim_i = 0 if self.anim_frames else -1
-                self.anim_tick = 0
+            elif k == pygame.K_SPACE:
+                if self.anim_from_play and self.mode_asli == 4 \
+                        and self.anim_fail is None:
+                    # `do { m = getkey(); } while (m != 0x20 && m != 0x1b);`
+                    # SPACE = lanjut ke kontraption berikutnya, bukan ulangi.
+                    self._mix_ronde_selesai()
+                else:                            # replay
+                    self.anim_i = 0 if self.anim_frames else -1
+                    self.anim_tick = 0
         elif self.state == REVIEW:               # browse: pilih mekanisme
             if k == pygame.K_ESCAPE:
                 self.state = MENU; self.sel = 0
@@ -871,7 +963,14 @@ class Game:
             self.sel = 0
         elif self.state == LEVEL:
             self.level = self.sel            # 0=Apprentice, 1=Master Builder
-            self.state = GOAL; self.sel = 0
+            if self.mode == 3:
+                # ⭐ Contraption Mix Up TIDAK lewat pemilih goal. Di `main_.c`
+                # hanya case 2 dan 3 memanggil `sub = goalmenu()`; case 4
+                # memasang `sub = 0` lalu `goal = 6` dan tiap putaran
+                # `sub++` -- jadi kontraption 1..6 dimainkan BERURUTAN.
+                self._mix_mulai()
+            else:
+                self.state = GOAL; self.sel = 0
         elif self.state == GOAL:
             gid = self.goal_ids[self.sel]
             if self.mode == 1:               # Fill in Mechanisms

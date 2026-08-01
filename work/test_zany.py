@@ -7,11 +7,16 @@ import main
 pygame.init()
 g = main.Game(assets.find_data_dir())
 fb = cga.make_framebuffer()
-# MENU -> Fill in Zany Objects (menu#2) -> GOAL -> goal1
+# MENU -> Fill in Zany Objects (menu#2) -> LEVEL -> GOAL -> goal1
+# ⚠ Layar LEVEL ditambahkan belakangan; uji ini sempat MELEWATKANNYA dan
+# gagal diam-diam berbulan-bulan. Alat ukur yang basi menyembunyikan
+# perubahan perilaku, bukan melaporkannya.
 g.key(pygame.K_RETURN)               # TITLE->MENU
 g.key(pygame.K_DOWN); g.key(pygame.K_DOWN)   # sel=2 (Fill Zany)
-g.key(pygame.K_RETURN)               # ->GOAL
+g.key(pygame.K_RETURN)               # ->LEVEL
+g.key(pygame.K_RETURN)               # Apprentice ->GOAL
 g.key(pygame.K_RETURN)               # goal1 -> start_play(zany)
+assert g.state == main.PLAY, "harusnya masuk PLAY, dapat state=%d" % g.state
 print("state=%d fill_mode=%s slots=%d palette=%d" %
       (g.state, g.fill_mode, len(g.slots), len(g.palette)))
 print("slot correct types:", [s["correct"] for s in g.slots])

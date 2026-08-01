@@ -11,13 +11,17 @@ fb = cga.make_framebuffer()
 
 # TITLE -> ENTER -> MENU
 g.key(pygame.K_RETURN); assert g.state == main.MENU, g.state
-# pilih Review (sel 0) -> ENTER -> GOAL
-g.key(pygame.K_RETURN); assert g.state == main.GOAL, g.state
-# pilih goal 1 (sel 0) -> ENTER -> CONTRAPTION (Review)
-g.key(pygame.K_RETURN); assert g.state == main.CONTRAPTION, g.state
-print("mode=", g.mode, "chosen_goal=", g.chosen_goal, "state=CONTRAPTION OK")
-# SPACE -> PLAYANIM
+# ⚠ USANG lalu DIPERBAIKI: "Review Mechanisms" TIDAK lagi lewat pemilih goal.
+# Sejak ensiklopedia mekanisme ada, sel 0 langsung ke REVIEW. Uji ini masih
+# menegaskan alur LAMA dan gagal diam-diam. Lihat juga test_review2.py dan
+# test_review_enc.py yang menguji jalur ensiklopedianya.
+# Yang diuji di sini sekarang: demo "how it works" satu mekanisme.
+g.key(pygame.K_RETURN); assert g.state == main.REVIEW, g.state
+# ENTER -> detail satu mekanisme, lalu SPACE -> demo "how it works"
+g.key(pygame.K_RETURN); assert g.state == main.REVIEW_DETAIL, g.state
 g.key(pygame.K_SPACE); assert g.state == main.PLAYANIM, g.state
+print("REVIEW -> REVIEW_DETAIL -> demo PLAYANIM OK")
+print("mode=", g.mode, "rev_i=", g.rev_i)
 print("PLAYANIM: %d frame dimuat" % len(g.anim_frames))
 # jalankan beberapa tick, render mid-frame
 for _ in range(120):

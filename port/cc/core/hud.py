@@ -270,6 +270,89 @@ def pickmax(rng, count, jangkauan):
     return best, count
 
 
+class Petunjuk:
+    """Keadaan penanda petunjuk Master — `hintmark()` @0x4CD4.
+
+    Hanya hidup di mode 4 (Contraption Mix Up) level 2 (Master Builder). Tiap
+    kali pewaktu habis, penanda huruf pindah ke slot acak baru: huruf LAMA
+    dihapus dengan menggambarnya ulang berwarna 3 (warna latar pita), huruf
+    BARU digambar berwarna 2 atau 0.
+
+    Warna 0 berarti "ini benar-benar petunjuk" dan menyalakan `mflag`, yang
+    dipakai `animvm.c` case 0x10 sebagai syarat bonus bola. Warna 2 hanya
+    penanda biasa.
+
+    Nilainya dikumpulkan di satu objek karena di gim aslinya ini SEMUA global
+    yang saling terkait (`best`/`count`/`range` juga dipakai `pickmax()`);
+    memisahkannya jadi argumen lepas membuat urutan pemanggilannya mudah
+    salah.
+
+        best  @0x82e   count @0x82c   range @0x830   mflag @0x834
+        cur2  @0x7f8   lvl6  @0x7f6   timer @0x7f2   tx    @0x7ee
+    """
+
+    def __init__(self, rng, nmax, jangkauan=0x140 - 0x14, count=4):
+        self.rng = rng
+        self.nmax = nmax
+        self.range_ = jangkauan
+        self.count = count
+        self.best = -1000
+        self.cur2 = 0
+        self.lvl6 = 0
+        self.timer = 0
+        self.mflag = 0
+        self.warna = 2
+        self.pickmax()
+
+    def pickmax(self):
+        self.best, self.count = pickmax(self.rng, self.count, self.range_)
+        return self.best
+
+    def tik(self, mode, lvl, tx, postab, k=None):
+        """Satu panggilan `hintmark()`. -> True kalau penandanya dipindah.
+
+        `postab` = daftar (a, b) posisi label huruf, satu per slot. Di gim itu
+        `postab[]` @0x3b6 dgn stride 4 byte, diisi `loadcon()`; di port ia
+        `countA` hasil `contrap.parse()`.
+
+        `k` boleh None. Gim aslinya menggambar penanda SEKALI saat ia pindah
+        (dan menghapus yang lama dengan menimpanya warna 3); penggambar port
+        menyusun ulang seluruh layar tiap frame, jadi di sana penandanya
+        digambar dari `cur2`/`warna` dan pemanggil cukup memakai nilai itu.
+        Perhitungan undiannya tetap SAMA -- itu yang menentukan slot mana yang
+        ditunjuk dan kapan `mflag` menyala.
+        """
+        if mode != 4 or lvl != 2:
+            return False
+        if not (self.timer <= 0 or tx == self.best):
+            self.timer -= 1
+            return False
+        prev = self.cur2
+        self.timer = 0x3C
+        if self.lvl6 > 0:
+            self.lvl6 -= 1
+        # DUA undian rnd(3) dijumlahkan lalu dikurangi 2: sebarannya segitiga,
+        # jadi penandanya cenderung dekat `lvl6` -- bukan seragam.
+        self.cur2 = self.lvl6 + self.rng.rnd(3) + self.rng.rnd(3) - 2
+        if self.cur2 < 0 or self.cur2 >= self.nmax:
+            self.cur2 = self.lvl6
+        if k is not None and prev <= self.nmax and prev < len(postab):
+            oa, ob = postab[prev]
+            k.teks(chr(prev + 0x41), ob, oa, 3)     # hapus: gambar ulang warna 3
+        col = 2
+        if tx >= self.range_:
+            col = 0
+        if tx == self.best:
+            col = 0
+            self.pickmax()
+        if k is not None and self.cur2 < len(postab):
+            na, nb = postab[self.cur2]
+            k.teks(chr(self.cur2 + 0x41), nb, na, col)
+        self.warna = col
+        self.mflag = 1 if col == 0 else 0
+        return True
+
+
 def skor_akhir(sclo, zcnt, mode, lvl, sub, cur2, tx, nbola):
     """Penilaian akhir goal, `animvm.c` case 0x10. -> (sclo, nbola, tampilkan)
 
