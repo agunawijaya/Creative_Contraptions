@@ -223,6 +223,15 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   hanyalah nama paruh atasnya (terbukti dari `showsc(sclo, 2)` yang memberi DUA argumen ke
   fungsi bertiga parameter).
 
+- **Layar menu, level, pemilih goal, dan Review dari TABEL DGROUP** (2026-08-01):
+  `port/cc/core/menu.py` (`mtabmn` @0x1D48, `mtablv` @0x1B74, `menu` @0x1C28) dan
+  `resensi.py`. Menu utama **64.000/64.000 piksel**, layar Review **64.000/64.000**
+  vs tangkapan VRAM emulator. Strip pemilih part: `palet.py` (`drawpal()`).
+- ⚠ **Angka 448.000/448.000 itu layar ATTRACT**, bukan layar permainan — emulator
+  menambal nomor goal pada `loadcon` PERTAMA, yang terjadi saat layar judul. Layar
+  Fill in Mechanisms sungguhan: pita atas 2.560/2.560 dan pita bawah 12.800/12.800;
+  arenanya belum cocok karena keadaan RNG saat itu bukan seed 0.
+
 **Berikutnya untuk jalur PORT:**
 1. **21 frame animasi** (goal 1, 2, 3) belum byte-identik. Bedanya kecil dan terpusat;
    record dan posisinya sudah terbukti BENAR. Yang belum diturunkan adalah

@@ -1,0 +1,130 @@
+"""Layar menu — `setsel()` @0x3769 dan kotak sorotan `runmenu()` @0x34CC.
+
+Tata letak ketiga menu tersimpan sebagai TABEL di DGROUP, bukan disusun kode:
+
+    mtabmn  @0x1D48  11 item   menu utama
+    mtablv  @0x1B74   7 item   pemilih level
+    menu    @0x1C28  15 item   pemilih goal
+
+Tiap item 12 byte:
+
+    +0   kind   < 0x80 = teks, >= 0x80 = sprite (dan 0x80 = bisa DIPILIH)
+    +2   Y
+    +4   X
+    +6   h / skala tegak
+    +7   w / skala datar
+    +8   warna (hanya cabang teks)
+    +10  penunjuk string, atau alamat penyangga sprite
+
+⚠ Rekonstruksi C menamai kedua field itu `x` dan `y`, tetapi pemakaiannya
+terbalik: `text(p->spr, p->y, p->x, ...)` dan `blit(p->spr, p->x, p->y, ...)`.
+Karena `text()` menerima (X, Y) dan `blit()` menerima (Y, X), keduanya sepakat
+bahwa **+2 adalah Y dan +4 adalah X**. Nama fieldnya yang salah, bukan datanya.
+
+`setsel()` menggambar latarnya sendiri:
+
+    fillrect(0, 0, 0x13f, 7, 3);        pita atas abu-abu
+    blit(hdrspr, 0, 0x88, 8, 0x30);     corong
+    fillrect(0, 8, 0x13f, 0xc7, 1);     SELURUH sisanya cyan sampai y=199
+
+Perhatikan yang terakhir: layar menu tidak punya pita bawah gelap seperti
+layar permainan -- cyan sampai dasar.
+
+Sprite ikonnya penyangga yang diisi saat runtime (`load(miscfh, ...)`):
+menu utama memakai MISC record 7..10, pemilih level 11..12, pemilih goal
+13..18. Karena itu field +10 pada item sprite berisi 0 di dalam DGROUP.
+"""
+import struct
+
+from . import dgtab, render as rend
+
+MTABMN = (0x1D48, 11)            # menu utama
+MTABLV = (0x1B74, 7)             # pemilih level
+MTABGL = (0x1C28, 15)            # pemilih goal
+
+REC_MENU = (7, 8, 9, 10)         # MISC record ikon menu utama
+REC_LEVEL = (11, 12)             # MISC record ikon pemilih level
+REC_GOAL = (13, 14, 15, 16, 17, 18)   # MISC record ikon keenam goal
+
+_TABEL = {"utama": (MTABMN, REC_MENU),
+          "level": (MTABLV, REC_LEVEL),
+          "goal": (MTABGL, REC_GOAL)}
+
+DAPAT_DIPILIH = 0x80             # kind == 0x80 -> entri yang bisa disorot
+
+
+def _str(addr):
+    dg = dgtab.dgroup()
+    akhir = dg.find(b"\0", addr)
+    return dg[addr:akhir if akhir >= 0 else addr].decode("latin-1")
+
+
+def tabel(addr, n):
+    """-> daftar item menu yang sudah diurai."""
+    dg = dgtab.dgroup()
+    out = []
+    for i in range(n):
+        a = addr + i * 12
+        kind = dg[a]
+        y, x = struct.unpack_from("<hh", dg, a + 2)
+        out.append(dict(kind=kind, teks=kind < 0x80, x=x, y=y,
+                        h=dg[a + 6], w=dg[a + 7], warna=dg[a + 8],
+                        ptr=struct.unpack_from("<H", dg, a + 10)[0]))
+    return out
+
+
+def setsel(k, item, misc, sprites=()):
+    """Gambar latar menu + seluruh itemnya.
+
+    `sprites` = record MISC untuk item ber-jenis sprite, berurutan.
+    """
+    k.fillrect(0, 0, 0x13F, 7, 3)
+    r = misc.recs[2]                               # hdrspr = MISC record 2
+    k.blit(misc, r, 0x88, 0)
+    k.fillrect(0, 8, 0x13F, 0xC7, 1)
+    n = 0
+    for it in item:
+        if it["teks"]:
+            k.teks(_str(it["ptr"]), it["x"], it["y"], it["warna"],
+                   it["w"], it["h"])
+        else:
+            if n < len(sprites):
+                k.blit(misc, misc.recs[sprites[n]], it["x"], it["y"])
+            n += 1
+
+
+def dipilih(item):
+    """Indeks item yang bisa disorot, berurutan (`kind == 0x80`)."""
+    return [i for i, it in enumerate(item) if it["kind"] == DAPAT_DIPILIH]
+
+
+def kotak(k, it, nyala=True):
+    """Kotak sorotan `runmenu()`, digambar dengan XOR sehingga BERKEDIP.
+
+        drawrect(y, x, h, w, 1);
+        line(x + 1,     y + 1, x + 1,     y + h - 2, 1);
+        line(x + w - 2, y + 1, x + w - 2, y + h - 2, 1);
+        line(x,     y - 1, x + w - 1, y - 1, 2);
+        line(x,     y + h, x + w - 1, y + h, 2);
+
+    Digambar dua kali per putaran gelung: sekali menyalakan, sekali memadamkan.
+    `nyala` hanya untuk memilih fase; XOR-nya sendiri simetris.
+    """
+    if not nyala:
+        return
+    x, y, h, w = it["x"], it["y"], it["h"], it["w"]
+    k.xor(x, y, x + w - 1, y, 1)
+    k.xor(x, y + h - 1, x + w - 1, y + h - 1, 1)
+    k.xor(x + 1, y + 1, x + 1, y + h - 2, 1)
+    k.xor(x + w - 2, y + 1, x + w - 2, y + h - 2, 1)
+    k.xor(x, y - 1, x + w - 1, y - 1, 2)
+    k.xor(x, y + h, x + w - 1, y + h, 2)
+
+
+def layar(misc, mana="utama"):
+    """-> framebuffer indeks berisi layar menu lengkap (tanpa kotak sorotan)."""
+    (addr, n), spr = _TABEL[mana]
+    it = tabel(addr, n)
+    fb = rend.new_fb()
+    setsel(rend.KanvasFB(fb), it, misc, spr)
+    return fb, it

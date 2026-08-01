@@ -19,6 +19,7 @@ from cc import cga, assets, text, anim
 from cc.core import archive as _arc, contrap as _con, render as _rend
 from cc.core import pick as _pick, rng as _rng, adegan as _adg
 from cc.core import resensi as _res, hud as _hud, palet as _pal
+from cc.core import menu as _menu
 
 
 GOAL_NAMES = {1: "Up and At 'Em", 2: "Hair Care", 3: "Easy Eating",
@@ -176,12 +177,11 @@ class Game:
         if self.state == TITLE:
             self._title(fb)
         elif self.state == MENU:
-            self._mainmenu(fb)
+            self._menu_tabel(fb, "utama")
         elif self.state == LEVEL:
-            self._menu(fb, "WHAT LEVEL WOULD YOU LIKE?", LEVELS)
+            self._menu_tabel(fb, "level")
         elif self.state == GOAL:
-            self._menu(fb, "WHAT IS YOUR GOAL?",
-                       [GOAL_NAMES[g] for g in self.goal_ids])
+            self._menu_tabel(fb, "goal")
         elif self.state == CONTRAPTION:
             self._contraption(fb)
         elif self.state == PLAY:
@@ -263,33 +263,27 @@ class Game:
         if surf is not None:
             fb.blit(surf, (0, 0))
 
-    def _mainmenu(self, fb):
-        """Menu utama dgn IKON tiap pilihan (spt game asli)."""
-        text.draw_center(fb, "WHAT DO YOU WANT TO DO?", 16, color=0, size=12)
-        for i, opt in enumerate(MENU_OPTIONS):
-            y = 39 + i * 27
-            # kotak ikon + border magenta (tebal bila terpilih)
-            pygame.draw.rect(fb, cga.PALETTE[2], (46, y - 2, 48, 29), 2 if i == self.sel else 1)
-            if self.menu_icons[i]:
-                fb.blit(self.menu_icons[i], (48, y))
-            text.draw(fb, opt, 110, y + 8, color=0 if i != self.sel else 3, size=11)
-        text.draw_center(fb, "Press UP/DOWN to move box.", 168, color=2, size=10)
-        text.draw_center(fb, "Press ENTER to choose.", 182, color=2, size=10)
+    def _menu_tabel(self, fb, mana):
+        """Ketiga layar menu, dari TABEL di DGROUP -- bukan disusun port.
 
-    def _menu(self, fb, header, options):
-        text.draw_center(fb, header, 20, color=2, size=14)
-        n = len(options)
-        step = 18 if n <= 4 else 15
-        y0 = 56
-        for i, opt in enumerate(options):
-            yy = y0 + i * step
-            col = 3 if i == self.sel else 0
-            if i == self.sel:
-                w = text._font(13).size(opt)[0]
-                pygame.draw.rect(fb, cga.PALETTE[2],
-                                 (cga.WIDTH // 2 - w // 2 - 6, yy - 2, w + 12, 16), 1)
-            text.draw_center(fb, opt, yy, color=col, size=13)
-        text.draw_center(fb, "Up/Down to move, ENTER to choose", 186, color=2, size=10)
+        `mtabmn` @0x1D48 (menu utama), `mtablv` @0x1B74 (level), `menu`
+        @0x1C28 (goal). Teks, posisi, warna, ikon, dan kotak sorotan semuanya
+        dari sana; port hanya menggambarkannya.
+
+        Terukur terhadap tangkapan VRAM emulator: menu utama **64.000/64.000
+        piksel**. Versi lama menyusun sendiri header, jarak baris, dan kotak
+        sorotan -- tidak ada satu pun angkanya yang berasal dari gim.
+        """
+        key = ("menu", mana)
+        if key not in self._scene_cache:
+            fbi, item = _menu.layar(self.k_misc, mana)
+            self._scene_cache[key] = (_rend.to_surface(fbi, pygame), item)
+        surf, item = self._scene_cache[key]
+        fb.blit(surf, (0, 0))
+        pilih = _menu.dipilih(item)
+        if pilih and (self.title_tick // 20) & 1:
+            i = pilih[min(self.sel, len(pilih) - 1)]
+            _menu.kotak(_rend.KanvasSurface(fb, pygame), item[i])
 
     def _mode_layar(self):
         """Nomor mode gim asli untuk layar yang sedang tampil.
