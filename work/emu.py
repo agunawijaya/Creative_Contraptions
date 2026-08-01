@@ -872,6 +872,32 @@ def hook_flip(uc, addr, size, user):   # 6869 = frame flip/refresh (hitung frame
     frameno[0] += 1
 
 
+# CC_VRAMAT=<offset heks>[:n][=berkas.png] -- tulis VRAM saat MASUK ke offset itu
+# yang ke-n (n mulai 1, bawaan 1), lalu HENTIKAN emulasi.
+#
+# Kenapa perlu, padahal sudah ada CC_VRAMOUT: CC_VRAMOUT menulis saat emulasi
+# BERHENTI, dan saat itu animasi sudah berjalan -- bolanya sudah bergerak, jejak
+# sudah terhapus, mekanisme sudah terisi. Untuk membandingkan LAYAR DESIGN dengan
+# port, VRAM harus diambil tepat sebelum program menunggu tombol pertama, yaitu
+# saat masuk `getkey()` @0x1814. Tanpa ini perbandingannya mengukur dua momen
+# yang berbeda dan bedanya terlihat seperti kesalahan render.
+_VRAMAT = os.environ.get("CC_VRAMAT")
+if _VRAMAT:
+    _va_spec, _, _va_file = _VRAMAT.partition("=")
+    _va_off, _, _va_n = _va_spec.partition(":")
+    _VA_OFF = int(_va_off, 16)
+    _VA_N = int(_va_n) if _va_n else 1
+    _VA_FILE = _va_file or os.path.join(OUT, "vram_at_%s.png" % _va_off)
+    _va_hit = [0]
+
+    def hook_vramat(uc, addr, size, user):
+        _va_hit[0] += 1
+        if _va_hit[0] != _VA_N:
+            return
+        capture_cga(_VA_FILE)
+        print("VRAM @0x%04x panggilan ke-%d -> %s" % (_VA_OFF, _VA_N, _VA_FILE))
+        uc.emu_stop()
+
 hooks = [(0x5035, hook_5035), (0x5a5b, hook_5a5b), (0x1791, hook_input), (0x1814, hook_input),
          (0x672f, hook_672f), (0x26ae, hook_ball),
          (0x1b13, hook_mechmatch), (0x1bcd, hook_zanymatch),
@@ -888,6 +914,10 @@ hooks = [(0x5035, hook_5035), (0x5a5b, hook_5a5b), (0x1791, hook_input), (0x1814
          (0x26ae, hook_ball_dbg_entry), (0x2713, hook_ball_dbg_exit),
          (0x2822, hook_278e_vframe)]
 hooks.append((0x6869, hook_flip))
+if _VRAMAT:
+    # DI DEPAN: hook lain di alamat yang sama (mis. hook_input @0x1814) bisa
+    # memanggil emu_stop(), dan hook yang terdaftar sesudahnya tidak akan jalan.
+    hooks.insert(0, (_VA_OFF, hook_vramat))
 if OBSERVE:
     hooks += [(0x3020, hook_obs_3020_entry), (0x3075, hook_obs_3020_draw),
               (0x3009, hook_obs_2fde)]

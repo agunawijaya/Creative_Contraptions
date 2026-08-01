@@ -63,6 +63,95 @@ def baris_status(fb):
     fillrect(fb, 0x10, 0xC0, 0x12F, 0xC7, 1)
 
 
+def setupscr(fb, mode, nbola=1, misc=None, sub=0, schi_sclo=0):
+    """`setupscr()` @0x33xx — SELURUH latar layar, ditulis apa adanya:
+
+        fillrect(0, 0, 0x13f, 7, 3);          pita atas, abu-abu
+        fillrect(0, 8, 0x13f, 0x9f, 1);       arena, cyan
+        col = (mode == 0 || mode == 1) ? 1 : 0;
+        if (mode == 4 && (schi|sclo) != 0)  fillrect(0, 0xa8, 0x13f, 199, 0);
+        else                                fillrect(0, 0xa0, 0x13f, 199, col);
+        blit(hdrspr, 0, 0x88, 8, 0x30);
+        for (i = 0; i < goal; i++) setball(0, i * 10);
+        if (sub == 1 && mode != 0 && mode != 1)
+            fillrect(0x10, 0xc0, 0x12f, 199, 1);
+
+    ⭐ `hdrspr` @0x526 adalah BUFFER, bukan data statis: isinya nol di DGROUP dan
+    diisi saat program berjalan dari MISC record 2. Jadi corong yang dulu kita
+    identifikasi lewat tangkapan VRAM memang benar -- sekarang dengan sebabnya.
+
+    Ikon bola di pita atas dipasang `setball(0, i*10)`, dan justru panggilan itu
+    yang membongkar penamaan yang menyesatkan: ikonnya berjajar MENDATAR padahal
+    yang bertambah adalah argumen kedua, yang disimpan ke global bernama `bally`.
+    Jadi @0x25e memegang X dan @0x260 memegang Y -- lihat catatan di dgtab.py.
+
+    ⚠ `nbola` menggantikan global yang di sumbernya bernama `goal` (@0x718).
+    Namanya menyesatkan: itu BUKAN nomor kontraption melainkan JUMLAH BOLA yang
+    tersisa -- `goal = 1` sebelum layar design, `goal = 6` di mode Contraption
+    Mix Up, dan `goal++` di animvm ketika pemain mendapat bola tambahan. Layar
+    design selalu menampilkan satu ikon, berapa pun nomor goal-nya; sempat
+    terukur sebagai beda 50 piksel per nomor goal sebelum ini disadari.
+    """
+    fillrect(fb, 0, 0, 0x13F, 7, 3)
+    fillrect(fb, 0, 8, 0x13F, 0x9F, 1)
+    col = 1 if mode in (0, 1) else 0
+    if mode == 4 and schi_sclo != 0:
+        fillrect(fb, 0, 0xA8, 0x13F, 199, 0)
+    else:
+        fillrect(fb, 0, 0xA0, 0x13F, 199, col)
+    if misc is not None:
+        r = misc.recs[contrap.CORONG_REC]
+        blit(fb, misc, r, contrap.CORONG_XY[0], contrap.CORONG_XY[1])
+    for i in range(nbola):
+        ikon_bola(fb, i * 10, 0)
+    if sub == 1 and mode not in (0, 1):
+        fillrect(fb, 0x10, 0xC0, 0x12F, 199, 1)
+    return fb
+
+
+def ikon_bola(fb, x, y):
+    """Bola di pita atas. Fase pra-geser dipilih `x % 4`, kolom byte `x // 4`.
+
+    Sprite dan mask-nya dibaca lewat tabel penunjuk di DGROUP (tblA/tblB), bukan
+    dihitung -- lihat dgtab.fase_bola().
+    """
+    from . import dgtab
+    spr, msk = dgtab.fase_bola()
+    fase = x & 3
+    x0 = (x >> 2) * 4
+    s, m = spr[fase], msk[fase]
+    for row in range(8):
+        ty = y + row
+        if not (0 <= ty < H):
+            continue
+        for cb in range(3):                       # 3 byte = 12 piksel
+            sb, mb = s[row * 3 + cb], m[row * 3 + cb]
+            for p in range(4):
+                tx = x0 + cb * 4 + p
+                if not (0 <= tx < W):
+                    continue
+                geser = 6 - 2 * p
+                if (mb >> geser) & 3 == 0:        # mask 0 = piksel bola
+                    fb[ty][tx] = (sb >> geser) & 3
+
+
+def labels(fb, pos, warna=3):
+    """`f15d0()`: huruf 'A'+i di tiap entri postab, warna 3.
+
+        for (i = 0; i < cnt; i++) { s = i + 'A';
+            text(&s, tab[i*2+1], tab[i*2], 1, 1, 3); }
+
+    ⚠ `text()` memakai urutan (X, Y) -- KEBALIKAN `blit()` yang (Y, X). Dengan
+    struct pos {int a; int b;}, panggilan `text(&s, b, a)` berarti X = b dan
+    Y = a, jadi entri (45, 0) menaruh huruf 'A' di (x=0, y=45). Diperiksa
+    terhadap ketujuh label yang terlihat di tangkapan VRAM, bukan diterka.
+    """
+    from . import font
+    for i, (a, b) in enumerate(pos):
+        font.gambar(fb, chr(ord("A") + i), b, a, warna, W, H)
+    return fb
+
+
 # ---- keluaran -----------------------------------------------------------
 def to_rgb(fb):
     """Daftar tuple RGB, urut baris — untuk PIL."""

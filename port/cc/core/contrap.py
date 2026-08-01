@@ -51,7 +51,12 @@ def parse(path):
         goal = struct.unpack_from("<H", b, p)[0]
         p += 2
         cA = struct.unpack_from("<H", b, p)[0]
-        p += 2 + cA * 4
+        p += 2
+        # `postab` @0x3b6 -- POSISI LABEL HURUF, bukan data tak dikenal.
+        # f15d0(): for (i=0;i<cnt;i++) { s = i+'A'; text(&s, tab[i*2+1], tab[i*2], 1,1,3); }
+        # jadi tiap entri = (x, y) dan hurufnya 'A'+i, warna 3.
+        pos = [struct.unpack_from("<hh", b, p + k * 4) for k in range(cA)]
+        p += cA * 4
         cB = struct.unpack_from("<H", b, p)[0]
         p += 2
         mech = [struct.unpack_from("<hhH", b, p + k * 6) for k in range(cB)]
@@ -59,18 +64,19 @@ def parse(path):
         cC = struct.unpack_from("<H", b, p)[0]
         p += 2
         zany = [struct.unpack_from("<hhH", b, p + k * 6) for k in range(cC)]
-        goals.setdefault(goal, []).append(dict(mech=mech, zany=zany))
+        goals.setdefault(goal, []).append(dict(mech=mech, zany=zany, pos=pos))
     return goals
 
 
 def draw_list(var, graph, mechs, misc=None, pilih=0, isi_mekanisme=False,
-              corong=True):
+              corong=True, pilihan=None):
     """Daftar operasi gambar untuk SATU varian struktur.
 
-    `pilih`  indeks varian part untuk setiap slot. Di game aslinya `pickpart()`
-             mengundinya dengan rnd(); di sini deterministik supaya keluarannya
-             bisa diulang. Untuk meniru game, panggil dengan urutan undian yang
-             sama (lihat port/cc/core/rng.py).
+    `pilih`    indeks varian part untuk setiap slot, dipakai kalau `pilihan`
+               tidak diberikan. Deterministik, supaya keluarannya bisa diulang.
+    `pilihan`  {'zany': [indeks record, ...], 'mech': [...]} -- hasil undian
+               `pick.pickpart()`. INI yang meniru game asli; `pilih` hanya
+               jalur cadangan untuk katalog dan bukti statis.
     `isi_mekanisme=False` = layar AWAL Fill in Mechanisms: slot masih kosong.
     """
     out = []
@@ -80,14 +86,19 @@ def draw_list(var, graph, mechs, misc=None, pilih=0, isi_mekanisme=False,
                         x=CORONG_XY[0], y=CORONG_XY[1], w=r["w"], h=r["h"]))
     for kelompok, arc, gambar in (("zany", graph, True),
                                   ("mech", mechs, isi_mekanisme)):
-        for (y, x, tipe) in var[kelompok]:
-            vs = arc.variants(tipe)
-            if not vs:
+        dipilih = (pilihan or {}).get(kelompok)
+        for slot, (y, x, tipe) in enumerate(var[kelompok]):
+            if dipilih is not None:
+                mulai = dipilih[slot] if slot < len(dipilih) else None
+            else:
+                vs = arc.variants(tipe)
+                mulai = vs[min(pilih, len(vs) - 1)] if vs else None
+            if mulai is None:
                 continue
             if not gambar:
                 out.append(dict(kind="slot", x=x, y=y))
                 continue
-            for r in arc.chain(vs[min(pilih, len(vs) - 1)]):
+            for r in arc.chain(mulai):
                 out.append(dict(kind="blit", arc=arc, rec=r,
                                 x=x + r["dx"], y=y + r["dy"],
                                 w=r["w"], h=r["h"]))
