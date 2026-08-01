@@ -200,28 +200,43 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
    Layar judul memakai JALUR KODE YANG SAMA dgn layar design, hanya `sub = 0x80`.
 - Animasi judul rakitan tangan (`build_title_anim`) DIBUANG — tak satu pun pikselnya terbukti.
 
+- **ANIMASI dibangkitkan sendiri** (2026-08-01): mesin `animvm()` di
+  `port/cc/core/vm.py` menjalankan skrip dari berkas aset. Terukur vs tangkapan VRAM
+  emulator: **381/402 frame byte-identik, 99,9988% piksel**. Goal 4, 5, 6 dan layar
+  judul **100% frame**. Judul "CREATIVE CONTRAPTIONS" ternyata digambar opcode `0x11`
+  DI DALAM skrip animasi, bukan oleh layar statis.
+- **Port TIDAK lagi membaca rekaman.** `port/cc/anim/*.dat` dan `port/cc/draws/*.json`
+  tidak dipakai sama sekali — layar, animasi, slot, palet, jalur bola, dan "reach"
+  semuanya dari `port/cc/core/`. Keduanya kini hanya PEMBANDING.
+
 **Berikutnya untuk jalur PORT:**
-1. Jalankan opcode `animvm()` supaya indeks frame part + posisi bola dibangkitkan sendiri.
-   Dua prasyaratnya SUDAH selesai (2026-08-01):
-   - **frame animasi part** = record GRAPH/MECHS yang berbagi `(id, row)` dengan record
-     diamnya (`Archive.kelompok()`). Frame animasi TIDAK ada di ANIMATE.
-   - **skrip part** ditemukan di ANIMATE lewat `(id, row)` record gambar yang terpilih
-     (`port/cc/core/skrip.py`) — **68/68 skrip untuk 6 goal**, tanpa tangkapan emulator.
-     Lewat indeks tabel hanya slot pertama yang benar; kesejajarannya kebetulan.
-2. ~~Turunkan transform logis→layar `FUN_1000_5e3b`~~ — **SELESAI: transformnya TIDAK ADA.**
-   @0x25e = X layar, @0x260 = Y layar, langsung. Lihat `port/cc/core/render.py:bola`.
-3. Hapus jejak bola: `prep`/`blend`/`putmsk`/`draw` (halaman ganda) — belum diturunkan.
-4. Status bar/skor lengkap + suara PC-speaker (op 0x04 sudah diparse).
-5. Harness frame-diff per-frame: `CC_VRAMSEQ=26ae=<folder>` di `work/emu.py` sudah menulis
-   rujukan VRAM tiap langkah bola + `globals.json`. Tinggal pembandingnya.
+1. **21 frame animasi** (goal 1, 2, 3) belum byte-identik. Bedanya kecil dan terpusat;
+   record dan posisinya sudah terbukti BENAR. Yang belum diturunkan adalah
+   `prep`/`blend`/`putmsk`/`draw` — interaksi hapus-bola dengan blit yang datang
+   sesudahnya. ⚠ **Enam percobaan di sumbu itu sudah gagal**; hipotesis "salinan latar
+   basi" bahkan menurunkan hasil 381/402 → 57/402. Baca catatan panjang di
+   `port/cc/core/adegan.py` sebelum mencoba lagi.
+2. Status bar/skor lengkap + suara PC-speaker (op `0x04` sudah diparse).
+3. Sisa pemakaian tangkapan, keduanya data ANTARMUKA bukan render kontraption:
+   `cc/anim/review_layout.json` (tata letak Review Mechanisms) dan `cc/anim/icons/`.
 
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
 
 - **Sprite di-render OPAQUE, bukan colorkey cyan.** Blitter asli `672f` menulis semua piksel;
   cyan = warna latar, bukan transparansi. Colorkey bikin piksel cyan di dalam sprite hilang.
-- **Indeks varian `draws_goalN_vI.json` TIDAK sejajar dengan `goalN_vI.dat`.** Animasi run
-  dipilih lewat **pencocokan konten frame-0** (`Game._match_anim`, `port/main.py:507`), bukan
-  indeks. (Bug 2026-07-21: layar design ≠ layar run.)
+- ~~**Indeks varian `draws_goalN_vI.json` TIDAK sejajar dengan `goalN_vI.dat`**~~ — jebakan
+  ini SUDAH TIDAK ADA. `_match_anim()` (yang mencocokkan animasi ke layar design lewat isi
+  frame-0) sudah dibuang: adegan dan animasi kini lahir dari data yang sama, oleh undian
+  yang sama, jadi tidak ada yang perlu dicocokkan. Bug "layar design ≠ layar run" tidak
+  bisa terjadi lagi **secara konstruksi**, bukan karena diperbaiki.
+- **ALAT UKUR BISA MEMBATASI TEMUAN.** Jumlah varian sempat diambil dari `len(draws_var[gid])`
+  — yaitu dari berapa banyak berkas TANGKAPAN yang kebetulan ada, sehingga varian yang belum
+  sempat direkam tak pernah terpilih. Yang membuatnya sulit terlihat: `work/test_allgoals.py`
+  menghitung varian dengan cara yang SAMA, jadi tesnya ikut membatasi diri dan tak akan pernah
+  melaporkannya. Curigai tes yang memakai sumber data yang sama dengan kode yang diujinya.
+- **ANGKA YANG MEMBAIK BUKAN BUKTI PENJELASANNYA BENAR.** Penyelarasan frame "(2,1) karena
+  halaman ganda" sempat memberi 101/135 dengan alasan yang keliru; urutan gambar yang benar
+  memberi 119/135 tanpa pergeseran apa pun.
 - **NAMA GLOBAL ADALAH HIPOTESIS, BUKAN FAKTA.** Empat nama terbukti salah, dan tiap kali
   yang membongkarnya adalah PEMAKAIANNYA, bukan tampilannya:
   `bally`(@0x25e) sebenarnya **X**, `ballx`(@0x260) sebenarnya **Y**, `goal`(@0x718)

@@ -152,16 +152,34 @@ Direktori (216 byte): 36 × { u16 id, u32 offset }
 
 Per kontraption @offset:
    u16  goal_id            ; diperiksa terhadap tujuan yang dipilih
-   u16  countA ; u32[countA]
+   u16  countA ; u32[countA]    <- POSISI LABEL HURUF  { i16 a, i16 b }
    u16  countB ; rec6[countB]   <- MEKANISME  { u16 y, u16 x, u16 jenis }
    u16  countC ; rec6[countC]   <- OBJEK ZANY { u16 y, u16 x, u16 jenis }
-   u16[countB+countC]
+   u16[countB+countC]           <- URUTAN RANTAI
 ```
 
 ⚠ Perhatikan urutannya: **`y` dulu, baru `x`.** Konsisten dengan urutan argumen `blit`.
 
-Bagian `countA` masih **dugaan** — panjangnya diketahui pasti (karena parsingnya berhasil
-di keenam tujuan), tetapi maknanya belum. Dugaan terkuat: data jalur bola.
+**Dua blok yang lama tidak diketahui maknanya, keduanya sudah terpecahkan.**
+
+`countA` adalah `postab` (`@0x3B6`): posisi **label huruf** `A`, `B`, `C`… yang mengapit
+tiap part di layar. Fungsi `f15d0` menggambarnya:
+
+```c
+for (i = 0; i < cnt; i++) { s = i + 'A';
+    text(&s, tab[i*2+1], tab[i*2], 1, 1, 3); }
+```
+
+⚠ Perhatikan: **`text()` memakai urutan `(X, Y)`** — kebalikan `blit()` yang `(Y, X)`.
+Jadi entri `(45, 0)` menaruh huruf `A` di `x=0, y=45`, bukan sebaliknya. Dua fungsi
+gambar di program yang sama, dua urutan argumen yang berlawanan.
+
+Blok terakhir (`u16[countB+countC]`) adalah `state`: **urutan rantai**. Satu entri per
+part; `-1` berarti mekanisme, selainnya objek zany, masing-masing dipakai berurutan.
+Inilah yang dibaca mesin animasi untuk tahu part mana yang menerima bola berikutnya.
+Untuk tujuan 1 isinya `[1, -1, 1, -1, 1, 1, 1, -1, 1, 1]` — dan itu persis urutan skrip
+yang benar-benar dijalankan gim: zany, mekanisme, zany, mekanisme, zany, zany, zany,
+mekanisme, zany, zany.
 
 ---
 
@@ -287,25 +305,47 @@ ini **dihasilkan kompiler** dari sebuah `switch` — jadi tiap "handler" sebenar
 
 | op | perilaku | operand |
 |---|---|---|
-| `0x00` | gambar daftar sprite (sampai `0xFF`) lewat `0x2714` | daftar |
-| `0x01` | gambar daftar sprite lewat `0x278E` | daftar |
-| `0x02` | suara / tunda | 1 byte |
-| `0x03` | gerak, koordinat bertanda (ambang `0xC8`) | ≥ 2 byte |
-| `0x05` | gambar kursor lewat `0x6524` | — |
-| `0x06` | reset kursor | — |
-| `0x07` | reset kursor + gambar satu sprite | — |
-| `0x08` | gambar satu sprite lewat `0x2714` | — |
-| `0x09` | gambar satu sprite lewat `0x278E` | — |
-| `0x0A` | reset kursor + gambar + ulang | — |
-| `0x0C` | gerak (mirip `0x03`) | ≥ 2 byte |
-| `0x0D` | **mulai gelung** — simpan posisi skrip | word |
-| `0x0E` | set penanda gelung | — |
-| `0x0F` | kendali gelung + tunggu retrace | — |
-| `0x10` | — | — |
-| `0x11` | timer / skor | 4 byte |
+| `0x00` | aliran **titik jalur bola** sampai `0xFF` | 2 byte per titik |
+| `0x08` | satu titik jalur bola (`f2714`) | 2 byte |
+| `0x0A` | sama seperti `0x08`, tapi **jangan hapus** posisi sebelumnya | 2 byte |
+| `0x01` | aliran **bingkai sprite** sampai `0xFF` | 1 byte per bingkai |
+| `0x09` | satu bingkai sprite (`f278e`) | 1 byte |
+| `0x07` | sama seperti `0x09`, tapi **jangan hapus** posisi sebelumnya | 1 byte |
+| `0x02` | jeda `n` bingkai | 1 byte |
+| `0x03` | lempar bola ke part **berikutnya** (parabola `f2823`) | 2 byte |
+| `0x0C` | lempar bola ke koordinat **relatif** | 2 byte |
+| `0x04` | ganti sumber bunyi | **panjang berubah-ubah** |
+| `0x05` | `putmsk()` — gambar ulang mask bola | — |
+| `0x06` | reset "jangan hapus" | — |
+| `0x0D` | tandai **awal badan gelung** | — |
+| `0x0E` | aktifkan mode tunggu-tombol | — |
+| `0x0F` | akhir gelung / tunggu tombol | 1 byte pencacah |
+| `0x10` | akhir tujuan: bonus + skor | — |
+| `0x11` | **tulis teks** berparameter dari skrip | 8 byte + string |
 | `0xFF` | akhir skrip | — |
 
-(`0x0B` tidak ada.)
+Beberapa hal di tabel ini mahal didapat dan mudah salah:
+
+- **`0x0A` jatuh tembus ke `0x08`, dan `0x07` ke `0x09`.** Di biner, badan yang pertama
+  berakhir tepat di awal badan yang kedua tanpa lompatan. Bedanya cuma satu hal:
+  "jangan hapus posisi bola sebelumnya".
+- **`0x04` panjangnya berubah-ubah.** Mode 1 membawa 6 byte; mode 2 dan 3 mengalir sampai
+  penanda **ganda** `FF FF`. Membacanya dengan asumsi "1 byte operan" membuat tiga titik
+  pertama tetap cocok lalu seluruh sisanya melenceng — gejalanya tampak seperti jalur bola
+  yang salah, padahal kursor skripnya yang tergelincir.
+- **`0x11` membawa panjang string secara EKSPLISIT**, bukan penanda NUL. Justru opcode
+  inilah yang menggambar judul `CREATIVE CONTRAPTIONS` di layar pembuka — teks itu bagian
+  dari *animasi*, bukan dari layar diam.
+- **`0x0C` membaca sasarannya dari operan opcode BERIKUTNYA** di skrip yang sama, relatif
+  ke posisi **part** (bukan posisi bola), dan **tidak** memajukan kursor skrip — jadi opcode
+  itu tetap dijalankan lagi sesudahnya. Parameter lengkungnya juga dipakai **mentah**:
+  pemulihan tandanya dihitung lalu dibuang. Itu tampak seperti bug di gimnya, dan
+  direkonstruksi apa adanya.
+
+(`0x0B` muncul sebagai nilai yang diterima `0x03` saat memeriksa skrip part tujuan,
+tetapi tidak punya badan sendiri.)
+
+
 
 Tata bahasa dan panjang operan ini **terbukti cocok pada 68 dari 68 skrip** di keenam
 tujuan, diverifikasi dengan menjalankan game di emulator dan membandingkan panjang skrip
@@ -313,6 +353,21 @@ yang benar-benar dibaca.
 
 Interpolator geraknya (`0x2823`) menghasilkan lintasan parabola, dan port Python-nya
 cocok **42 dari 42** kasus uji secara eksak.
+
+### Satu kursor, bukan sepuluh
+
+Yang membuat mesin ini jauh lebih sederhana daripada kelihatannya: `scrptr` (`@0x3AE`)
+adalah **satu kursor global**. Skrip part **tidak** berjalan serentak. Satu part aktif pada
+satu waktu; `0x03` menyerahkan bola ke part berikutnya dan kursornya pindah ke skrip part
+itu. Urutan rantainya dibaca dari array `state` di ujung tiap record `CONTRAP`: `-1` berarti
+mekanisme, selainnya objek zany, masing-masing dipakai berurutan.
+
+Dugaan awal — sepuluh skrip paralel dengan penjadwal — akan melahirkan mesin yang jauh
+lebih rumit daripada yang sebenarnya ada.
+
+Mesin ini sudah dijalankan ulang di luar gim, dari berkas aset saja. Terhadap tangkapan
+VRAM emulator: **381 dari 402 bingkai byte-identik**, dan untuk tiga tujuan terakhir serta
+layar judul **seluruh bingkainya identik**.
 
 ---
 

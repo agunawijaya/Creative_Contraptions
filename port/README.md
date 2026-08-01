@@ -71,27 +71,34 @@ python work/test_nav.py        # regresi navigasi menu
 
 ✅ **Palet warna EKSAK** (CGA palette-1 low-intensity, bg biru — disampel dari game asli).
 ✅ **Scaler = pygame.SCALED** (integer nearest-neighbor, DPI-aware — logika sama dgn DOSBox 3x/4x).
-✅ **Pemilihan sprite BENAR & deterministik** — bukan lagi ditebak/dicocokkan; daftar draw
-   `(arch, idx, x, y)` di-capture dari eksekusi game asli via emulator Unicorn (`work/emu.py`,
-   hook blitter `672f`) → `cc/draws/draws_goal*.json`. Render 6 contraption **100% pixel-match**.
+✅ **TIDAK ADA LAGI DATA TANGKAPAN DI JALUR PORT.** Layar, animasi, slot, palet, jalur
+   bola — semuanya dibangkitkan dari berkas aset oleh `cc/core/`. `cc/draws/*.json` dan
+   `cc/anim/*.dat` tidak dibaca sama sekali; keduanya kini hanya PEMBANDING.
+✅ **Layar diam PIXEL-IDENTIK**: 7 layar (goal 1..6 + judul 128) = **448.000/448.000
+   piksel** vs tangkapan VRAM emulator, diukur dari dalam port lewat `pygame.Surface`.
+✅ **Animasi dibangkitkan mesin `animvm()`** (`cc/core/vm.py`): **381/402 bingkai
+   byte-identik**, 99,9988% piksel. Goal 4, 5, 6 dan layar judul **100% bingkai**.
+✅ **Varian dipilih lewat RNG yang sama dengan gim** (`cc/core/pick.py`) — LCG
+   `seed*0x3E85 + 0x3619`, termasuk undian yang ditolak lalu diulang.
 ✅ **KE-4 MODE JALAN**: Review Mechanisms (ensiklopedia 9 mekanisme + demo goal 7),
-   Fill in Mechanisms (varian acak tiap load), Fill in Zany Objects (kandidat berputar di dalam
-   kotak), Contraption Mix Up (mekanisme + zany, timer + bonus waktu). Level Apprentice /
-   Master Builder tersedia.
-✅ **Animasi run per-varian** dari eksekusi game asli (`cc/anim/goalN_vV.dat`): MENANG → animasi
-   varian yang benar; GAGAL → bola berhenti di titik gagal.
-✅ **Layar judul beranimasi** (rantai Rube-Goldberg) + palet part dikocok tiap load.
+   Fill in Mechanisms (varian acak tiap load), Fill in Zany Objects, Contraption Mix Up
+   (timer + bonus waktu). Level Apprentice / Master Builder tersedia.
+✅ **Layar judul ASLI dan bergerak**, termasuk teks "CREATIVE CONTRAPTIONS" — teks itu
+   digambar opcode `0x11` di dalam skrip animasi, bukan oleh layar statis.
 ✅ **Navigasi sesuai hierarki asli**: selesai/ESC di contraption → kembali ke pilihan GOAL
    (bukan menu depan); hanya GOAL-ESC yang ke menu depan.
-✅ **Fix design≠run (2026-07-21)**: animasi dipilih lewat pencocokan konten frame-0
-   (`_match_anim`), bukan indeks varian — indeks `draws_*` dan `*.dat` ternyata tidak sejajar.
 
 ## Belum (roadmap)
-- [ ] **Interpreter generate part-frame sendiri** (op 0x01/0x07/0x09 → record ANIMATE) agar
-      animasi run tak bergantung data capture emulator. ← BERIKUTNYA
-- [ ] **Transform logis→layar `FUN_1000_5e3b`** (posisi bola sub-pixel eksak; kini pakai posisi
-      layar hasil capture VRAM karena transform belum diturunkan).
-- [ ] **Render mandiri yang sync** — butuh mesin composite + erase jejak bola seperti game asli.
-- [ ] Fase roll-in pada run GAGAL (bola kini langsung muncul di titik pertama).
-- [ ] Status bar/skor lengkap + suara PC-speaker (op 0x04 sudah diparse).
-- [ ] (opsional) harness frame-diff vs DOSBox-X = bukti pixel-identical.
+- [ ] **21 bingkai animasi** (goal 1, 2, 3) belum byte-identik. Record dan posisinya sudah
+      terbukti benar; yang belum diturunkan adalah `prep`/`blend`/`putmsk`/`draw` —
+      interaksi hapus-bola dengan blit yang datang sesudahnya.
+      ⚠ Enam percobaan di sumbu itu sudah gagal; hipotesis "salinan latar basi" bahkan
+      menurunkan hasil 381/402 → 57/402. Baca catatan di `cc/core/adegan.py` dulu.
+- [ ] Status bar/skor lengkap + suara PC-speaker (op `0x04` sudah diparse).
+- [ ] Dua sisa data tangkapan, keduanya ANTARMUKA bukan render kontraption:
+      `cc/anim/review_layout.json` (tata letak Review Mechanisms) dan `cc/anim/icons/`.
+
+> Catatan sejarah: jebakan lama *"indeks varian `draws_*` tidak sejajar dengan `*.dat`"*
+> sudah tidak ada. `_match_anim()` yang mencocokkan animasi ke layar design lewat isi
+> bingkai-0 sudah dibuang — adegan dan animasi kini lahir dari data yang sama, oleh undian
+> yang sama, jadi tidak ada yang perlu dicocokkan.
