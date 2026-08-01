@@ -60,25 +60,32 @@ def baris_piksel(c):
     return [[(b >> (7 - i)) & 1 == 1 for i in range(8)] for b in glif(c)]
 
 
-def gambar(fb, teks, x, y, warna=3, w=320, h=200):
+def gambar(fb, teks, x, y, warna=3, w=320, h=200, skx=1, sky=1):
     """Tulis `teks` ke framebuffer indeks-warna pada (x, y). Kembalikan lebar.
 
     Piksel yang MATI tidak ditulis -- penggambar aslinya hanya menyalakan piksel
     yang menyala, jadi teks tidak menghapus latar di belakangnya.
+
+    `skx`/`sky` = faktor perbesaran, yaitu argumen `w`/`h` pada `text()` di
+    biner. Label huruf memakai (1, 1); judul "CREATIVE CONTRAPTIONS" yang
+    digambar skrip animasi memakai (2, 2).
     """
     cx = x
     for ch in teks:
         g = baris_piksel(ord(ch))
         for r in range(8):
-            ty = y + r
-            if not (0 <= ty < h):
-                continue
-            for k in range(8):
-                if g[r][k]:
-                    tx = cx + k
-                    if 0 <= tx < w:
-                        fb[ty][tx] = warna
-        cx += 8
+            for ry in range(sky):
+                ty = y + r * sky + ry
+                if not (0 <= ty < h):
+                    continue
+                for k in range(8):
+                    if not g[r][k]:
+                        continue
+                    for rx in range(skx):
+                        tx = cx + k * skx + rx
+                        if 0 <= tx < w:
+                            fb[ty][tx] = warna
+        cx += 8 * skx
     return cx - x
 
 

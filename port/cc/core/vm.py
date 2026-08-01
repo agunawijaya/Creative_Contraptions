@@ -73,17 +73,22 @@ class VM:
     lebih dulu adalah URUTAN peristiwanya terhadap rujukan VRAM. Kalau
     urutannya salah, langsung menggambar hanya menyembunyikan letak salahnya.
 
-    ⭐ PENYELARASAN FRAME, kalau dipakai untuk menggambar. Bola dan part TIDAK
-    tertinggal sejauh yang sama dari peristiwa VM:
+    ⭐ URUTAN GAMBAR, kalau dipakai untuk menggambar. Yang ditiru:
 
-        bola  = peristiwa ke n-2      part = peristiwa ke n-1
+        VRAM saat MASUK drawball N = hasil drawball N-1 + blit part sesudahnya
 
-    Sebabnya halaman ganda, bukan penyetelan sembarang: `drawball()` menulis
-    lewat `page`/`page2` yang BERTUKAR tiap panggilan, sedangkan `f278e()`
-    mem-blit part LANGSUNG ke halaman tampak. Jadi bola tertinggal satu langkah
-    lebih banyak daripada part. Terukur pada rujukan goal 1: pasangan (2,1)
-    memberi 101/135 frame identik dan 99,9920% piksel; pasangan (1,1) hanya
-    13/136, (2,2) 92/135.
+    Jadi part yang di-blit SESUDAH bola akan MENUTUPI bola. Modelnya bukan
+    "latar + bola di atas": sembilan frame gagal dgn kotak beda persis sebesar
+    bola sampai ini dibetulkan. drawball N sendiri menghapus bola N-1
+    (mengembalikan latar di kotaknya) lalu menggambar bola N.
+
+    ⚠ CATATAN KOREKSI. Sempat dicatat di sini bahwa bola tertinggal DUA
+    peristiwa dan part satu ("penyelarasan (2,1)"), dengan halaman ganda
+    sebagai sebabnya. Itu KELIRU. Pergeseran itu cuma kebetulan mengompensasi
+    urutan gambar yang salah: begitu urutannya dibetulkan, TANPA pergeseran
+    sama sekali hasilnya naik dari 101/135 jadi 119/135 frame identik
+    (99,9920% -> 99,9984% piksel). Angka yang membaik bukan bukti bahwa
+    penjelasannya benar.
 
     ⚠ Skripnya diambil dari `animvm.parse()`, BUKAN dipindai byte per byte di
     sini. Alasannya mahal: opcode 0x04 (bunyi) panjangnya VARIABEL -- mode 1
@@ -257,6 +262,10 @@ class VM:
                 continue
             if nama == "op10":           # akhir goal
                 return ("selesai", None)
+            if nama == "op11":           # tulis teks berparameter dari skrip
+                # Di sinilah judul "CREATIVE CONTRAPTIONS" digambar -- bukan
+                # oleh layar statis. Handler-nya juga memanggil bounce().
+                return ("teks", data)
             if nama in ("op03", "op0c"):
                 if self._lempar(nama, data) is None:
                     return ("selesai", None)

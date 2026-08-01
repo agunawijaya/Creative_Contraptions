@@ -107,9 +107,22 @@ def parse(script):
             node, i = parse_op04(s, i)
             out.append(node)
         elif op == 0x11:
-            # multi-param: baca 4 word (dari handler baca beberapa word/byte) -- perkiraan
-            vals = s[i:i + 8]; i += 8
-            out.append(("op11", vals))
+            # handler @0x1e85, dibaca apa adanya:
+            #   u32 = word  (Y)   u34 = word (X)
+            #   u36 = byte  (h)   u38 = byte (w)   u3a = byte (warna)
+            #   u3c = byte  (PANJANG string)
+            #   u3e = scrptr ; scrptr += u3c
+            #   text(u3e, u34, u32, u38, u36, u3a)
+            # ⚠ Panjangnya EKSPLISIT, bukan ber-NUL. Versi lama membaca 8 byte
+            # tetap lalu berhenti di byte pertama string -- itu yang membuat
+            # skrip layar judul gagal parse dgn "opcode tak dikenal 0x43"
+            # (0x43 = 'C' dari "CREATIVE").
+            y = s[i] | (s[i+1] << 8); x = s[i+2] | (s[i+3] << 8)
+            h, w, col, ln = s[i+4], s[i+5], s[i+6], s[i+7]
+            i += 8
+            teks = bytes(s[i:i + ln]).split(bytes([0]))[0].decode("latin-1")
+            i += ln
+            out.append(("op11", dict(x=x, y=y, w=w, h=h, warna=col, teks=teks)))
         elif op in FIXED_LEN:
             n = FIXED_LEN[op]
             out.append(("op%02x" % op, s[i:i + n]))
