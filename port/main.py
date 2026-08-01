@@ -18,6 +18,7 @@ import pygame
 from cc import cga, assets, text, anim
 from cc.core import archive as _arc, contrap as _con, render as _rend
 from cc.core import pick as _pick, rng as _rng, adegan as _adg
+from cc.core import resensi as _res
 
 
 GOAL_NAMES = {1: "Up and At 'Em", 2: "Hair Care", 3: "Easy Eating",
@@ -92,14 +93,10 @@ class Game:
         self.rev_tick = 0
         self.review_demo = False  # True saat memutar demo contraption (goal 7) dari Review
         # layout Review EKSAK (diekstrak dari data game: intro, fixed, per-mekanisme)
-        rlp = os.path.join(os.path.dirname(__file__), "cc", "anim", "review_layout.json")
-        self.review_layout = json.load(open(rlp)) if os.path.exists(rlp) else None
-        # ikon menu (di-crop dari render game asli)
-        icdir = os.path.join(os.path.dirname(__file__), "cc", "anim", "icons")
-        self.menu_icons = []
-        for nm in ("review", "fillmech", "zany", "mixup"):
-            fp = os.path.join(icdir, nm + ".png")
-            self.menu_icons.append(pygame.image.load(fp) if os.path.exists(fp) else None)
+        # Tata letak layar Review dibaca dari DGROUP, bukan dari tangkapan
+        # emulator: tabel penunjuk @0x14F6 + pencacah @0x1508, record 12 byte.
+        # Diperiksa terhadap berkas tangkapan lama: 74/74 record cocok.
+        self.review_layout = _res.semua()
         self.anim = anim.AnimArchive(os.path.join(data_dir, "ANIMATE"))
         self.goals = assets.parse_contrap(os.path.join(data_dir, "CONTRAP"))
         # ---- lapisan INTI terverifikasi -------------------------------------
@@ -110,6 +107,12 @@ class Game:
         self.k_misc = _arc.Archive(os.path.join(data_dir, "MISC"))
         self.k_goals = _con.parse(os.path.join(data_dir, "CONTRAP"))
         self.k_anim = _arc.Archive(os.path.join(data_dir, "ANIMATE"))
+        # Ikon keempat mode = MISC record 7, 8, 9, 10 -- berurutan, persis
+        # urutan menu (Review, Fill Mechanisms, Fill Zany, Mix Up). Dulu empat
+        # PNG hasil crop dari render gim; diperiksa piksel per piksel terhadap
+        # crop itu: 1100/1100 untuk keempatnya.
+        self.menu_icons = [_rend.sprite_surface(self.k_misc, self.k_misc.recs[i], pygame)
+                           for i in (7, 8, 9, 10)]
         self._scene_cache = {}
         # `mode` di setupscr.c menentukan warna pita bawah; mode 0/1 = cyan.
         # Terukur: layar design mode Fill in Mechanisms memakai cabang ini.
@@ -214,9 +217,9 @@ class Game:
         """Layar detail satu mekanisme: judul + sprite (statis) + definisi + contoh.
         SPACE = "how it works" -> memutar CONTRAPTION DEMO (goal 7 varian = mekanisme ini)
         yg berjalan sendiri (spt game asli: 0x3b2=7, 5035+18db)."""
-        m = self.review_layout["mechs"].get(str(self.rev_i))
+        m = self.review_layout["mechs"].get(self.rev_i)
         if m:
-            self._rev_text(fb, m["recs"])
+            self._rev_text(fb, m)
         # sprite mekanisme statis di (144,48) spt 3020
         name, ids = MECH_CATEGORIES[self.rev_i]
         rec = self.mechs.first_of_major(ids[0])

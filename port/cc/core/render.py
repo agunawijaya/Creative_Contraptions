@@ -177,16 +177,32 @@ def simpan_png(fb, path):
     im.save(path)
 
 
+def sprite_surface(arc, rec, pygame=None):
+    """Satu record arsip -> pygame.Surface seukuran sprite-nya.
+
+    Latarnya diisi warna latar game lebih dulu, karena `blit()` menulis SEMUA
+    piksel termasuk yang berwarna latar -- tidak ada colorkey di sini.
+    """
+    fb = [[BG] * rec["w"] for _ in range(rec["h"])]
+    for yy, baris in enumerate(arc.pixels(rec)):
+        for xx, c in enumerate(baris):
+            if xx < rec["w"]:
+                fb[yy][xx] = c
+    return to_surface(fb, pygame)
+
+
 def to_surface(fb, pygame=None):
     """Framebuffer indeks -> pygame.Surface. Impor pygame ditunda supaya modul
     ini tetap bisa dipakai alat baris-perintah tanpa pygame terpasang."""
     if pygame is None:
         import pygame as pygame
-    surf = pygame.Surface((W, H))
+    h = len(fb)
+    w = len(fb[0]) if h else 0
+    surf = pygame.Surface((w, h))
     buf = pygame.PixelArray(surf)
-    for y in range(H):
+    for y in range(h):
         row = fb[y]
-        for x in range(W):
+        for x in range(w):
             buf[x, y] = surf.map_rgb(PALETTE[row[x]])
     del buf
     return surf
