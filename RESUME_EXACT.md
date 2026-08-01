@@ -63,11 +63,26 @@ Ini jalur yang paling mungkin diminta. Titik mulai konkret:
      `NA=-A; XBASE=(tx-fx)+tdiv(NA*N*N,100); x_i=fx+tdiv(XBASE*i,N)-tdiv(NA*i*i,100);
      y_i=fy+tdiv((ty-fy)*i,N)` (tdiv=truncate-toward-zero). Di-port di
      `port/cc/animvm.py:interp_2823`, **42/42 panggilan EKSAK** vs emulator.
-   - **JEBAKAN KOORDINAT (penting):** `0x260`(x)/`0x25e`(y) = koord LOGIS per-part,
-     BUKAN posisi layar. Drawer `FUN_1000_5e3b` menerapkan transform per-part + sub-pixel.
-     Untuk RENDER, baca posisi layar SEBENARNYA dari VRAM (diff sebelum/sesudah 26ae) —
-     lihat `work/emu.py` (ballscreen) & `work/ballpath_screen_g*.png`. Transform
-     logis→layar 5e3b belum diturunkan (dipakai capture VRAM sbagai gantinya).
+   - **JEBAKAN KOORDINAT (penting) — SUDAH TERPECAHKAN 2026-08-01.** Nama kedua
+     global itu TERTUKAR di dekompilasi: **`0x25e` ("bally") memegang X, `0x260`
+     ("ballx") memegang Y.** Buktinya dari pemakaian, bukan tebakan:
+     - `setball(0, i*10)` memasang ikon bola yang berjajar **mendatar** di pita
+       atas, dan yang bertambah adalah argumen yang disimpan ke `bally`;
+     - `setball()` menghitung `ballrow = y / 4` — 4 piksel per byte di CGA 2 bpp,
+       jadi itu **kolom byte**, yang hanya masuk akal untuk sumbu mendatar;
+     - `blend()` mengulang 8× pada `ballx` (baris) dan 3× pada `ballrow`
+       (3 byte = 12 piksel), persis bentuk sprite 8 baris × 12 piksel;
+     - `xform()` memilih fase pra-geser dengan `tblA[bally % 4]` — pra-geser
+       4 fase di CGA memang harus **mendatar**, dan sekarang konsisten.
+
+     Konsekuensinya: sprite bola = 4 salinan pra-geser mendatar (fase = `X % 4`,
+     kolom byte = `X // 4`). Sudah diperiksa dari datanya: fase 1 memang fase 0
+     yang digeser 1 piksel ke kanan, dan render fase 0 cocok EKSAK dengan VRAM
+     asli (ikon pita atas). Lihat `port/cc/core/render.py:ikon_bola`.
+
+     Yang MASIH belum diturunkan: transform logis→layar `FUN_1000_5e3b` untuk
+     posisi bola saat animasi, plus `prep`/`putmsk`/`draw` (assembly) yang
+     mengurus hapus-jejak halaman ganda.
    - Parser opcode & interpolator tervalidasi 100% (`port/cc/animvm.py`,
      `work/validate_interp.py`); jalur bola per-goal cocok dgn game.
 5. **Harness verifikasi frame-diff** vs DOSBox-X (lihat `DECOMPILE_PLAN.md` §Fase 3B) —

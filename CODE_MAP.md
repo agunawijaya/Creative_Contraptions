@@ -383,12 +383,51 @@ instruksi pun dari program aslinya.
 
 ---
 
+## 8b. Nama yang menyesatkan — dan cara menangkapnya
+
+Nama global di dekompilasi ini kami sendiri yang memberi. Sebagian ternyata salah,
+dan tiga di antaranya sempat menyesatkan berbulan-bulan. Ini pelajaran umum:
+**dalam rekayasa balik, nama adalah hipotesis, bukan fakta.** Yang membuktikan
+sebuah nama salah selalu *pemakaiannya*, bukan tampilannya.
+
+| Nama | Isi sebenarnya | Yang membongkarnya |
+|---|---|---|
+| `bally` @0x25e | koordinat **X** | `setball(0, i*10)` menjajarkan ikon **mendatar** lewat argumen ini; `ballrow = y/4` = kolom byte CGA |
+| `ballx` @0x260 | koordinat **Y** | `blend()` mengulang 8× di sini — itu jumlah **baris** sprite |
+| `goal` @0x718 | **jumlah bola**, bukan nomor kontraption | `goal = 1` sebelum layar design, `goal = 6` di Contraption Mix Up, `goal++` saat pemain dapat bola |
+| `mode_` @0x846, `seed` @0x72a | **pegangan berkas** | dipakai sebagai argumen pertama `read()`/`lseek()` |
+
+Cara `goal` tertangkap layak diceritakan, karena bentuknya khas. Port menggambar
+`goal` ikon bola di pita atas. Perbandingan piksel ke game asli memberi:
+
+```
+goal 1: 64000/64000     goal 4: 63850/64000
+goal 2: 63950/64000     goal 5: 63800/64000
+goal 3: 63900/64000     goal 6: 63750/64000
+```
+
+Persis **50 piksel per nomor goal**. Selisih yang tumbuh linier terhadap sebuah
+variabel hampir selalu berarti variabel itu dipakai sebagai **hitungan**. Game
+aslinya selalu menggambar satu ikon; yang salah bukan cara menggambar ikonnya,
+melainkan angka yang kami suapkan. Kalau hanya melihat gambarnya, beda 50 piksel
+di pojok kiri atas tidak akan pernah terlihat.
+
 ## 9. Yang masih belum diketahui
 
 Daftar ini pendek, dan itu memang tujuannya.
 
-1. **Blok `countA` di `CONTRAP`** — panjangnya pasti, maknanya belum. Dugaan: data jalur
-   bola atau urutan pemicu.
+1. ~~**Blok `countA` di `CONTRAP`**~~ — **TERPECAHKAN 2026-08-01.** Itu `postab`
+   (@0x3b6): daftar posisi **label huruf**. Fungsi `f15d0()` menggambarnya:
+
+   ```c
+   for (i = 0; i < cnt; i++) { s = i + 'A';
+       text(&s, tab[i*2+1], tab[i*2], 1, 1, 3); }
+   ```
+
+   Jadi tiap entri 4 byte = dua `int`, hurufnya `'A' + i`, warnanya 3. Perhatikan
+   `text()` memakai urutan **(X, Y)** — kebalikan `blit()` yang **(Y, X)**; entri
+   `(45, 0)` menaruh huruf `A` di `x=0, y=45`. Diperiksa terhadap ketujuh label
+   yang terlihat di tangkapan VRAM, bukan diterka.
 2. **Arti field `flags`** pada beberapa record arsip — sebagian record punya bit yang
    belum terpetakan perilakunya.
 3. **Satu byte di `load+134`** (`0x5485`) tidak akan pernah cocok. Itu nilai sampah yang
