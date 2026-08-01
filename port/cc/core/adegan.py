@@ -136,6 +136,16 @@ animasi berjalan.
 
 SISA 6 FRAME: goal 1 f089 & f121, goal 2 f034, goal 3 f021/f023/f026.
 Goal 4, 5, 6 dan layar judul sudah SELURUH frame-nya identik.
+
+Keenamnya berbentuk sama: kotak beda selebar 8 piksel -- persis satu bola --
+dengan tinggi 4..8. Dan arahnya konsisten: RUJUKAN LEBIH BERSIH daripada
+port, yaitu gim menghapus lebih banyak daripada model ini. Contoh goal 1
+f121: pada baris 40-41 port masih memperlihatkan bola di posisi sebelumnya
+sedangkan rujukan sudah cyan, padahal blit part (GRAPH 40, y 8..39) tidak
+menjangkau baris itu.
+
+Goal 3 menarik: ketiga kegagalannya di x = 8..15, tepi KIRI arena. Itu
+mengesankan pemotongan di tepi, bukan aturan penghapusan. Belum diselidiki.
 """
 from . import contrap, pick, render as rend, skrip, vm, font
 from .rng import Rng
