@@ -101,6 +101,35 @@ class Archive:
                 last = r["row"]
         return out
 
+    def kelompok(self, start):
+        """FRAME ANIMASI satu part: record berurutan yang berbagi (id, row).
+
+        Ini BUKAN `chain()` dan bukan `variants()`. Ketiganya mengelompokkan
+        record dengan cara berbeda, dan membingungkannya akan salah diam-diam:
+
+            variants()  record yang MENGAWALI tiap varian (row berganti)
+            chain()     record awal + potongan bawahnya (row + 100)
+            kelompok()  record awal + frame-frame animasinya (row SAMA)
+
+        Contoh GRAPH: id=1 row=2 punya lima record (idx 1..5). Yang pertama
+        adalah bentuk diam; sisanya frame yang dipasang `animvm()` saat part
+        itu bergerak.
+
+        ⚠ Frame animasi ada di GRAPH/MECHS, BUKAN di ANIMATE. Berkas ANIMATE
+        berisi SKRIP (arus opcode) yang menentukan frame mana dipakai kapan --
+        nama berkasnya menyesatkan. Diperiksa dengan mencari record mana yang
+        mencocokkan frame rujukan f0020 goal 1: GRAPH idx 3 menurunkan beda
+        di kotak part itu dari 528 piksel jadi 49; tak satu pun dari 240
+        record ANIMATE mendekati.
+        """
+        r0 = self.recs[start]
+        got = []
+        for r in self.recs[start:]:
+            if r["id"] != r0["id"] or r["row"] != r0["row"]:
+                break
+            got.append(r["idx"])
+        return got
+
     def chain(self, start):
         """place.c: record awal + pasangannya di row+100 (kalau ada)."""
         r0 = self.recs[start]
