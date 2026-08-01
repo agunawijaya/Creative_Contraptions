@@ -478,3 +478,59 @@ Bukti: diff seluruh goal/varian = 316–320 (baseline match ketat), `TOTAL bad =
 4. **Simulasi bola/fisika** — "gerakan bola mendekati hukum fisika" (manual); cari loop
    yang meng-update posisi bola + deteksi tumbukan dengan komponen.
 5. **Dekoder RLE 0xE4** — fungsi yang membaca aset (konfirmasi silang dengan Fase 2).
+
+## ⭐ TATA LETAK RECORD ARSIP + ATURAN PENEMPATAN — TERVALIDASI 100%
+
+Diturunkan dari `src_c` (yang sudah byte-identical) lalu DIUJI: `work/genscreens.py`
+menyusun ulang layar dari berkas aset saja, dan **178/178 blit yang ditangkap
+emulator terjelaskan** (semua goal × varian).
+
+**Record direktori arsip (GRAPH/MECHS/MISC), 12 byte:**
+
+| offset | isi |
+|---|---|
+| +0 | `id` (bit 7 = penanda kelompok) |
+| +1 | `row` — nomor varian; **+100 = BAGIAN LANJUTAN**, bukan varian baru |
+| +2 | `h` tinggi |
+| +3 | `w` lebar |
+| +4 | `dy` geser vertikal (bertanda) |
+| +5 | `dx` geser mendatar (bertanda) |
+| +6 | `len` panjang blob RLE (u16) |
+| +8 | `off` offset blob di berkas (u32) |
+
+⚠ **+4 adalah dy dan +5 adalah dx**, bukan sebaliknya. Ini konsisten dengan
+urutan argumen `blit` yang terbaca dari `drawslot.c`: `blit(spr, y, x, 0x18, 0x20)`
+untuk sprite mekanisme 32×24 — jadi tanda tangannya **`blit(spr, Y, X, H, W)`**.
+
+**Mencocokkan tipe ke record** (`loadarc.c`): cocok kalau `(id & 0x7f) == tipe`
+**ATAU** `id == tipe`. ⚠ **Dua-duanya wajib.** MECHS memakai id 100..150; untuk
+id ≥ 128 masker `0x7f` mengubah 130 jadi 2, jadi hanya perbandingan penuh yang
+cocok. Hanya memakai versi bermask membuang SEMUA mekanisme id ≥ 128.
+
+**Varian** (`nvar.c`): susuri direktori, ambil record yang cocok, dan LEWATI yang
+`row`-nya sama dengan record sebelumnya — sisanya adalah varian. `row ≥ 100`
+adalah bagian lanjutan, bukan varian tersendiri.
+
+**Rantai satu part** (`place.c`): record awal + record berikutnya yang `id`-nya
+sama dan `row == awal.row + 100`. Itulah part yang digambar sebagai DUA sprite.
+
+**Posisi layar** = posisi komponen di CONTRAP **+ (dx, dy) dari record**.
+
+⚠⚠ **ADA DUA AMBANG PEMULIHAN TANDA, dan keduanya benar di tempatnya:**
+
+| jalur | ambang | sumber |
+|---|---|---|
+| penempatan STATIS (layar design) | **`>= 0x80`** | `pickvar.c`, `place.c` |
+| gambar dari skrip ANIMASI | **`>= 0xC8`** | `f278e.c` |
+
+Memakai 0xC8 untuk penempatan statis membuat empat part meleset jauh — mis. zany
+tipe 71 goal 3 punya `dx = 155`, yang dengan 0x80 menjadi −101 (196−101 = 95,
+cocok biner) tapi dengan 0xC8 tetap +155 dan mendarat di luar layar.
+
+**Slot mekanisme KOSONG** (`drawslot.c`) digambar `fillrect(x+1, y, x+0x1e, y+0x17, 3)`
+— blok PENUH warna 3, 30×24 piksel. Itu satu-satunya yang digambar untuk slot
+yang belum diisi.
+
+⚠ Varian part untuk tiap slot **diundi acak** oleh `pickpart()`, jadi satu varian
+struktur tetap bisa tampil berbeda tiap load. `genscreens.py` memakai varian ke-0
+untuk semua slot supaya keluarannya bisa diulang.
