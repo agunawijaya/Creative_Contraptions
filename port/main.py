@@ -74,83 +74,6 @@ def _anim_candidates(gid):
     return out
 
 
-def build_title_anim():
-    """Rakit animasi bola RUBE-GOLDBERG utk layar judul (dari deskripsi user, bukan rekaman
-    goal-128 yg janggal). Dua jalur bergantian, loop:
-      KIRI : ayam -> jatuh & memantul 2 DRUM(id80, tiap pantul 'BOOM') -> LEVER(id141)
-             -> LEVER melontar bola ke atas -> GAJAH.
-      KANAN: gajah -> jatuh & memantul 3 CANGKIR di atas tiga per(id79) -> SPRING box(id150)
-             -> SPRING melontar bola ke atas -> AYAM.
-    Kembalikan (ball, react): ball[i]=(x,y,visible); react[i]=dict penanda (lever/spring/
-    elephant/chicken/boom). Titik kontak diselaraskan posisi sprite goal 128 (draws_title)."""
-    ball, react = [], []
-
-    def _seg(p0, p1, n, kind, h=0):
-        for i in range(n):
-            t = i / n
-            x = p0[0] + (p1[0] - p0[0]) * t
-            if kind == "fall":                 # percepatan ke bawah (gravitasi)
-                y = p0[1] + (p1[1] - p0[1]) * (t * t)
-            else:                              # "arc": parabola memuncak h di atas tali busur
-                y = p0[1] + (p1[1] - p0[1]) * t - h * 4 * t * (1 - t)
-            ball.append((x, y, True)); react.append({})
-
-    def _hold(p, n, vis):
-        for _ in range(n):
-            ball.append((p[0], p[1], vis)); react.append({})
-
-    def _tag(i0, n, key, val=True):
-        for i in range(i0, min(i0 + n, len(ball))):
-            react[i][key] = val
-
-    # titik kontak (selaras draws_title.json). Kotak lever(124,128) & spring(168,128) = 32x24;
-    # bola mendarat DI DALAM kotak (di atas mekanismenya), bukan di tepi frame.
-    CHICK = (56, 52)
-    DRUM1, DRUM2 = (72, 100), (102, 112)          # 2 drum id80 (kiri-tengah)
-    LEVER = (139, 133)                            # DI DALAM lever box id141 (di batang jungkat2)
-    ELEPH, ELEPH_OUT = (282, 44), (272, 56)       # gajah id78 (kanan-atas)
-    # 3 cangkir di atas tiga per id79 (216,82) — TANGGA: kanan tinggi -> kiri rendah
-    # (posisi dari analisa sprite 467: rim kanan y86, tengah y94, kiri y103)
-    CUP_R, CUP_M, CUP_L = (271, 89), (249, 97), (224, 106)
-    # reaksi cangkir miring: (rect HAPUS base-cup penuh, posisi overlay cangkir-miring).
-    # base-cup dihapus total lalu digambar cangkir-miring di posisi rim yg sama -> bersih.
-    TILT_R = ((261, 85, 24, 16), (261, 82))
-    TILT_M = ((240, 93, 24, 16), (240, 90))
-    TILT_L = ((216, 102, 24, 16), (216, 99))
-    SPRINGBOX = (184, 138)                        # DI DALAM spring box id150 (di per)
-
-    def _tagcup(i0, n, td):                        # tag cuptilt (pakai 468: miring lembut,
-        er, pos = td                               # gagang menempel — 469/470 gagangnya lepas)
-        for k in range(n):
-            if i0 + k < len(ball):
-                react[i0 + k]["cuptilt"] = (er, pos, 0)
-
-    # ---- JALUR KIRI: ayam -> drum(BOOM) -> lever -> gajah ----
-    _seg(CHICK, DRUM1, 16, "fall")                # jatuh ke drum1
-    i0 = len(ball); _seg(DRUM1, DRUM2, 12, "arc", 14)     # pantul drum1 -> drum2
-    _tag(i0, 8, "boom", (DRUM1[0] - 6, DRUM1[1] - 18))    # BOOM! di drum1
-    i0 = len(ball); _seg(DRUM2, LEVER, 14, "fall")        # drum2 -> masuk lever box
-    _tag(i0, 8, "boom", (DRUM2[0] - 6, DRUM2[1] - 18))    # BOOM! di drum2
-    i0 = len(ball); _hold(LEVER, 6, True); _tag(i0, 99, "lever")   # jungkat-jungkit menggentak
-    i0 = len(ball); _seg(LEVER, ELEPH, 34, "arc", 36)     # LONTAR ke gajah
-    _tag(i0, 6, "lever")
-    i0 = len(ball); _hold(ELEPH, 12, False); _tag(i0, 99, "elephant")  # gajah telan+react
-
-    # ---- JALUR KANAN: gajah -> 3 cangkir (miring saat kena) -> spring box -> ayam ----
-    _seg(ELEPH_OUT, CUP_R, 12, "fall")            # keluar gajah -> cangkir kanan (tertinggi)
-    i0 = len(ball); _seg(CUP_R, CUP_M, 9, "arc", 10)      # pantul cangkir kanan -> tengah
-    _tagcup(i0, 9, TILT_R)                                # cangkir kanan MIRING
-    i0 = len(ball); _seg(CUP_M, CUP_L, 9, "arc", 10)      # pantul tengah -> kiri
-    _tagcup(i0, 9, TILT_M)                                # cangkir tengah MIRING
-    i0 = len(ball); _seg(CUP_L, SPRINGBOX, 14, "fall")    # kiri -> masuk spring box
-    _tagcup(i0, 9, TILT_L)                                # cangkir kiri MIRING
-    i0 = len(ball); _hold(SPRINGBOX, 6, True); _tag(i0, 99, "spring")  # per menekan
-    i0 = len(ball); _seg(SPRINGBOX, CHICK, 36, "arc", 40)  # LONTAR ke ayam
-    _tag(i0, 6, "spring")
-    i0 = len(ball); _hold(CHICK, 10, False); _tag(i0, 99, "chicken")   # ayam terima+kepak
-    return ball, react
-
-
 GOAL_NAMES = {1: "Up and At 'Em", 2: "Hair Care", 3: "Easy Eating",
               4: "Dog Days", 5: "Cool It", 6: "Lights Out!"}
 MENU_OPTIONS = ["Review Mechanisms", "Fill in Mechanisms",
@@ -270,40 +193,16 @@ class Game:
         self.last_variant = {}    # gid -> varian terakhir (agar tak berulang, spt 0x1e30)
         self.cur_variant = 0
         self.cur_draws = []       # draw varian yg sedang dimainkan
-        # LAYAR JUDUL: komposisi sprite = CONTRAP goal 128 (ayam, gajah, kaleng, per,
-        # kotak lever & spring) — cocok persis screenshot Title.png. Teks ditumpuk oleh port.
-        tp = os.path.join(ddir, "draws_title.json")
-        self.title_draws = json.load(open(tp)) if os.path.exists(tp) else []
+        # LAYAR JUDUL. Dulu ini rakitan tangan: jalur bola karangan, reaksi
+        # objek tebakan, dan judul "CREATIVE CONTRAPTIONS" berhuruf TrueType.
+        # Sekarang TIDAK ADA yang dikarang -- layar judul memakai JALUR KODE YANG
+        # SAMA dengan layar design, hanya dengan sub = 0x80 (goal 128):
+        #     mode = 0; goal = 1; lvl = 1; sub = 0x80;
+        #     loadcon(-1); f171f(...); loadarc x4; pickpart(); fillans();
+        #     f498c(); drawslot(); animvm();
+        # (main_.c:295-317). Jadi _scene_surface(128) sudah menghasilkannya.
+        # Terukur 64.000/64.000 piksel vs VRAM emulator, sekali coba.
         self.title_tick = 0
-        # ANIMASI judul = bola LOGIS berantai (ayam->jungkat-jungkit->gajah->per->ayam, loop),
-        # digambar di atas sprite statis goal 128. Fisika parabola + reaksi objek.
-        self.title_ball, self.title_react = build_title_anim()
-        # bola judul IDENTIK bola game: ambil HANYA piksel bola dari sprite lever (idx26)
-        # area (20,10) 8x8 — magenta = badan bola, gray = highlight HANYA jika di DALAM bola
-        # (tetangga magenta), selebihnya (latar kotak abu / bar biru) -> transparan (cyan).
-        _lev = self.mechs.sprite_by_idx(26)
-        MAG, GRY = cga.PALETTE[2], cga.PALETTE[3]
-        # bbox bola TEPAT = x22..29, y10..17 (bukan x20 — dulu terpotong 2px di kanan)
-        _reg = [[tuple(_lev.get_at((22 + x, 10 + y)))[:3] for x in range(8)] for y in range(8)]
-        self.title_ballspr = pygame.Surface((8, 8))
-        self.title_ballspr.fill(cga.PALETTE[cga.BG_INDEX])
-        for _y in range(8):
-            for _x in range(8):
-                c = _reg[_y][_x]
-                if c == MAG:
-                    self.title_ballspr.set_at((_x, _y), MAG)
-                elif c == GRY:                      # highlight hanya jika dikelilingi magenta
-                    nb = sum(1 for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1))
-                             if 0 <= _x + dx < 8 and 0 <= _y + dy < 8 and _reg[_y + dy][_x + dx] == MAG)
-                    if nb >= 2:
-                        self.title_ballspr.set_at((_x, _y), GRY)
-        self.title_ballspr.set_colorkey(cga.PALETTE[cga.BG_INDEX])
-        # sprite cangkir-miring (id79 idx468/469/470 = frame kemiringan bertahap) transparan
-        self.title_cupsprs = []
-        for _i in (468, 469, 470):
-            _c = self.graph.sprite_by_idx(_i).copy()
-            _c.set_colorkey(cga.PALETTE[cga.BG_INDEX])
-            self.title_cupsprs.append(_c)
         self.goal_ids = [g for g in sorted(self.goals) if g in GOAL_NAMES]
         self.state = TITLE
         self.sel = 0          # kursor pilihan
@@ -403,44 +302,17 @@ class Game:
         self._rev_text(fb, self.review_layout["fixed"])
 
     def _title(self, fb):
-        # sprite judul statis (goal 128) + REAKSI objek pd frame tertentu (swap frame)
-        f = (self.title_tick // 2) % len(self.title_ball)   # ~15fps
-        rc = self.title_react[f]
-        for d in self.title_draws:
-            if d["idx"] < 0:
-                continue
-            arch = self.mechs if d["arch"] == "MECHS" else self.graph
-            idx, dy = d["idx"], 0
-            if d["idx"] == 26 and rc.get("lever"):        # lever id141 melontar (miring)
-                idx = 27
-            elif d["idx"] == 28 and rc.get("spring"):     # spring box id150 melontar
-                idx = 29
-            elif d["idx"] == 465 and rc.get("elephant"):  # gajah bereaksi (belalai/telinga)
-                idx = 466
-            elif d["idx"] == 475 and rc.get("chicken"):   # ayam berkepak (bob)
-                dy = -3
-            spr = arch.sprite_by_idx(idx)
-            if spr:
-                fb.blit(spr, (d["x"], d["y"] + dy))
-        # CANGKIR MIRING saat kena bola: hapus base-cup dulu (biar tak ada pixel ketinggalan),
-        # lalu overlay sprite cangkir-miring (id79 idx468)
-        cup = rc.get("cuptilt")
-        if cup:
-            erase, pos, ti = cup
-            fb.fill(cga.PALETTE[cga.BG_INDEX], erase)       # hapus base-cup total
-            fb.blit(self.title_cupsprs[ti], pos)            # cangkir-miring bertahap (468/469/470)
-        # BOLA menyusuri jalur Rube-Goldberg — sprite IDENTIK bola game (8x8 dari lever)
-        bx, by, vis = self.title_ball[f]
-        if vis:
-            fb.blit(self.title_ballspr, (int(bx) - 4, int(by) - 4))
-        boom = rc.get("boom")                             # tulisan BOOM! hanya di drum (kiri)
-        if boom:
-            text.draw(fb, "BOOM!", boom[0], boom[1], color=2, size=11)
-        # judul "CREATIVE CONTRAPTIONS" (biru, spt Title.png) + prompt (magenta)
-        text.draw_center(fb, "CREATIVE", 12, color=0, size=30)
-        text.draw_center(fb, "CONTRAPTIONS", 40, color=0, size=30)
-        if (self.title_tick // 15) % 2:                  # prompt berkedip
-            text.draw_center(fb, "Press ENTER to go on.", 182, color=2, size=12)
+        """Layar judul = kontraption goal 128, dibangkitkan seperti layar lain.
+
+        Yang BELUM ada di sini: animasinya. Di game asli bolanya bergerak lewat
+        `animvm()` yang menjalankan skrip goal 128 -- itu pekerjaan langkah
+        berikutnya. Menggambar jalur bola karangan di sini akan membuat layar
+        ini terlihat "hidup" tanpa satu piksel pun yang terbukti benar, jadi
+        untuk sekarang layarnya diam dan jujur.
+        """
+        surf = self._scene_surface(128, None, True)
+        if surf is not None:
+            fb.blit(surf, (0, 0))
 
     def _mainmenu(self, fb):
         """Menu utama dgn IKON tiap pilihan (spt game asli)."""
