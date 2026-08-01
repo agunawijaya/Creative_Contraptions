@@ -210,6 +210,25 @@ menentukan persis bagaimana tiap kontraption bergerak.
 Pelajarannya: sebelum membangun sistem umum, tanyakan apakah yang Anda butuhkan
 sebenarnya cuma **kepastian**. Simulasi memberi kemungkinan; skrip memberi kendali.
 
+**Dan mesinnya jauh lebih kecil daripada dugaan kami.** Sebuah kontraption punya sepuluh
+komponen, masing-masing dengan skripnya sendiri, dan semuanya tampak bergerak bersamaan.
+Tebakan pertama yang wajar: sepuluh skrip berjalan paralel, dengan penjadwal yang membagi
+waktu di antaranya.
+
+Tidak. Ada **satu** kursor skrip di seluruh program — sebuah penunjuk global. Satu
+komponen aktif pada satu waktu; ketika bola meninggalkannya, sebuah opcode menyerahkan
+kursor itu ke komponen berikutnya. Yang terlihat serentak sebenarnya berurutan, karena
+bola memang cuma ada satu dan ia hanya bisa berada di satu tempat.
+
+> **Pelajaran untuk pemula.** Kalau sebuah sistem tampak butuh konkurensi, periksa dulu
+> apakah yang sebenarnya bergerak cuma satu hal. Menjadwalkan sepuluh skrip paralel jauh
+> lebih rumit — dan lebih lambat — daripada memindahkan satu penunjuk.
+
+Sekitar 15 persen dari `ANIMATE` bukan gerakan sama sekali, melainkan **teks**. Judul
+`CREATIVE CONTRAPTIONS` di layar pembuka digambar oleh opcode di dalam skrip animasi,
+bukan oleh kode layar judul. Bagi perancangnya itu masuk akal: judul yang muncul di
+tengah animasi adalah bagian dari animasi itu.
+
 ### 5.3 Assembly hanya di tempat yang benar-benar perlu
 
 Dari 36.948 byte kode, sekitar **1.200 byte** ditulis tangan dalam assembly — bukan
@@ -240,6 +259,28 @@ tidak ada kebocoran memori, tidak ada fragmentasi, tidak ada kegagalan alokasi y
 harus ditangani, dan waktu jalannya bisa diprediksi. Sistem waktu-nyata dan perangkat
 tertanam masih memakai disiplin yang sama hari ini, karena alasan yang persis sama.
 
+### 5.6 Menggambar tanpa memori yang cukup untuk menggambar
+
+Layar CGA memakai 16 KB. Menyalin seluruh layar tiap bingkai sudah memakan lebih banyak
+waktu daripada yang tersedia di antara dua penyegaran monitor — jadi program ini tidak
+pernah menggambar ulang layar. Ia hanya menyentuh yang berubah:
+
+1. bola dihapus dari posisi lamanya, dengan **mengembalikan potongan latar** yang sudah
+   disalin sebelum bola digambar;
+2. bola digambar di posisi baru;
+3. komponen yang sedang bergerak menimpa kotaknya sendiri.
+
+Sisa layar tidak disentuh sama sekali, sepanjang animasi.
+
+Konsekuensinya bisa dilihat di layar. Kalau sebuah komponen digambar **sesudah** bola,
+ia menutupi bola — dan itu memang terjadi di beberapa bingkai. Kami sempat memodelkan
+"latar dulu, bola di atas", dan sembilan bingkai meleset dengan kotak beda tepat sebesar
+bola. Bukan kesalahan menggambar bolanya; **urutannya** yang salah.
+
+> **Pelajaran untuk pemula.** Dalam sistem yang menggambar secara bertahap, urutan
+> operasi adalah bagian dari hasilnya. "Apa yang digambar" saja tidak cukup — "kapan"
+> sama menentukannya.
+
 ---
 
 ## 6. Bagaimana kami tahu semua ini benar
@@ -266,10 +307,39 @@ Program hasil rekonstruksi juga dijalankan berdampingan dengan aslinya di emulat
 **24 skenario** (6 tujuan × 4 mode). Keduanya menghasilkan jejak eksekusi dan tangkapan
 layar yang identik.
 
+### Uji kedua: menjalankan ulang mesinnya di luar gim
+
+Rekonstruksi yang cocok byte-per-byte membuktikan bahwa **kodenya** terbaca benar. Ia
+tidak membuktikan bahwa kami memahami apa yang kode itu *lakukan*. Untuk itu perlu uji
+yang berbeda: menulis ulang mesin animasinya dalam bahasa lain, memberinya berkas aset
+yang sama, dan membandingkan **setiap bingkai** dengan memori layar gim aslinya.
+
+```
+tujuh layar (6 kontraption + layar judul)
+  layar diam  : 448.000 / 448.000 piksel   identik
+  animasi     : 381 / 402 bingkai          byte-identik
+```
+
+Tiga tujuan terakhir dan layar judul cocok **seluruh bingkainya**. Yang membuat uji ini
+berbeda: implementasi ulangnya tidak berbagi satu baris kode pun dengan aslinya, jadi
+kecocokan bingkai per bingkai hanya mungkin kalau *aturannya* memang sudah dipahami —
+bukan sekadar byte-nya disalin.
+
+Dua puluh satu bingkai yang tersisa juga informatif, dan sengaja tidak kami sembunyikan.
+Bedanya kecil dan terpusat di satu tempat: cara potongan latar disimpan dan dikembalikan
+saat bola dihapus. Komponen yang dipilih dan posisinya sudah terbukti benar; yang belum
+diturunkan adalah tiga rutin assembly yang mengurus penghapusan itu.
+
 **Kenapa ini penting untuk dokumen belajar?** Karena tidak ada satu kalimat pun di sini
 yang berasal dari tebakan. Kalau pemahaman kami tentang format record salah, gambarnya
 tidak akan tersusun. Kalau pemahaman kami tentang tata letak memori salah, programnya
 tidak akan jalan. Rekonstruksi yang cocok adalah bukti bahwa pembacaannya benar.
+
+Dan ketika kami salah, ukurannya yang memberi tahu — bukan mata. Beberapa kesalahan yang
+paling lama bertahan justru **terlihat benar**: sebuah nama variabel yang kami sendiri
+berikan (`bally`) ternyata menyimpan koordinat mendatar, dan salah baca itu membuat kami
+percaya selama berbulan-bulan bahwa ada transformasi koordinat yang harus diturunkan.
+Transformasi itu tidak pernah ada.
 
 ---
 
