@@ -574,7 +574,21 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 sndon();
                 break;
 
-            case 0x05:          /* 0x2305 */
+            case 0x05:          /* 0x2305 — HAPUS BOLA */
+                /* ⚠ CATATAN dari jalur port (2026-08-01) -- byte tidak berubah.
+                   `buf9c5` berisi NOL, dan putmsk melewati sel yang mask-nya
+                   bukan nol; jadi mask nol = SELURUH kotak dipulihkan. Pada
+                   titik ini `drawball` sudah menukar halaman, sehingga
+                   `page2` = cuplikan `prep` frame ini (isi layar sebelum
+                   bolanya digambar). Efeknya: bola yang baru saja digambar
+                   DIHAPUS lagi.
+
+                   Port sempat memperlakukan opcode ini sebagai no-op dan
+                   meleset di 6 frame; sesudah dijadikan penghapusan, animasi
+                   goal 1..6 + judul jadi byte-identik seluruhnya. Diukur
+                   dgn CC_TRACEWR=26ae-6a00:21 pada goal 3:
+                     draw   TULIS VRAM y 68..75 -> 5a a5 55 ...
+                     putmsk TULIS VRAM y 68..75 -> 55 55 55 ... */
                 putmsk(buf9c5, page2);
                 break;
 

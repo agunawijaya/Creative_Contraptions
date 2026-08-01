@@ -4,6 +4,20 @@
  * searah jarum jam (fase 0=kiri, 1=bawah, 2=kanan, 3=atas), masing-masing ke
  * titik acak di sepanjang tepi itu. Berhenti kalau ada tombol ditekan.
  *
+ * ⚠ KOREKSI KOMENTAR (2026-08-01, dari jalur port -- BYTE-nya tidak berubah).
+ * Urutan tepi di atas ditulis saat nama `ballx`/`bally` masih dikira harfiah.
+ * `setball()` membuktikan sebaliknya: `balltop = 199 - x` berarti argumen
+ * pertama koordinat TEGAK, jadi ballx @0x260 = Y layar dan bally @0x25e = X.
+ * Dengan itu `tx` sebenarnya Y-tujuan dan `ty` X-tujuan, sehingga:
+ *     fase 0: tx=8      -> tepi ATAS      fase 1: ty=0x137 -> tepi KANAN
+ *     fase 2: tx=0x97   -> tepi BAWAH     fase 3: ty=0     -> tepi KIRI
+ * Tetap searah jarum jam, hanya titik mulainya bukan yang tertulis.
+ *
+ * Fungsi ini DIVERIFIKASI dengan menirunya di port (port/cc/core/vm.py
+ * `_bounce`): layar judul jadi 675/675 frame byte-identik dgn VRAM emulator.
+ * Undiannya juga terukur -- seed 0xa6b8 saat masuk, 32 `shuffle()` + 1
+ * `rnd()` -> 0x3c11, cocok dgn @0x71a di emulator.
+ *
  * Jumlah langkah dihitung dari jarak, tapi bukan jarak Euclid: dipakai
  * hampiran "oktagonal" (maks + separuh min) lalu dibagi 4 — dan pembagiannya
  * memang DUA KALI /2 di biner, bukan satu /4.
