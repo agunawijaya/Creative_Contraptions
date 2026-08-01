@@ -82,8 +82,29 @@ Kalau rotasinya bergeser satu, `page2` menunjuk salinan yang salah --
 sedangkan model sederhana kebal terhadap itu karena selalu memakai latar
 terkini.
 
-Delapan percobaan di sumbu ini. Untuk melanjutkan, yang dibutuhkan bukan
-rumus melainkan urutan panggilan `drawball` yang lengkap dari emulator.
+── Apa yang AKHIRNYA diukur, bukan lagi diterka ─────────────────────────
+
+Keadaan bola gim direkam langsung dari DGROUP tiap panggilan `drawball`
+(`CC_VSWORD` di work/emu.py), lalu diadu dengan VM ini:
+
+    posisi bola   136/136 cocok
+    bendera hapus 135/136 cocok  (satu-satunya beda di frame 1, yaitu
+                  keadaan AWAL `prevx = 0x140` dari setupscr, bukan opcode)
+
+Jadi VM-nya eksak. Sisa 21 frame sepenuhnya soal ISI yang dipulihkan saat
+menghapus, bukan soal ke mana bola pergi atau kapan penghapusan dilewati.
+
+Isi penyangga `page2` juga dibuang dari emulator (`CC_VSPTR=2e2:24`) dan
+dibandingkan dengan `latar` di sini: pada frame 10 keduanya IDENTIK
+(`555555` delapan baris). Jadi bedanya bukan pada isi latarnya.
+
+Yang tersisa sebagai penjelasan hanyalah URUTAN pemanggilan. `xform()`
+menjalankan prep -> blend -> putmsk -> draw, dan `prep` menyalin dari VRAM
+SEBELUM bola lama dihapus. Kalau kotak lama dan baru berbagi kolom byte yang
+sama, `draw` semestinya menuliskan balik piksel bola lama -- dan tangkapan
+gim TIDAK menunjukkan noda itu. Berarti ada panggilan yang belum terhitung
+di antara keduanya. Sembilan percobaan; jangan ulangi tanpa merekam urutan
+panggilan `drawball` yang LENGKAP (termasuk yang di luar VM) lebih dulu.
 """
 from . import contrap, pick, render as rend, skrip, vm, font
 from .rng import Rng

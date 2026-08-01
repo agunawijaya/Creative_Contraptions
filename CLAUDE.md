@@ -240,7 +240,14 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   arenanya belum cocok karena keadaan RNG saat itu bukan seed 0.
 
 **Berikutnya untuk jalur PORT:**
-1. **21 frame animasi** (goal 1, 2, 3) belum byte-identik. Bedanya kecil dan terpusat;
+1. **21 frame animasi** (goal 1, 2, 3) belum byte-identik. ⚠ **VM-nya sendiri sudah
+   TERBUKTI EKSAK**: diadu langsung dengan keadaan bola gim yang dibaca dari DGROUP
+   (`python work/test_vm_vs_gim.py <folder CC_VRAMSEQ>`) — **posisi bola 136/136**,
+   **bendera hapus 135/136** (satu-satunya beda di frame 1 = keadaan awal `prevx=0x140`
+   dari setupscr, bukan opcode). Sisa bedanya SEPENUHNYA soal isi yang dipulihkan saat
+   menghapus. Isi penyangga `page2` juga sudah dibuang (`CC_VSPTR=2e2:24`) dan pada
+   frame 10 IDENTIK dengan latar port. Sembilan percobaan; baca catatan panjang di
+   `port/cc/core/adegan.py` sebelum menyentuhnya lagi. Bedanya kecil dan terpusat;
    record dan posisinya sudah terbukti BENAR. Yang belum diturunkan adalah
    `prep`/`blend`/`putmsk`/`draw` — interaksi hapus-bola dengan blit yang datang
    sesudahnya. ⚠ **Enam percobaan di sumbu itu sudah gagal**; hipotesis "salinan latar
