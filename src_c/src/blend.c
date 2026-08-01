@@ -31,6 +31,22 @@ extern int prevx;           /* @0x266 */
 extern int ballrow;         /* @0x268 */
 extern int prevrow;         /* @0x26a */
 
+/* ⚠ TEMUAN 2026-08-01 (port, bukan koreksi biner): `dst` di sini BUKAN
+ * aritmetika penunjuk mati. Jejak instruksi di emulator membuktikan penyangga
+ * yang ditunjuk `dst` (= `page`) BERUBAH antara `prep()` dan `draw()`:
+ *
+ *     prep menulis   5a a5 55 ...   ke penyangga
+ *     draw  membaca  55 55 55 ...   dari penyangga yang SAMA
+ *
+ * dan satu-satunya yang berjalan di antaranya adalah blend(). Jadi badan
+ * gelung ini menulis lewat `dst` -- kemungkinan besar menyalin dari `src`
+ * (= page2, salinan latar yang LEBIH LAMA) di sel yang beririsan. Itulah
+ * sebabnya bola lama tidak pernah tembus di daerah tumpang-tindih.
+ *
+ * Rekonstruksi ini tetap byte-identik; yang perlu dikoreksi TAFSIRNYA, bukan
+ * bytenya. Kalau ada yang melanjutkan: rekam UC_HOOK_MEM_WRITE pada rentang
+ * blend() (0x5EA6..0x5F90) untuk melihat persis apa yang ditulis.
+ */
 blend(dst, src, dmask, smask)
 char *dst;
 char *src;

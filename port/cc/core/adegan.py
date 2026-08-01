@@ -98,78 +98,66 @@ Isi penyangga `page2` juga dibuang dari emulator (`CC_VSPTR=2e2:24`) dan
 dibandingkan dengan `latar` di sini: pada frame 10 keduanya IDENTIK
 (`555555` delapan baris). Jadi bedanya bukan pada isi latarnya.
 
-── Dua kesimpulan saya sendiri yang TERBANTAH ────────────────────────────
+── Apa yang AKHIRNYA terbukti, lewat jejak instruksi ────────────────────
 
-1. "Uji satu langkah membuktikan modelnya salah." TIDAK SAHIH. Uji itu
-   mengambil frame gim sebagai masukan, menjalankan satu drawball, lalu
-   mengadu dengan frame berikutnya (dibatasi ke kotak bola). Model setia
-   dapat 23/118. Tapi KONTROL-nya -- model sederhana yang sudah terbukti
-   381/402 -- dapat 26/118 di uji yang sama. Ujinya tidak membedakan apa
-   pun, karena blit part sering jatuh DI DALAM kotak bola di antara dua
-   frame. Jangan pakai lagi tanpa menyaring frame yang bersih dari blit.
+Berhenti membaca assembly lalu MENYIMPULKAN, dan mulai merekam apa yang
+benar-benar terjadi (`CC_TRACEWR` + `CC_TRACERD` di work/emu.py). Hasilnya
+langsung, pada satu panggilan `draw()`:
 
-2. "Bola dihapus lalu digambar ulang bergantian padahal diam." BUKAN
-   misteri. Pada frame 5..9 bola memang diam di X=51, Y=24, dan memang
-   hilang di f007 lalu kembali di f008 -- tetapi yang menghapusnya adalah
-   BLIT PART, bukan penghapusan bola: bingkai part 0 saat itu GRAPH 3,
-   lebar 52 piksel dari x=8, yaitu x 8..59, yang menutupi seluruh kotak
-   bola (48..59). Model sederhana menghasilkan pola yang sama, dan memang
-   ketiga frame itu cocok.
+    65b5  baca page    -> 55 55 55 55 ...   (latar BERSIH)
+    65bb  baca mask    -> ff c0 3f ...      (fase 3, sesuai dugaan)
+    65c3  baca sprite  -> 00 2a 80 ...      (fase 3, sesuai dugaan)
+    65c5  tulis VRAM   -> 55 6a 95 ...
 
-Yang tersisa benar-benar hanya dua gejala, keduanya di goal 1:
-    f089        hapus-jejak separuh tinggi (26 piksel)
-    f121..f136  sisa 7 piksel tetap di (139..145, 34..35)
+dan (0x55 & 0xff) | 0x00 = 0x55, (0x55 & 0xc0) | 0x2a = 0x6a,
+(0x55 & 0x3f) | 0x80 = 0x95 -- COCOK byte per byte.
 
-Yang SUDAH pasti dan tidak perlu diuji ulang:
-  - VM eksak: posisi bola 136/136, bendera hapus 135/136 vs gim
-    (`python work/test_vm_vs_gim.py <folder CC_VRAMSEQ>`);
-  - isi latar port sama dengan penyangga gim (`page2` frame 10 identik);
-  - 0x26AE memang alamat MASUK drawball (offset +0), penyelarasan frame benar;
-  - model "salinan tersimpan" yang diturunkan dari blitmsk.asm memberi
-    23/402 -- jauh di bawah 381/402 -- dan sebabnya BELUM diketahui.
+Jadi rumus `draw` = (page AND mask) OR sprite memang benar. Yang keliru
+selama sembilan percobaan adalah anggapan bahwa `page` memuat bola lama.
+Ia TIDAK: `prep` memang menyalin bola lama ke situ (terekam: 5a a5 55),
+tetapi `draw` membaca 55 55 55 dari penyangga yang SAMA. Satu-satunya yang
+berjalan di antaranya adalah `blend()`.
 
-Penyaringan itu SUDAH dijalankan: dari 136 peristiwa bola, 107 tidak diikuti
-blit part. Model setia hanya dapat 19/106 di antaranya -- jadi ia memang
-salah, bukan korban gangguan blit.
+⭐ Jadi `blend()` MENULIS ke `dst`. Di rekonstruksi C-nya baris
+`dst = dst + 1` tampak seperti aritmetika penunjuk mati -- ternyata tidak.
+Catatan ini juga sudah ditempelkan di `src_c/src/blend.c`: rekonstruksinya
+tetap byte-identik, yang perlu dikoreksi TAFSIRNYA.
 
-Dan inilah pernyataan setepat yang bisa dibuat, dari f011 -> f012 (bola
-(55,24) -> (57,25), kotak lama x=52.., kotak baru x=56..):
+Jejak `blend()` ITU JUGA sudah direkam (0x5EA6..0x5F90). Yang ditulisnya:
 
-    DAERAH TUMPANG-TINDIH KELUAR BERSIH DI GIM. Baris 25 di f012 cyan pada
-    x=56..58; tidak ada sisa bola lama sama sekali.
+    5edc/5ee0  nol ke kedua mask            (gelung `*p++ = *q++ = 0`)
+    5f60       24 byte 0x55 ke `page`       <- inilah yang selama ini hilang
+    5f67/5f6e  0xff ke kedua mask           (penanda tumpang-tindih)
 
-Model setia meninggalkan noda persis di situ, dan alasannya terbaca dari
-assembly-nya: `blend()` menandai sel tumpang-tindih supaya `putmsk()` TIDAK
-memulihkannya, lalu `draw()` menyusun bola di atas `page` -- salinan yang
-`prep()` ambil SEBELUM penghapusan, jadi masih memuat bola lama. Di mana
-mask bola baru mempertahankan latar, bola lama seharusnya tembus.
+`0x55` = empat piksel warna 1 (latar arena). Dan `page2` saat itu berisi
+`6a 95 55 aa a5 55 ...`, jadi itu BUKAN salinan dari page2 -- blend
+mengisinya. Penyederhanaan pembuat gimnya: di daerah tumpang-tindih ia
+menganggap latarnya polos, tidak repot mengambil yang sebenarnya.
 
-Gim tidak menunjukkannya. Ketiga kemungkinan sudah dipersempit dengan
-membuang isi penyangga `page` tepat sesudah `prep` berjalan (hook di masuk
-`blend` @0x5EA6, `CC_VSPTR=2e0:24`):
+⚠ Panggilan yang ditelusuri kebetulan tumpang-tindih PENUH (kotak lama dan
+baru sama, x0 = 52), jadi seluruh 24 byte terisi. Menggeneralisasikan
+"isi sel beririsan dengan warna latar" ke semua panggilan justru
+MENURUNKAN hasil: 233/402. Menyalin page2 ke sel beririsan: 359/402.
+Memakai latar bersih sebagai `page`: 381/402 -- yang dipakai sekarang.
 
-    panggilan 11, bola (57,25), page=0x0284
-    snapshot: aaa555 aba955 aae955 aaa955 aaa955 aaa555 6a9555 155555
-
-`0xaa` = empat piksel magenta -- BOLA LAMA MEMANG IKUT TERSALIN. Jadi:
-
-  (a) GUGUR -- prep menyalin VRAM yang masih memuat bola lama;
-  (b) tidak mungkin -- `putmsk` jelas melewati sel ber-mask bukan-nol, dan
-      `blend` jelas menandai daerah tumpang-tindih dengan 0xff;
-  (c) rumus `draw` terbaca langsung: VRAM = (page AND mask) OR sprite.
-
-Dengan mask fase 1 baris 0 = `fc 03 ff` dan sprite = `02 a8 00`, byte
-pertamanya menghasilkan (0xaa & 0xfc) | 0x02 = 0xaa -- empat piksel magenta.
-Gim menuliskan cyan di situ.
-
-Jadi salah satu dari ketiga bacaan itu keliru pada tingkat yang tidak
-terlihat dari teks assembly-nya. Langkah berikutnya BUKAN model baru
-melainkan penelusuran tingkat-instruksi di dalam `draw` (@0x657C): rekam
-SI, DI, DL, dan byte yang benar-benar ditulis ke ES:[SI] untuk satu
-panggilan. Semua bahan sudah ada; yang kurang cuma jejak itu.
+Jadi arah dan tempatnya sudah pasti; NILAI yang ditulis blend untuk
+tumpang-tindih SEBAGIAN belum. Untuk menutupnya: telusuri beberapa
+panggilan dengan tumpang-tindih PARSIAL (kotak lama != kotak baru) dan
+lihat byte apa yang masuk ke `page` di sel yang beririsan saja.
 """
 from . import contrap, pick, render as rend, skrip, vm, font
 from .rng import Rng
+
+BG_ = rend.BG
+_FASE = [None]
+
+
+def _fase():
+    """Sprite dan mask bola, empat fase pra-geser. Di-cache."""
+    if _FASE[0] is None:
+        from . import dgtab
+        _FASE[0] = dgtab.fase_bola()
+    return _FASE[0]
 
 
 def susun(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0, varian=None,
@@ -241,7 +229,7 @@ def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
     tampil = [row[:] for row in latar]
     mesin = vm.VM(parts)
     keluar = []
-    riwayat = []
+    page2 = None
     while len(keluar) < maks:
         e = mesin.langkah()
         if e is None or e[0] in ("selesai", "belum"):
@@ -264,21 +252,64 @@ def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
             continue
         # 1) inilah yang terlihat saat drawball ini DIMASUKI
         keluar.append([row[:] for row in tampil])
-        # 2) drawball: hapus bola sebelumnya, lalu gambar yang baru.
+        # 2) drawball, PERSIS seperti `xform()`:
         #
-        # `e[3]` = bendera "jangan hapus" (prevx = 0x140) yang dipasang
-        # op06/op07/op0a. `putmsk()` melewati penghapusan seluruhnya kalau
-        # benderanya menyala, sehingga bola sebelumnya TETAP di layar.
+        #    prep()    salin latar di kotak BARU dari layar     -> page
+        #    blend()   di daerah tumpang-tindih dgn kotak lama:
+        #                salin page2 -> page, DAN tandai supaya putmsk
+        #                melewatinya
+        #    putmsk()  pulihkan kotak LAMA dari page2, kecuali yang ditandai
+        #    draw()    di kotak BARU: layar = (page AND mask) OR sprite
+        #
+        # ⭐ `blend()` MENULIS ke `dst`. Di rekonstruksi C, baris `dst = dst + 1`
+        # tampak seperti aritmetika penunjuk yang mati -- tidak. Jejak instruksi
+        # membuktikannya: `prep` menulis 5a a5 55 ke penyangga, lalu `draw`
+        # MEMBACA 55 55 55 dari penyangga yang SAMA. Satu-satunya yang berjalan
+        # di antaranya adalah `blend`.
+        #
+        # Itulah sebabnya bola lama tidak pernah tembus di daerah
+        # tumpang-tindih: salinan latar yang lebih LAMA (page2, diambil sebelum
+        # bola lama digambar) menimpanya lebih dulu.
+        #
+        # `e[3]` = bendera "jangan hapus" (prevx = 0x140) dari op06/op07/op0a.
         jangan_hapus = e[3] if len(e) > 3 else False
-        riwayat.append((e[1], e[2]))
-        if len(riwayat) > 1 and not jangan_hapus:
-            px, py = riwayat[-2]
-            x0 = (px >> 2) * 4                 # bola menempati 3 byte = 12 piksel
-            for yy in range(py, min(py + 8, rend.H)):
-                baris_l, baris_t = latar[yy], tampil[yy]
-                for xx in range(x0, min(x0 + 12, rend.W)):
-                    baris_t[xx] = baris_l[xx]
-        rend.bola(tampil, e[1], e[2])
+        bx, by = e[1], e[2]
+        x0 = (bx >> 2) * 4                     # bola = 3 byte = 12 piksel
+        page = [[latar[yy][xx] if 0 <= yy < rend.H and 0 <= xx < rend.W else BG_
+                 for xx in range(x0, x0 + 12)]
+                for yy in range(by, by + 8)]
+        if page2 is not None:
+            px0, py0, tambalan = page2
+            for r, yy in enumerate(range(py0, py0 + 8)):
+                for c, xx in enumerate(range(px0, px0 + 12)):
+                    tumpang = (x0 <= xx < x0 + 12 and by <= yy < by + 8)
+                    if tumpang:
+                        # blend() menulis ke sel ini -- lihat catatan di kepala
+                        # berkas. Nilai yang ditulis BELUM tergeneralisasi:
+                        # mengisinya dengan warna latar cocok untuk panggilan
+                        # yang ditelusuri tapi menurunkan hasil keseluruhan
+                        # (233/402). Sementara dibiarkan memakai latar bersih,
+                        # yang terukur paling baik.
+                        pass
+                    elif not jangan_hapus and 0 <= yy < rend.H and 0 <= xx < rend.W:
+                        tampil[yy][xx] = latar[yy][xx]            # putmsk()
+        spr, msk = _fase()
+        fase = bx & 3
+        sb, mb = spr[fase], msk[fase]
+        for r in range(8):
+            yy = by + r
+            if not (0 <= yy < rend.H):
+                continue
+            baris = tampil[yy]
+            for cb in range(3):
+                s_by, m_by = sb[r * 3 + cb], mb[r * 3 + cb]
+                for pxl in range(4):
+                    xx = x0 + cb * 4 + pxl
+                    if not (0 <= xx < rend.W):
+                        continue
+                    g = 6 - 2 * pxl
+                    baris[xx] = (page[r][cb * 4 + pxl] & ((m_by >> g) & 3)) |                                 ((s_by >> g) & 3)
+        page2 = (x0, by, page)
     return keluar
 
 

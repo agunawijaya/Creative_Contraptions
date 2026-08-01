@@ -968,6 +968,49 @@ if _VRAMSEQ:
         _vs_glob.append(rec)
         _vs_n[0] += 1
 
+# CC_TRACEWR=<off_awal>-<off_akhir>:<n> -- rekam SETIAP penulisan memori yang
+# terjadi saat IP berada di dalam rentang kode itu, pada panggilan ke-n dari
+# alamat awalnya. Ditulis ke CC_TRACEWR_OUT (bawaan: trace_wr.txt di CC_OUT).
+#
+# Ada karena membaca assembly lalu MENYIMPULKAN perilakunya masih tafsir.
+# Ini merekam apa yang benar-benar terjadi.
+_TW = os.environ.get("CC_TRACEWR")
+if _TW:
+    _tw_rng, _, _tw_n = _TW.partition(":")
+    _tw_a, _, _tw_b = _tw_rng.partition("-")
+    _TW_A, _TW_B = int(_tw_a, 16), int(_tw_b, 16)
+    _TW_N = int(_tw_n) if _tw_n else 1
+    _tw_hit = [0]
+    _tw_log = []
+    _TW_OUT = os.environ.get("CC_TRACEWR_OUT") or os.path.join(OUT, "trace_wr.txt")
+
+    def hook_tw_masuk(uc, addr, size, user):
+        _tw_hit[0] += 1
+
+    def hook_tw_write(uc, access, address, size, value, user):
+        if _tw_hit[0] != _TW_N:
+            return
+        ip = uc.reg_read(UC_X86_REG_CS) * 16 + uc.reg_read(UC_X86_REG_IP)
+        off = ip - CODE
+        if not (_TW_A <= off <= _TW_B):
+            return
+        _tw_log.append((off, address, size, value))
+
+    uc.hook_add(UC_HOOK_MEM_WRITE, hook_tw_write)
+
+    def hook_tw_read(uc, access, address, size, value, user):
+        if _tw_hit[0] != _TW_N:
+            return
+        ip = uc.reg_read(UC_X86_REG_CS) * 16 + uc.reg_read(UC_X86_REG_IP)
+        off = ip - CODE
+        if not (_TW_A <= off <= _TW_B):
+            return
+        _tw_log.append((off, address, size,
+                        int.from_bytes(bytes(uc.mem_read(address, 1)), "little")))
+
+    if os.environ.get("CC_TRACERD") == "1":
+        uc.hook_add(UC_HOOK_MEM_READ, hook_tw_read)
+
 hooks = [(0x5035, hook_5035), (0x5a5b, hook_5a5b), (0x1791, hook_input), (0x1814, hook_input),
          (0x672f, hook_672f), (0x26ae, hook_ball),
          (0x1b13, hook_mechmatch), (0x1bcd, hook_zanymatch),
@@ -984,6 +1027,8 @@ hooks = [(0x5035, hook_5035), (0x5a5b, hook_5a5b), (0x1791, hook_input), (0x1814
          (0x26ae, hook_ball_dbg_entry), (0x2713, hook_ball_dbg_exit),
          (0x2822, hook_278e_vframe)]
 hooks.append((0x6869, hook_flip))
+if _TW:
+    hooks.insert(0, (_TW_A, hook_tw_masuk))
 if _VRAMSEQ:
     hooks.insert(0, (_VS_OFF, hook_vramseq))
 if _VRAMAT:
@@ -1140,6 +1185,11 @@ for (xs, ys, w, h, data) in draws672:
         with open(os.path.join(OUT, "ball_sprite_5e6.bin"), "wb") as f:
             f.write(bytes(data))
         break
+if _TW:
+    with open(_TW_OUT, "w") as _f:
+        for off, ad, sz, val in _tw_log:
+            _f.write("%04x %06x %d %02x" % (off, ad, sz, val & 0xFF) + chr(10))
+    print("TRACEWR: %d penulisan -> %s" % (len(_tw_log), _TW_OUT))
 if _VRAMSEQ:
     import json as _js
     _js.dump(_vs_glob, open(os.path.join(_vs_dir, "globals.json"), "w"), indent=1)
