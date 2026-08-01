@@ -17,61 +17,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import pygame
 from cc import cga, assets, text, anim
 from cc.core import archive as _arc, contrap as _con, render as _rend
-from cc.core import pick as _pick, rng as _rng
-
-
-def decode_dat(fp, maxframes=None):
-    """Decode file frame ter-pack (CCA1, 2bpp+zlib) -> list Surface 320x200.
-    maxframes: batasi jumlah frame yg di-decode (utk pencocokan frame-0 yg murah)."""
-    if not fp or not os.path.exists(fp):
-        return []
-    raw = open(fp, "rb").read()
-    assert raw[:4] == b"CCA1"
-    _, nfr = struct.unpack_from("<HH", raw, 4)
-    if maxframes is not None:
-        nfr = min(nfr, maxframes)
-    blob = zlib.decompress(raw[8:])
-    pal = cga.PALETTE
-    frames = []
-    fsize = 320 * 200 // 4
-    for fi in range(nfr):
-        surf = pygame.Surface((320, 200))
-        foff = fi * fsize
-        for y in range(200):
-            row = foff + y * 80
-            for xb in range(80):
-                b = blob[row + xb]
-                x = xb * 4
-                surf.set_at((x, y), pal[(b >> 6) & 3])
-                surf.set_at((x + 1, y), pal[(b >> 4) & 3])
-                surf.set_at((x + 2, y), pal[(b >> 2) & 3])
-                surf.set_at((x + 3, y), pal[b & 3])
-        frames.append(surf)
-    return frames
-
-
-def load_anim_frames(gid, vi=0):
-    """Muat frame animasi run PER-VARIAN (goalN_vV.dat), fallback goalN.dat."""
-    base = os.path.join(os.path.dirname(__file__), "cc", "anim")
-    for cand in ("goal%d_v%d.dat" % (gid, vi), "goal%d.dat" % gid):
-        p = os.path.join(base, cand)
-        if os.path.exists(p):
-            return decode_dat(p)
-    return []
-
-
-def _anim_candidates(gid):
-    """Semua file animasi kandidat utk sebuah goal: goalN_vI.dat (semua I) + goalN.dat."""
-    base = os.path.join(os.path.dirname(__file__), "cc", "anim")
-    out = []
-    vi = 0
-    while os.path.exists(os.path.join(base, "goal%d_v%d.dat" % (gid, vi))):
-        out.append(os.path.join(base, "goal%d_v%d.dat" % (gid, vi)))
-        vi += 1
-    p = os.path.join(base, "goal%d.dat" % gid)
-    if os.path.exists(p):
-        out.append(p)
-    return out
+from cc.core import pick as _pick, rng as _rng, adegan as _adg
 
 
 GOAL_NAMES = {1: "Up and At 'Em", 2: "Hair Care", 3: "Easy Eating",
@@ -163,6 +109,7 @@ class Game:
         self.k_mechs = _arc.Archive(os.path.join(data_dir, "MECHS"))
         self.k_misc = _arc.Archive(os.path.join(data_dir, "MISC"))
         self.k_goals = _con.parse(os.path.join(data_dir, "CONTRAP"))
+        self.k_anim = _arc.Archive(os.path.join(data_dir, "ANIMATE"))
         self._scene_cache = {}
         # `mode` di setupscr.c menentukan warna pita bawah; mode 0/1 = cyan.
         # Terukur: layar design mode Fill in Mechanisms memakai cabang ini.
@@ -302,14 +249,16 @@ class Game:
         self._rev_text(fb, self.review_layout["fixed"])
 
     def _title(self, fb):
-        """Layar judul = kontraption goal 128, dibangkitkan seperti layar lain.
+        """Layar judul = kontraption goal 128, animasinya dijalankan VM.
 
-        Yang BELUM ada di sini: animasinya. Di game asli bolanya bergerak lewat
-        `animvm()` yang menjalankan skrip goal 128 -- itu pekerjaan langkah
-        berikutnya. Menggambar jalur bola karangan di sini akan membuat layar
-        ini terlihat "hidup" tanpa satu piksel pun yang terbukti benar, jadi
-        untuk sekarang layarnya diam dan jujur.
+        Termasuk judul "CREATIVE CONTRAPTIONS" itu sendiri: ia digambar oleh
+        opcode 0x11 DI DALAM skrip animasi, bukan oleh layar statis. Terukur
+        53/53 frame byte-identik vs tangkapan VRAM emulator.
         """
+        fr = self._anim_surfaces(128)
+        if fr:
+            fb.blit(fr[(self.title_tick // 2) % len(fr)], (0, 0))
+            return
         surf = self._scene_surface(128, None, True)
         if surf is not None:
             fb.blit(surf, (0, 0))
@@ -430,38 +379,22 @@ class Game:
             self.ballpath_cache[key] = json.load(open(fp)) if fp else []
         return self.ballpath_cache[key]
 
-    def _match_anim(self, gid, design_draws):
-        """Pilih file animasi yg frame-0 nya PALING cocok dgn scene design (design_draws),
-        di antara semua kandidat dat goal ini. Indeks varian layer DESIGN (draws_goalN_vI.json)
-        dan layer ANIMASI (goalN_vI.dat) diekstrak dari run ACAK terpisah, jadi goalN_vI.dat
-        belum tentu contraption yg sama dgn draws_goalN_vI.json (mis. goal1 v0). Pencocokan
-        by-KONTEN menjamin animasi run == yg dilihat pemain saat design."""
-        ref = cga.make_framebuffer()
-        ref.fill(cga.PALETTE[cga.BG_INDEX])
-        for d in (design_draws or []):
-            if d["idx"] < 0:
-                continue
-            spr = self._arch(d["arch"]).sprite_by_idx(d["idx"])
-            if spr:
-                ref.blit(spr, (d["x"], d["y"]))
+    def _anim_surfaces(self, gid, seed=0, varian=None):
+        """Frame animasi DIBANGKITKAN dari berkas aset (VM), bukan diputar dari
+        rekaman `port/cc/anim/*.dat`.
 
-        def framediff(a, b):
-            n = 0
-            for y in range(0, cga.HEIGHT, 4):
-                for x in range(0, cga.WIDTH, 4):
-                    if a.get_at((x, y)) != b.get_at((x, y)):
-                        n += 1
-            return n
-
-        best_fp, best_score = None, None
-        for fp in _anim_candidates(gid):
-            f0 = decode_dat(fp, maxframes=1)          # decode HANYA frame-0 (murah)
-            if not f0:
-                continue
-            s = framediff(ref, f0[0])
-            if best_score is None or s < best_score:
-                best_score, best_fp = s, fp
-        return decode_dat(best_fp) if best_fp else load_anim_frames(gid, self.cur_variant)
+        Terukur vs tangkapan VRAM emulator: tujuh layar (goal 1..6 + judul 128)
+        = 381/402 frame byte-identik, 99,9988% piksel; goal 4, 5, 6 dan layar
+        judul 100% frame.
+        """
+        key = ("vm", gid, seed, varian)
+        if key in self.anim_cache:
+            return self.anim_cache[key]
+        fbs = _adg.frames(gid, self.k_graph, self.k_mechs, self.k_misc,
+                          self.k_anim, self.k_goals, seed=seed, varian=varian)
+        surf = [_rend.to_surface(fb, pygame) for fb in fbs]
+        self.anim_cache[key] = surf
+        return surf
 
     def start_review(self, gid, from_play=False):
         self.chosen_goal = gid
@@ -470,12 +403,11 @@ class Game:
         # animasi run ter-pack PER-VARIAN (goalN_vV.dat). Demo (bukan from_play) pakai v0.
         vi = self.cur_variant if from_play else 0
         key = (gid, vi)
-        if key not in self.anim_cache:
-            # from_play: cocokkan animasi ke SCENE design by-KONTEN (indeks varian draws vs
-            # dat TAK sinkron). Demo (CONTRAPTION): pertahankan v0 lama.
-            self.anim_cache[key] = (self._match_anim(gid, self.cur_draws)
-                                    if from_play else load_anim_frames(gid, vi))
-        self.anim_frames = self.anim_cache[key]
+        # Dulu di sini animasi DIPILIH dari rekaman dgn mencocokkan isi frame-0,
+        # karena indeks varian `draws_goalN_vI.json` dan `goalN_vI.dat` tidak
+        # sejajar. Sekarang tidak ada yang perlu dicocokkan: adegan dan animasi
+        # dibangkitkan dari data yang sama, oleh undian yang sama.
+        self.anim_frames = self._anim_surfaces(gid)
         self.anim_i = 0 if self.anim_frames else -1
         self.anim_tick = 0
         self.state = PLAYANIM
@@ -488,10 +420,7 @@ class Game:
         self.cur_draws = self.draws_var.get(7, {}).get(rev_i, [])
         self.anim_from_play = False
         self.review_demo = True
-        key = (7, rev_i)
-        if key not in self.anim_cache:
-            self.anim_cache[key] = load_anim_frames(7, rev_i)
-        self.anim_frames = self.anim_cache[key]
+        self.anim_frames = self._anim_surfaces(7, varian=rev_i)
         self.anim_i = 0 if self.anim_frames else -1
         self.anim_tick = 0
         self.anim_fail = None
