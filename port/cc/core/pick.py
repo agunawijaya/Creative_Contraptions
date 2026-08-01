@@ -172,6 +172,81 @@ def fillans(recs, jenis):
     return hasil
 
 
+ZANY_AMBANG = 0x8C               # id >= 140 dianggap SEKELOMPOK saat dedup
+
+
+def palet_mekanisme(recs, jenis, lvl3, rng=None, shufflg=1):
+    """`mkpal()` @0x3909 seutuhnya. -> daftar INDEKS record yang ditawarkan.
+
+    ⭐ Inilah yang menentukan BERAPA BANYAK pilihan yang muncul di strip, dan
+    jawabannya tergantung MODE:
+
+        if (lvl3 != 1 || base[i*0xc] == tab[j*3+2]) { ...masuk palet }
+
+    `lvl3 == 1` di mode 1/2/3 -> hanya part yang memang DIBUTUHKAN kontraption
+    ini yang ditawarkan; soalnya jadi "taruh di kotak yang benar".
+    `lvl3 == 3` di mode 4 -> syaratnya gugur, SELURUH daftar ditawarkan.
+
+    Lalu, kalau `shufflg == 1`, daftarnya dikocok dan di-DEDUP: dua entri
+    dianggap sama kalau id-nya sama, ATAU kalau KEDUANYA >= 0x8c. Entri yang
+    dibuang ditimpa entri terakhir dan cacahnya menyusut. `want` -- id >= 0x8c
+    yang memang diminta kontraption ini -- dilindungi: kalau ia yang hendak
+    dibuang, ia dipindahkan dulu ke posisi yang dipertahankan.
+
+    TERUKUR vs `nmech` @0x3ac di emulator:
+        Fill in Mechanisms  goal 1 -> 3, goal 2 -> 4, goal 4 -> 3
+        Contraption Mix Up  goal 1 -> 13
+    dan 13 itu memang jumlah id record berbeda di MECHS (15) sesudah tiga id
+    >= 0x8c (140, 141, 150) diciutkan jadi satu.
+
+    ⚠ `recs` HARUS tabel `base` milik mode itu, bukan selalu direktori arsip.
+    `main_.c` memanggil `loadarc(mechfh, base, lvl3 == 1 ? 0 : 1, ...)`:
+
+        lvl3 == 1 -> base = tabel DISARING + DIPADATKAN, yaitu `tabel()`
+        lvl3 != 1 -> base = direktori PENUH
+
+    Terukur dgn `CC_VSPTR=73a:...`: goal 1 mode isian `base` berisi 6 record,
+    mode Mix Up 30 record. Memberi direktori penuh untuk mode isian tetap
+    memberi CACAH yang benar tapi RECORD yang salah -- indeks `idtab[]` gim
+    menunjuk ke `base`, jadi thumbnail-nya meleset.
+
+    `rng` boleh None: tanpa kocokan urutannya tetap urutan arsip. Kocokannya
+    memakai RNG gim, jadi berikan objek Rng yang sama dengan pemilihan part.
+    """
+    want = 0
+    for t in jenis:
+        if t >= ZANY_AMBANG:
+            want = t
+            break
+    grup = []
+    for i, r in enumerate(recs[:0x23]):
+        if i == 0 or r["id"] != recs[i - 1]["id"] or r["row"] != recs[i - 1]["row"]:
+            if lvl3 != 1 or any(r["id"] == t for t in jenis):
+                grup.append(i)
+        if i + 1 >= len(recs) or recs[i + 1]["id"] == 0:
+            break
+    if not (shufflg == 1 and rng is not None):
+        return grup
+    for i in range(len(grup)):
+        r = rng.rnd(len(grup))
+        grup[r], grup[i] = grup[i], grup[r]
+    i = 0
+    while i < len(grup):
+        id1 = recs[grup[i]]["id"]
+        j2 = i + 1
+        while j2 < len(grup):
+            id2 = recs[grup[j2]]["id"]
+            if id1 == id2 or (id1 >= ZANY_AMBANG and id2 >= ZANY_AMBANG):
+                if want != 0 and id2 == want:
+                    grup[i] = grup[j2]
+                grup[j2] = grup[-1]
+                grup.pop()
+                continue                 # `j2--` lalu `j2++` = periksa ulang slot ini
+            j2 += 1
+        i += 1
+    return grup
+
+
 def loadcon_pick(rng, jumlah_varian, lastgoal=None, sub=None, lastvar=None):
     """loadcon(): undi varian STRUKTUR, hindari mengulang varian sebelumnya.
 

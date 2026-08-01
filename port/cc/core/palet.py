@@ -143,10 +143,22 @@ def penunjuk(k, misc, fase=0):
 # @0x7fa = `spr[]`, permutasi hasil kocokan. Terukur: goal 2 -> 01 03 02 00,
 # goal 4 -> 01 00 02.
 #
-# ⚠ BELUM TERUKUR: sisi Mix Up-nya. Di mode 4 `runplay` memanggil `pickvar`,
-# bukan `review`, jadi drawpal tidak lewat 0x3C4E dan empat percobaan
-# menangkapnya gagal. Bagian itu diturunkan dari mkpal.c yang byte-exact,
-# bukan diukur -- jangan dicatat sebagai terverifikasi.
+# ⭐ SISI MIX UP KINI TERUKUR JUGA. Yang menghalanginya bukan `pickvar`
+# melainkan urutan tombol OBSERVE bawaan, yang diakhiri ESC (0x1B): ESC
+# membuat `runplay()` mengembalikan -1 sebelum strip sempat digambar. Dgn
+# urutan tanpa ESC, drawpal langsung tertangkap.
+#
+#   Contraption Mix Up  lvl3 = 3, shufflg = 1, nmech = 13
+#   dan 13 itu memang 15 id record berbeda di MECHS sesudah tiga id >= 0x8c
+#   (140, 141, 150) diciutkan jadi satu oleh dedup mkpal.
+#
+# ⭐ `idtab[]` @0x2ea MENGINDEKS `base`, bukan direktori arsip -- dan `base`
+# berbeda menurut mode: `loadarc(mechfh, base, lvl3 == 1 ? 0 : 1, ...)`.
+# Terukur `CC_VSPTR=73a:`: mode isian 6 record (disaring+dipadatkan), Mix Up
+# 30 record (direktori penuh). Salah memilihnya memberi CACAH yang benar tapi
+# THUMBNAIL yang meleset -- gejala yang sempat terlihat sebagai 23.292/27.648.
+#
+# Diukur, kedua mode: **48.384/48.384 piksel** (`python work/test_palet.py`).
 #
 # Alat yang dipakai untuk mendiagnosisnya, semuanya di work/emu.py:
 #   CC_VSWORD=3ac,51c   catat word DGROUP tiap frame (nmech, cur, lo, hi)

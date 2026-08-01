@@ -560,53 +560,42 @@ class Game:
                 idx = dipilih[k] if k < len(dipilih) and dipilih[k] is not None else -1
                 self.slots.append(dict(y=y, x=x, correct=typ, filled=None, tries=0,
                                        arch=arch, sprite=idx))
-        # entri palet = (nama, ids, arch, sprite_idx). sprite_idx = gambar EKSAK yg akan
-        # DITEMPATKAN utk kategori itu di contraption ini (dari slot), supaya ikon palet
-        # SAMA dgn gambar yg muncul saat ditaruh (mis. Inclined Plane -> id 101, bukan 100).
+        # entri palet = (nama, ids, arch, sprite_idx), satu per RECORD yang
+        # ditawarkan `mkpal()` -- bukan per kategori tulisan tangan.
         if fill in ("mech", "both"):
             add_slots(var["mech"], "MECHS")
-            catspr = {}
-            for s in self.slots:
-                if s["arch"] == "MECHS":
-                    ci = self._cat_index(s["correct"])
-                    if ci is not None and ci not in catspr and s["sprite"] >= 0:
-                        catspr[ci] = s["sprite"]
             # ⭐ BERAPA BANYAK PILIHAN yang ditawarkan tergantung MODE, dan port
-            # lama selalu menawarkan kesembilan kategori. `mkpal()` @0x3909:
+            # lama selalu menawarkan kesembilan kategori MECH_CATEGORIES.
+            # Aturannya `mkpal()` @0x3909, kini ditiru utuh di
+            # cc/core/pick.py:palet_mekanisme():
             #
             #     if (lvl3 != 1 || base[i*0xc] == tab[j*3+2]) { ...masuk palet }
             #
-            # `lvl3 == 1` di mode 1/2/3 dan `lvl3 == 3` di mode 4 (main_.c).
-            # Jadi di Fill in Mechanisms paletnya HANYA part yang memang
-            # dibutuhkan kontraption ini -- soalnya "taruh di kotak yang benar",
-            # bukan "pilih dari sembilan kategori". Di Contraption Mix Up
-            # syaratnya gugur dan seluruh daftar ditawarkan; itu yang membuat
-            # Mix Up lebih sulit.
+            # `lvl3 == 1` di mode 1/2/3 -> hanya part yang DIBUTUHKAN;
+            # `lvl3 == 3` di mode 4    -> SELURUH daftar, lalu dikocok & dedup.
             #
-            # TERUKUR (OBSERVE=fillmech + CC_NOSKIP=1, tangkap di RET drawpal
-            # 0x3C4E, baca `nmech` @0x3ac):
-            #     goal 1 slot [100, 150, 110]      -> nmech 3
-            #     goal 2 slot [101, 132, 140, 133] -> nmech 4
-            #     goal 4 slot [141, 130, 111]      -> nmech 3
-            # yaitu jumlah jenis yang DIBUTUHKAN, bukan 9.
+            # TERUKUR vs `nmech` @0x3ac (OBSERVE=... + CC_NOSKIP=1, tangkap di
+            # RET drawpal 0x3C4E):
+            #     Fill in Mechanisms  goal 1 -> 3, goal 2 -> 4, goal 4 -> 3
+            #     Contraption Mix Up  goal 1 -> 13
+            # dan tiruan di pick.py memberi 3, 4, 3, 13 juga.
             #
-            # ⚠ Sisi Mix Up-nya belum terukur: di mode itu `runplay` memanggil
-            # `pickvar`, bukan `review`, jadi drawpal tidak lewat 0x3C4E dan
-            # empat percobaan menangkapnya gagal. Yang di bawah diturunkan dari
-            # mkpal.c yang byte-exact, bukan diukur.
-            if fill == "mech":
-                perlu = [ci for ci in range(len(MECH_CATEGORIES))
-                         if any(self._cat_index(s["correct"]) == ci
-                                for s in self.slots if s["arch"] == "MECHS")]
-            else:
-                perlu = range(len(MECH_CATEGORIES))
-            for ci in perlu:
-                nm, ids = MECH_CATEGORIES[ci]
-                idx = catspr.get(ci, -1)
-                if idx < 0:
-                    rec = self.mechs.first_of_major(ids[0])
-                    idx = rec["idx"] if rec else -1
-                self.palette.append((nm, ids, "MECHS", idx))
+            # ⚠ Pencocokannya EKSAK per id record (`ord1[c1] != rec1[3*c1+2]`
+            # di main_.c), bukan per kategori. MECH_CATEGORIES sekarang hanya
+            # dipakai untuk LABEL teksnya.
+            # ⚠ `mkpal()` menyusuri `base`, dan `base` BERBEDA menurut mode --
+            # `main_.c` memanggil `loadarc(mechfh, base, lvl3 == 1 ? 0 : 1, ...)`:
+            #     lvl3 == 1 -> tabel DISARING + DIPADATKAN (hanya jenis terpakai)
+            #     lvl3 != 1 -> direktori PENUH
+            # Terukur lewat CC_VSPTR=73a: goal 1 mode isian `base` = 6 record,
+            # mode Mix Up = 30 record (seluruh direktori MECHS).
+            lvl3 = 3 if fill == "both" else 1
+            base = tm if lvl3 == 1 else self.k_mechs.recs
+            for r in (base[i] for i in
+                      _pick.palet_mekanisme(base, jm, lvl3, rng)):
+                ci = self._cat_index(r["id"])
+                nm = MECH_CATEGORIES[ci][0] if ci is not None else "Mechanism"
+                self.palette.append((nm, (r["id"],), "MECHS", r["idx"]))
         if fill in ("zany", "both"):
             add_slots(var["zany"], "GRAPH")
             seen = set()
