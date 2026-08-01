@@ -16,6 +16,7 @@ import random
 sys.path.insert(0, os.path.dirname(__file__))
 import pygame
 from cc import cga, assets, text, anim
+from cc.core import archive as _arc, contrap as _con, render as _rend
 
 
 def decode_dat(fp, maxframes=None):
@@ -231,6 +232,14 @@ class Game:
             self.menu_icons.append(pygame.image.load(fp) if os.path.exists(fp) else None)
         self.anim = anim.AnimArchive(os.path.join(data_dir, "ANIMATE"))
         self.goals = assets.parse_contrap(os.path.join(data_dir, "CONTRAP"))
+        # ---- lapisan INTI terverifikasi -------------------------------------
+        # Aturan arsip/penempatan yang SAMA dengan work/genscreens.py (197/197).
+        # Layar tidak lagi diputar dari rekaman; ia DIBANGKITKAN dari data.
+        self.k_graph = _arc.Archive(os.path.join(data_dir, "GRAPH"))
+        self.k_mechs = _arc.Archive(os.path.join(data_dir, "MECHS"))
+        self.k_misc = _arc.Archive(os.path.join(data_dir, "MISC"))
+        self.k_goals = _con.parse(os.path.join(data_dir, "CONTRAP"))
+        self._scene_cache = {}
         # daftar gambar DETERMINISTIK (diekstrak dari eksekusi game asli via emulator):
         # per goal, daftar {arch, idx, x, y} = record & posisi EKSAK. Tanpa tebakan.
         self.draws = {}
@@ -461,14 +470,33 @@ class Game:
         """Gambar contraption dari daftar draw DETERMINISTIK (record & posisi eksak).
         archs=None -> pakai draw_mech (kompat lama); else set arch yg digambar.
         draws=None -> per-goal (default v0); else daftar draw varian terpilih."""
-        if archs is None:
-            archs = ("GRAPH", "MECHS") if draw_mech else ("GRAPH",)
-        for d in (draws if draws is not None else self.draws.get(gid, [])):
-            if d["idx"] < 0 or d["arch"] not in archs:
-                continue
-            spr = (self.mechs if d["arch"] == "MECHS" else self.graph).sprite_by_idx(d["idx"])
-            if spr:
-                fb.blit(spr, (d["x"], d["y"]))
+        if archs is not None:
+            draw_mech = "MECHS" in archs
+        vi = getattr(self, "cur_variant", 0)
+        surf = self._scene_surface(gid, vi, draw_mech)
+        if surf is not None:
+            fb.blit(surf, (0, 0))
+
+    def _scene_surface(self, gid, vi, isi_mekanisme):
+        """Layar contraption DIBANGKITKAN dari CONTRAP+GRAPH+MECHS+MISC.
+
+        Memakai lapisan inti yang sama dengan alat bukti, jadi hasilnya identik
+        piksel dengan work/screens_gen/*.png. Di-cache per (gid, varian, isi).
+        """
+        key = (gid, vi, bool(isi_mekanisme))
+        if key in self._scene_cache:
+            return self._scene_cache[key]
+        vs = self.k_goals.get(gid)
+        if not vs:
+            self._scene_cache[key] = None
+            return None
+        var = vs[min(vi, len(vs) - 1)]
+        dl = _con.draw_list(var, self.k_graph, self.k_mechs, self.k_misc,
+                            0, bool(isi_mekanisme))
+        fb = _rend.apply(_rend.new_fb(), dl)
+        surf = _rend.to_surface(fb, pygame)
+        self._scene_cache[key] = surf
+        return surf
 
     def _contraption(self, fb):
         gid = self.goal_ids[self.sel] if self.state == GOAL else self.chosen_goal

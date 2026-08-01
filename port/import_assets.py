@@ -34,6 +34,7 @@ NEEDED = {
     "MECHS":     5111,   # arsip sprite mekanisme
     "ANIMATE":  14799,   # skrip VM animasi
     "CONTRAP":   2376,   # tata letak contraption per goal
+    "MISC":       3398,   # potongan antarmuka tetap (corong bola, dsb.)
 }
 
 # Tempat yang ditengok kalau folder game tidak ditunjuk manual.

@@ -24,6 +24,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "port"))
 from cc.core import contrap                                   # noqa: E402
+from cc.core import render as rend                            # noqa: E402
 from cc.core.archive import Archive, decode_rle, sgn          # noqa: E402,F401
 
 DATA = os.path.join(ROOT, "_ORIGINAL_READONLY")
@@ -40,33 +41,13 @@ def contrap_goals(path):
 
 
 def render(dl):
-    """Daftar gambar -> framebuffer 320x200 berisi indeks warna."""
-    fb = [[BG] * W for _ in range(H)]
-    for d in dl:
-        if d["kind"] == "slot":
-            # drawslot.c: fillrect(x+1, y, x+0x1e, y+0x17, 3) -- blok PENUH
-            for yy in range(d["y"], min(d["y"] + contrap.SLOT_H + 1, H)):
-                for xx in range(d["x"] + 1, min(d["x"] + contrap.SLOT_W + 1, W)):
-                    if 0 <= xx < W and 0 <= yy < H:
-                        fb[yy][xx] = contrap.SLOT_WARNA
-            continue
-        px = d["arc"].pixels(d["rec"])
-        for yy, line in enumerate(px):
-            ty = d["y"] + yy
-            if not (0 <= ty < H):
-                continue
-            for xx, c in enumerate(line):
-                tx = d["x"] + xx
-                if 0 <= tx < W:
-                    fb[ty][tx] = c                    # OPAQUE, seperti blitter 672f
-    return fb
+    """Daftar gambar -> framebuffer indeks warna. Delegasi ke penggambar BERSAMA
+    di port/cc/core/render.py -- jangan tulis ulang primitifnya di sini."""
+    return rend.apply(rend.new_fb(), dl)
 
 
 def simpan(fb, path):
-    from PIL import Image
-    im = Image.new("RGB", (W, H))
-    im.putdata([PALETTE[c] for row in fb for c in row])
-    im.save(path)
+    rend.simpan_png(fb, path)
 
 
 def main():
