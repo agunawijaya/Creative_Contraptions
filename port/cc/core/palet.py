@@ -113,6 +113,41 @@ def penunjuk(k, misc, fase=0):
 # Diukur: strip `drawpal(sel=-1)` dengan urutan `rowtab` @0x870
 # = 7.680/7.680 piksel vs tangkapan VRAM emulator.
 #
+# ── Strip di mode ISIAN, dan kenapa ia sempat "tak terjangkau" ───────────
+#
+# Menangkapnya di mode Fill in Mechanisms berkali-kali gagal, dan sebabnya
+# BUKAN pada gimnya: `work/emu.py` sengaja mem-bypass gelung penempatan part
+# (`hook_2e90`), dan `drawpal()` hidup DI DALAM gelung itu. Ditambahkan
+# saklar `CC_NOSKIP=1` untuk mematikan bypass-nya; sesudah itu tangkapannya
+# langsung ada. "Terhalang emulator" ternyata untuk KEDUA kalinya berarti
+# "terhalang oleh harness kita sendiri".
+#
+# Terukur di mode ISIAN (OBSERVE=fillmech CC_NOSKIP=1, tangkap di RET 0x3C4E):
+#   sel = 1, n = 3 -> jendela [None,None,None,0,1,2,None,None,None]
+#   dan tangkapannya memang HITAM PENUH di i = 0,1,2,6,7,8 dan berisi di
+#   i = 3,4,5 (x = 176, 144, 112). Aturan jendela-geser + urutan-dibalik +
+#   isian hitam berlaku sama di mode ISIAN, pada posisi piksel yang sama.
+#
+# ⭐ TEMUAN yang lebih besar: BERAPA pilihan yang ditawarkan tergantung MODE.
+# `nmech` @0x3ac terukur 3, 4, 3 untuk goal 1, 2, 4 -- yaitu jumlah JENIS
+# mekanisme yang dibutuhkan kontraption itu ([100,150,110], [101,132,140,133],
+# [141,130,111]), bukan sembilan kategori. Sebabnya di `mkpal()` @0x3909:
+#
+#     if (lvl3 != 1 || base[i*0xc] == tab[j*3+2]) { ...masuk palet }
+#
+# `lvl3 == 1` di mode 1/2/3 dan `lvl3 == 3` di mode 4. Jadi Fill in Mechanisms
+# hanya menawarkan part yang memang dipakai (soalnya "taruh di kotak yang
+# benar"), sedangkan Contraption Mix Up menawarkan seluruh daftar. Port lama
+# selalu memberi kesembilan kategori di semua mode.
+#
+# @0x7fa = `spr[]`, permutasi hasil kocokan. Terukur: goal 2 -> 01 03 02 00,
+# goal 4 -> 01 00 02.
+#
+# ⚠ BELUM TERUKUR: sisi Mix Up-nya. Di mode 4 `runplay` memanggil `pickvar`,
+# bukan `review`, jadi drawpal tidak lewat 0x3C4E dan empat percobaan
+# menangkapnya gagal. Bagian itu diturunkan dari mkpal.c yang byte-exact,
+# bukan diukur -- jangan dicatat sebagai terverifikasi.
+#
 # Alat yang dipakai untuk mendiagnosisnya, semuanya di work/emu.py:
 #   CC_VSWORD=3ac,51c   catat word DGROUP tiap frame (nmech, cur, lo, hi)
 #   CC_VSMEM=7fa:12     buang byte mentah dari alamat tetap (urutan palet)

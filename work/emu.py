@@ -837,8 +837,18 @@ def hook_ret0(uc, addr, size, user):        # 312a/31da -> !=-1 agar lanjut ke m
     print("  [nav] ret0 @ off=0x%x" % (addr - CODE))
     ret_ax(0)
 
+# CC_NOSKIP=1 -- JANGAN melewati gelung penempatan part.
+#
+# Bawaannya dilewati supaya emulator langsung sampai ke animasi. Tapi
+# `drawpal()` (strip pemilih part) hidup DI DALAM gelung itu, jadi selama
+# dilewati ia tak pernah terpanggil di mode ISIAN -- dan itu pernah salah
+# dibaca sebagai "emulator tidak bisa mencapai drawpal di mode fillmech".
+# Bukan; kitalah yang mematikannya.
+NOSKIP = os.environ.get("CC_NOSKIP") == "1"
+
+
 def hook_2e90(uc, addr, size, user):        # skip penempatan part -> 0x2e8=0 (!= -1)
-    if inplay[0]:
+    if inplay[0] and not NOSKIP:
         print("  [nav] 2e90 skip")
         ret_ax(0)
 

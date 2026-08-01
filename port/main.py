@@ -571,7 +571,37 @@ class Game:
                     ci = self._cat_index(s["correct"])
                     if ci is not None and ci not in catspr and s["sprite"] >= 0:
                         catspr[ci] = s["sprite"]
-            for ci, (nm, ids) in enumerate(MECH_CATEGORIES):
+            # ⭐ BERAPA BANYAK PILIHAN yang ditawarkan tergantung MODE, dan port
+            # lama selalu menawarkan kesembilan kategori. `mkpal()` @0x3909:
+            #
+            #     if (lvl3 != 1 || base[i*0xc] == tab[j*3+2]) { ...masuk palet }
+            #
+            # `lvl3 == 1` di mode 1/2/3 dan `lvl3 == 3` di mode 4 (main_.c).
+            # Jadi di Fill in Mechanisms paletnya HANYA part yang memang
+            # dibutuhkan kontraption ini -- soalnya "taruh di kotak yang benar",
+            # bukan "pilih dari sembilan kategori". Di Contraption Mix Up
+            # syaratnya gugur dan seluruh daftar ditawarkan; itu yang membuat
+            # Mix Up lebih sulit.
+            #
+            # TERUKUR (OBSERVE=fillmech + CC_NOSKIP=1, tangkap di RET drawpal
+            # 0x3C4E, baca `nmech` @0x3ac):
+            #     goal 1 slot [100, 150, 110]      -> nmech 3
+            #     goal 2 slot [101, 132, 140, 133] -> nmech 4
+            #     goal 4 slot [141, 130, 111]      -> nmech 3
+            # yaitu jumlah jenis yang DIBUTUHKAN, bukan 9.
+            #
+            # ⚠ Sisi Mix Up-nya belum terukur: di mode itu `runplay` memanggil
+            # `pickvar`, bukan `review`, jadi drawpal tidak lewat 0x3C4E dan
+            # empat percobaan menangkapnya gagal. Yang di bawah diturunkan dari
+            # mkpal.c yang byte-exact, bukan diukur.
+            if fill == "mech":
+                perlu = [ci for ci in range(len(MECH_CATEGORIES))
+                         if any(self._cat_index(s["correct"]) == ci
+                                for s in self.slots if s["arch"] == "MECHS")]
+            else:
+                perlu = range(len(MECH_CATEGORIES))
+            for ci in perlu:
+                nm, ids = MECH_CATEGORIES[ci]
                 idx = catspr.get(ci, -1)
                 if idx < 0:
                     rec = self.mechs.first_of_major(ids[0])
