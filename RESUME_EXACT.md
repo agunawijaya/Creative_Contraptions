@@ -80,9 +80,21 @@ Ini jalur yang paling mungkin diminta. Titik mulai konkret:
      yang digeser 1 piksel ke kanan, dan render fase 0 cocok EKSAK dengan VRAM
      asli (ikon pita atas). Lihat `port/cc/core/render.py:ikon_bola`.
 
-     Yang MASIH belum diturunkan: transform logis→layar `FUN_1000_5e3b` untuk
-     posisi bola saat animasi, plus `prep`/`putmsk`/`draw` (assembly) yang
-     mengurus hapus-jejak halaman ganda.
+     **Dan transform logis→layar itu TIDAK ADA.** Selama ini dicatat bahwa
+     `FUN_1000_5e3b` "menerapkan transform per-part + sub-pixel, jadi posisi
+     layar harus dibaca dari VRAM". Itu keliru, dan sebabnya justru nama yang
+     tertukar tadi: begitu @0x25e dibaca sebagai X dan @0x260 sebagai Y,
+     keduanya ternyata **koordinat layar langsung**. `xform()` hanya memilih
+     fase pra-geser lalu memanggil penggambarnya.
+
+     Diukur, bukan disimpulkan: pada frame rujukan `f0008` goal 1, VRAM berbeda
+     52 piksel dari frame sebelumnya; menggambar bola di `(x=51, y=24)` — persis
+     isi @0x25e dan @0x260 saat itu — membuat bedanya **nol**. Lihat
+     `port/cc/core/render.py:bola` dan `CC_VRAMSEQ` di `work/emu.py`.
+
+     Yang MASIH belum diturunkan: `prep`/`blend`/`putmsk`/`draw` (assembly +
+     `blend.c`) yang menghapus jejak bola lewat halaman ganda, dan pergantian
+     frame part yang dijalankan `animvm()`.
    - Parser opcode & interpolator tervalidasi 100% (`port/cc/animvm.py`,
      `work/validate_interp.py`); jalur bola per-goal cocok dgn game.
 5. **Harness verifikasi frame-diff** vs DOSBox-X (lihat `DECOMPILE_PLAN.md` §Fase 3B) —

@@ -898,6 +898,44 @@ if _VRAMAT:
         print("VRAM @0x%04x panggilan ke-%d -> %s" % (_VA_OFF, _VA_N, _VA_FILE))
         uc.emu_stop()
 
+# CC_VRAMSEQ=<offset heks>=<folder>[:maks] -- tulis VRAM SETIAP KALI masuk ke
+# offset itu, bernomor urut, TANPA menghentikan emulasi. Ini rujukan per-frame
+# untuk menguji VM animasi di port: bukan "mirip bergerak", tapi frame ke-n
+# port harus sama dengan frame ke-n game asli.
+#
+# Pemakaian lazim: CC_VRAMSEQ=26ae=<folder>  (26ae = drawball, satu per langkah
+# bola). Bawaan maks 400 frame supaya tidak membanjiri cakram.
+_VRAMSEQ = os.environ.get("CC_VRAMSEQ")
+if _VRAMSEQ:
+    _vs_spec, _, _vs_dir = _VRAMSEQ.partition("=")
+    # rpartition, dan hanya kalau ekornya benar-benar angka: path Windows
+    # mengandung ":" pada huruf drive ("C:\..."), jadi partition dari depan
+    # akan memotong di tempat yang salah.
+    _vs_head, _, _vs_max = _vs_dir.rpartition(":")
+    if _vs_max.isdigit() and _vs_head:
+        _vs_dir = _vs_head
+    else:
+        _vs_max = ""
+    _VS_OFF = int(_vs_spec, 16)
+    _VS_MAX = int(_vs_max) if _vs_max else 400
+    _vs_n = [0]
+    if not os.path.isdir(_vs_dir):
+        os.makedirs(_vs_dir)
+
+    _vs_glob = []
+
+    def hook_vramseq(uc, addr, size, user):
+        if _vs_n[0] >= _VS_MAX:
+            return
+        capture_cga(os.path.join(_vs_dir, "f%04d.png" % _vs_n[0]))
+        # Catat kedua global bola BERSAMA frame-nya, supaya korelasinya pasti
+        # dan bukan hasil menebak-nebak penyelarasan sesudahnya.
+        # ⚠ Nama di dekompilasi TERTUKAR: @0x260 memegang Y, @0x25e memegang X.
+        a = struct.unpack_from("<h", bytes(uc.mem_read(DGROUP * 16 + 0x260, 2)), 0)[0]
+        b = struct.unpack_from("<h", bytes(uc.mem_read(DGROUP * 16 + 0x25e, 2)), 0)[0]
+        _vs_glob.append({"frame": _vs_n[0], "g260": a, "g25e": b})
+        _vs_n[0] += 1
+
 hooks = [(0x5035, hook_5035), (0x5a5b, hook_5a5b), (0x1791, hook_input), (0x1814, hook_input),
          (0x672f, hook_672f), (0x26ae, hook_ball),
          (0x1b13, hook_mechmatch), (0x1bcd, hook_zanymatch),
@@ -914,6 +952,8 @@ hooks = [(0x5035, hook_5035), (0x5a5b, hook_5a5b), (0x1791, hook_input), (0x1814
          (0x26ae, hook_ball_dbg_entry), (0x2713, hook_ball_dbg_exit),
          (0x2822, hook_278e_vframe)]
 hooks.append((0x6869, hook_flip))
+if _VRAMSEQ:
+    hooks.insert(0, (_VS_OFF, hook_vramseq))
 if _VRAMAT:
     # DI DEPAN: hook lain di alamat yang sama (mis. hook_input @0x1814) bisa
     # memanggil emu_stop(), dan hook yang terdaftar sesudahnya tidak akan jalan.
@@ -1066,6 +1106,10 @@ for (xs, ys, w, h, data) in draws672:
         with open(os.path.join(OUT, "ball_sprite_5e6.bin"), "wb") as f:
             f.write(bytes(data))
         break
+if _VRAMSEQ:
+    import json as _js
+    _js.dump(_vs_glob, open(os.path.join(_vs_dir, "globals.json"), "w"), indent=1)
+    print("VRAMSEQ: %d frame + globals.json -> %s" % (_vs_n[0], _vs_dir))
 if _VRAMOUT:
     capture_cga(_VRAMOUT)
     print("VRAM -> %s" % _VRAMOUT)

@@ -192,16 +192,23 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
    `2823` **42/42 eksak**.
 - **Ke-4 mode jalan**: Review Mechanisms (ensiklopedia + demo goal 7), Fill in Mechanisms
    (multi-varian acak), Fill in Zany Objects, Contraption Mix Up (timer + bonus).
-- Layar judul beranimasi (rantai Rube-Goldberg custom), palet part dikocok, skoring, navigasi
-   sesuai hierarki asli (selesai/ESC → pilihan GOAL, bukan menu depan).
+- Palet part dikocok, skoring, navigasi sesuai hierarki asli (selesai/ESC → pilihan GOAL,
+   bukan menu depan).
+- **Layar DIAM sudah PIXEL-IDENTIK dgn game asli** (2026-08-01): 7 layar (goal 1..6 + judul
+   goal 128) = **448.000/448.000 piksel** vs tangkapan VRAM emulator, diukur dari dalam port
+   lewat pygame Surface. Varian part dipilih lewat RNG yang sama (`port/cc/core/pick.py`).
+   Layar judul memakai JALUR KODE YANG SAMA dgn layar design, hanya `sub = 0x80`.
+- Animasi judul rakitan tangan (`build_title_anim`) DIBUANG — tak satu pun pikselnya terbukti.
 
-**Berikutnya untuk jalur PORT (JEDA — hanya kalau user minta khusus):**
+**Berikutnya untuk jalur PORT:**
 1. Interpreter generate part-frame sendiri (op 01/07/09 → record ANIMATE) — agar lepas dari
    data capture emulator.
-2. Turunkan transform logis→layar `FUN_1000_5e3b` (syarat interaktif penuh + bola sub-pixel).
-3. Render mandiri yang sync (mesin composite + erase jejak bola).
+2. ~~Turunkan transform logis→layar `FUN_1000_5e3b`~~ — **SELESAI: transformnya TIDAK ADA.**
+   @0x25e = X layar, @0x260 = Y layar, langsung. Lihat `port/cc/core/render.py:bola`.
+3. Hapus jejak bola: `prep`/`blend`/`putmsk`/`draw` (halaman ganda) — belum diturunkan.
 4. Status bar/skor lengkap + suara PC-speaker (op 0x04 sudah diparse).
-5. Harness frame-diff vs DOSBox-X (bukti pixel-identical).
+5. Harness frame-diff per-frame: `CC_VRAMSEQ=26ae=<folder>` di `work/emu.py` sudah menulis
+   rujukan VRAM tiap langkah bola + `globals.json`. Tinggal pembandingnya.
 
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
 
@@ -210,8 +217,12 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
 - **Indeks varian `draws_goalN_vI.json` TIDAK sejajar dengan `goalN_vI.dat`.** Animasi run
   dipilih lewat **pencocokan konten frame-0** (`Game._match_anim`, `port/main.py:507`), bukan
   indeks. (Bug 2026-07-21: layar design ≠ layar run.)
-- **`0x260`(x)/`0x25e`(y) = koordinat LOGIS per-part, BUKAN posisi layar.** Drawer `5e3b`
-  menerapkan transform + sub-pixel. Untuk render, ambil posisi layar dari VRAM.
+- **NAMA GLOBAL ADALAH HIPOTESIS, BUKAN FAKTA.** Empat nama terbukti salah, dan tiap kali
+  yang membongkarnya adalah PEMAKAIANNYA, bukan tampilannya:
+  `bally`(@0x25e) sebenarnya **X**, `ballx`(@0x260) sebenarnya **Y**, `goal`(@0x718)
+  sebenarnya **jumlah bola**, `mode_`/`seed` sebenarnya **pegangan berkas**.
+  Catatan lama "0x260/0x25e = koordinat LOGIS, drawer 5e3b menerapkan transform" SALAH —
+  transform itu tidak ada; keduanya koordinat layar langsung. Lihat CODE_MAP.md §8b.
 - **Urutan slot CONTRAP ≠ urutan draw** — cocokkan by-POSISI, bukan by-indeks.
 - Emulator merender sprite (`672f`) tapi **tidak** teks font (`6453`/`381a`) → untuk layout
   teks, ekstrak tabel `381a`/`3769` dari DGROUP.

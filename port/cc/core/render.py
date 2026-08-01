@@ -103,17 +103,29 @@ def setupscr(fb, mode, nbola=1, misc=None, sub=0, schi_sclo=0):
         r = misc.recs[contrap.CORONG_REC]
         blit(fb, misc, r, contrap.CORONG_XY[0], contrap.CORONG_XY[1])
     for i in range(nbola):
-        ikon_bola(fb, i * 10, 0)
+        bola(fb, i * 10, 0)
     if sub == 1 and mode not in (0, 1):
         fillrect(fb, 0x10, 0xC0, 0x12F, 199, 1)
     return fb
 
 
-def ikon_bola(fb, x, y):
-    """Bola di pita atas. Fase pra-geser dipilih `x % 4`, kolom byte `x // 4`.
+def bola(fb, x, y):
+    """Gambar bola di (x, y) LAYAR. Fase pra-geser `x % 4`, kolom byte `x // 4`.
 
-    Sprite dan mask-nya dibaca lewat tabel penunjuk di DGROUP (tblA/tblB), bukan
-    dihitung -- lihat dgtab.fase_bola().
+    ⭐ TIDAK ADA transform logis->layar. Selama berbulan-bulan dicatat bahwa
+    "`FUN_1000_5e3b` menerapkan transform per-part + sub-pixel, jadi posisi layar
+    harus dibaca dari VRAM". Itu keliru, dan sebabnya nama global yang tertukar:
+    begitu diketahui @0x25e memegang X dan @0x260 memegang Y, keduanya ternyata
+    koordinat LAYAR langsung. `xform()` hanya memilih fase dan memanggil
+    penggambarnya -- tidak ada transform di dalamnya.
+
+    Diukur, bukan disimpulkan: pada frame rujukan f0008 goal 1, VRAM berbeda 52
+    piksel dari frame sebelumnya; menggambar bola di (x=51, y=24) -- persis isi
+    @0x25e dan @0x260 saat itu -- membuat bedanya NOL.
+
+    Sprite dan mask dibaca lewat tabel penunjuk di DGROUP (tblA/tblB), bukan
+    dihitung -- lihat dgtab.fase_bola(). Bola di pita atas memakai fungsi yang
+    SAMA; ia memang bola biasa di (i*10, 0), bukan ikon tersendiri.
     """
     from . import dgtab
     spr, msk = dgtab.fase_bola()
