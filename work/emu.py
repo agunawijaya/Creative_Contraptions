@@ -977,7 +977,9 @@ _VRAMOUT = os.environ.get("CC_VRAMOUT")
 
 start = uc.reg_read(UC_X86_REG_CS) * 16 + uc.reg_read(UC_X86_REG_IP)
 try:
-    uc.emu_start(start, 0, 0, 60000000)
+    # CC_MAXINSN: anggaran instruksi. Bawaan 60 juta tidak cukup untuk
+    # menembus demo animasi dan sampai ke gelung pemilih part.
+    uc.emu_start(start, 0, 0, int(os.environ.get('CC_MAXINSN', '60000000')))
 except UcError as e:
     csnow = uc.reg_read(UC_X86_REG_CS); ipnow = uc.reg_read(UC_X86_REG_IP)
     print("UcError:", e, "CS:IP=%04X:%04X off=0x%X" % (csnow, ipnow, (csnow - LOAD_SEG) * 16 + ipnow))

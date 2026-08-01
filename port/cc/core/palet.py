@@ -71,3 +71,23 @@ def penunjuk(k, misc, fase=0):
     """Penunjuk berkedip di bawah strip: dua sprite MISC ditukar di tempat."""
     rec = misc.recs[PENUNJUK_REC[fase & 1]]
     k.blit(misc, rec, PENUNJUK_XY[0], PENUNJUK_XY[1])
+
+
+# ── Catatan verifikasi, supaya tidak diulang ─────────────────────────────
+#
+# `drawpal()` dipakai DUA layar, dan `runplay()` memanggil keduanya:
+#     baris 72  review(...)   -> cabang MEKANISME: strip sembilan thumbnail
+#     baris 95  pickvar(...)  -> cabang ZANY: kandidat berputar DI DALAM kotak
+# Jadi model port (strip untuk Fill in Mechanisms, in-box untuk Fill in Zany)
+# memang benar.
+#
+# HASIL NEGATIF: strip ini BELUM pernah diadu piksel dengan gim asli.
+# Empat percobaan menangkapnya lewat emulator gagal, masing-masing dengan
+# sebab berbeda:
+#   1. OBSERVE=fillmech berhenti sesudah goal dipilih -> ditambah CC_OBSKEYS;
+#   2. anggaran instruksi habis -> ditambah CC_MAXINSN;
+#   3. dengan 250 juta instruksi, `672f` terpanggil 207.069 kali dan
+#      `drawpal` NOL kali -- emulator berputar di gelung gambar ulang;
+#   4. di jalur Review yang berhasil dijangkau, `nmech` bernilai 0 sehingga
+#      kesembilan sel mengambil cabang HITAM. Artefak emulator, bukan gim.
+# Yang terverifikasi baru ATURANNYA (dari sumber), bukan pikselnya.

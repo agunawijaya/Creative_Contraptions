@@ -53,15 +53,19 @@ def mekanisme(i):
 
 
 def _daftar(tbl, cnt):
+    """Record di sini memakai FORMAT ITEM YANG SAMA dengan tabel menu.
+
+    Bukan kebetulan: `revdet()` memanggil `setsel(ttl[cur], def[cur])` -- fungsi
+    penggambar menu yang sama persis. Jadi dekodernya satu, di `menu.tabel()`.
+    """
+    from . import menu
     dg = dgtab.dgroup()
     out = []
-    for k in range(cnt):
-        a = tbl + k * REC
-        jenis, y, x = struct.unpack_from("<HHH", dg, a)
-        sw, sh, col = dg[a + 6], dg[a + 7], dg[a + 8]
-        ptr = struct.unpack_from("<H", dg, a + 10)[0]
-        out.append(dict(kind="text" if jenis == 1 else "j%d" % jenis,
-                        x=x, y=y, sw=sw, sh=sh, col=col, s=_string(dg, ptr)))
+    for it in menu.tabel(tbl, cnt):
+        out.append(dict(kind="text" if it["teks"] else "sprite",
+                        x=it["x"], y=it["y"], sw=it["w"], sh=it["h"],
+                        col=it["warna"], s=_string(dg, it["ptr"]),
+                        item=it))
     return out
 
 

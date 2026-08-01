@@ -235,18 +235,31 @@ class Game:
         _pal.penunjuk(k, self.k_misc, (self.title_tick // _pal.PENUNJUK_TIK) & 1)
 
     def _review_detail(self, fb):
-        """Layar detail satu mekanisme: judul + sprite (statis) + definisi + contoh.
-        SPACE = "how it works" -> memutar CONTRAPTION DEMO (goal 7 varian = mekanisme ini)
-        yg berjalan sendiri (spt game asli: 0x3b2=7, 5035+18db)."""
-        m = self.review_layout["mechs"].get(self.rev_i)
-        if m:
-            self._rev_text(fb, m)
-        # sprite mekanisme statis di (144,48) spt 3020
-        name, ids = MECH_CATEGORIES[self.rev_i]
-        rec = self.mechs.first_of_major(ids[0])
-        if rec:
-            fb.blit(self.mechs.sprite(rec), (144, 48))
-        self._rev_text(fb, self.review_layout["fixed"])
+        """Halaman satu mekanisme — `revdet()` @0x3xxx:
+
+            setsel(ttl[cur], def[cur]);                  <- tabel per mekanisme
+            blit(ytop_ + spr[cur] * 0xc0, 0x30, 0x90, 0x18, 0x20);
+            show(deftxt, 3);                             <- tiga baris tetap
+
+        `setsel()` di sini fungsi yang SAMA dengan penggambar menu, dan
+        `ttl` @0x14F6 / `def` @0x1508 adalah tabel yang sudah dibaca
+        `cc/core/resensi.py`. Thumbnail 32x24 di (144, 48).
+        """
+        key = ("revdet", self.rev_i)
+        if key not in self._scene_cache:
+            item = [r["item"] for r in self.review_layout["mechs"][self.rev_i]]
+            fbi = _rend.new_fb()
+            k = _rend.KanvasFB(fbi)
+            _menu.setsel(k, item, self.k_misc)
+            tipe = MECH_CATEGORIES[self.rev_i][1][0]
+            for r in self.k_mechs.recs:
+                if self.k_mechs.cocok(r, tipe):
+                    k.blit(self.k_mechs, r, 0x90, 0x30)
+                    break
+            for r in self.review_layout["fixed"]:
+                k.teks(r["s"], r["x"], r["y"], r["col"], r["sw"], r["sh"])
+            self._scene_cache[key] = _rend.to_surface(fbi, pygame)
+        fb.blit(self._scene_cache[key], (0, 0))
 
     def _title(self, fb):
         """Layar judul = kontraption goal 128, animasinya dijalankan VM.
