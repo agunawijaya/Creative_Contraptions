@@ -1,86 +1,180 @@
-"""Katalog komponen: tiap sprite + label, warna ASLI game (opaque, spt 672f).
-Bandingkan colorkey vs opaque untuk diagnosa 'cyan menghilang'."""
-import os, sys, json, glob
-os.environ["SDL_VIDEODRIVER"] = "dummy"
-sys.path.insert(0, r"C:\Projects\Creative_Contraptions\port")
-import pygame
-from PIL import Image
-from cc import cga, assets
-pygame.init()
-D = assets.find_data_dir()
-graph = assets.Archive(os.path.join(D, "GRAPH"))
-mechs = assets.Archive(os.path.join(D, "MECHS"))
-FONT = pygame.font.SysFont("consolas", 13)
-BIG = pygame.font.SysFont("consolas", 16, bold=True)
+"""Katalog komponen: tiap part digambar PERSIS seperti game menggambarnya.
 
-MECH_NAMES = {100: "Inclined Plane", 101: "Inclined Plane", 110: "Pulley", 111: "Pulley",
-              112: "Pulley", 133: "Pulley", 115: "Wheel & Axle", 120: "Wedge",
-              130: "Pendulum", 131: "Pendulum", 132: "Magnet", 135: "Screw",
-              140: "Lever", 141: "Lever", 150: "Spring"}
+Ditulis ulang 2026-08-01. Versi lama punya tiga cacat yang membuat katalognya
+menyesatkan:
+
+  1. Hanya record PERTAMA tiap tipe yang digambar. Part yang di biner terdiri
+     dari DUA record berantai (row dan row+100) jadi tampak terpotong -- gejala
+     yang tertangkap saat memeriksa id 94: bagian bawahnya (16x43 di dy=14)
+     hilang, sehingga katalog berbeda dengan layar yang dibangkitkan.
+  2. Daftar tipe diambil dari tangkapan emulator (`port/cc/draws/*.json`), jadi
+     ikut bergantung pada varian mana yang kebetulan terpilih saat capture.
+     Sekarang daftarnya dibaca dari CONTRAP -- sumber yang sebenarnya, dan
+     mencakup goal 7 (demo) serta goal 128 (layar judul). Hasilnya 70 tipe zany,
+     bukan ~59.
+  3. Sprite yang isinya SELURUHNYA warna latar tampak seperti sel kosong dan
+     terbaca sebagai bug. Contohnya id 83: satu record 4x2, nol piksel berwarna,
+     dipakai di layar judul. Sekarang ditandai "(kosong)" secara eksplisit.
+
+Aturan menggambarnya sama dengan work/genscreens.py, yang sudah diverifikasi
+menjelaskan 197/197 blit yang ditangkap emulator.
+
+    python work/gen_catalog.py
+"""
+import os
+import struct
+import sys
+
+from PIL import Image, ImageDraw, ImageFont
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "work"))
+import genscreens as G                                        # noqa: E402
+
+MECH_NAMES = {100: "Inclined Plane", 101: "Inclined Plane", 110: "Pulley",
+              111: "Pulley", 112: "Pulley", 133: "Pulley", 115: "Wheel & Axle",
+              120: "Wedge", 130: "Pendulum", 131: "Pendulum", 132: "Magnet",
+              135: "Screw", 140: "Lever", 141: "Lever", 150: "Spring"}
+
+HITAM = (0, 0, 0)
+MERAH = (140, 0, 0)
 
 
-def raw_sprite(arch, idx, opaque=True):
-    """Sprite tanpa colorkey (opaque, spt game asli 672f menulis semua piksel)."""
-    r = arch.records[idx]
-    dec = assets.decode_rle(arch.raw[r["off"]:r["off"] + r["ln"]])
-    need = (r["w"] // 4) * r["h"]
-    if len(dec) < need:
-        dec = dec + bytes(need - len(dec))
-    surf = pygame.Surface((r["w"], r["h"]))
-    for row in range(r["h"]):
-        for cb in range(r["w"] // 4):
-            if row * (r["w"] // 4) + cb >= len(dec):
-                break
-            b = dec[row * (r["w"] // 4) + cb]
-            for p in range(4):
-                surf.set_at((cb * 4 + p, row), cga.PALETTE[(b >> (6 - 2 * p)) & 3])
-    if not opaque:
-        surf.set_colorkey(cga.PALETTE[1])
-    return surf
+def font(sz, bold=False):
+    for n in (("consolab.ttf", "arialbd.ttf") if bold else ("consola.ttf", "arial.ttf")):
+        p = os.path.join(r"C:\Windows\Fonts", n)
+        if os.path.exists(p):
+            try:
+                return ImageFont.truetype(p, sz)
+            except Exception:
+                pass
+    return ImageFont.load_default()
 
 
-def build(entries, title, cols, cell, path):
-    rows = (len(entries) + cols - 1) // cols
-    W, H = cols * cell, rows * cell + 40
-    canvas = pygame.Surface((W, H)); canvas.fill(cga.PALETTE[1])   # latar CYAN spt game
-    canvas.blit(BIG.render(title, True, (0, 0, 0)), (8, 8))
-    for i, (arch, idx, label) in enumerate(entries):
-        cx = (i % cols) * cell
-        cy = (i // cols) * cell + 36
-        spr = raw_sprite(arch, idx, opaque=True)
-        sc = min(2, (cell - 8) / max(spr.get_width(), 1), (cell - 24) / max(spr.get_height(), 1))
-        sc = max(1, int(sc)) if sc >= 1 else sc
-        spr2 = pygame.transform.scale(spr, (max(1, int(spr.get_width() * sc)),
-                                            max(1, int(spr.get_height() * sc))))
-        canvas.blit(spr2, (cx + (cell - spr2.get_width()) // 2, cy + 2))
+F = font(12)
+FB = font(16, True)
+
+
+def gambar_rantai(arc, mulai):
+    """Susun SATU part utuh dari rantai record-nya -> (Image, kosong?).
+
+    Sama seperti game: tiap record ditempel pada (dx, dy) relatif terhadap titik
+    tempel part. Kotak pembatasnya dihitung dari seluruh rantai, bukan dari
+    record pertama saja -- itu yang dulu memotong id 94.
+    """
+    ch = arc.chain(mulai)
+    x0 = min(r["dx"] for r in ch)
+    y0 = min(r["dy"] for r in ch)
+    x1 = max(r["dx"] + r["w"] for r in ch)
+    y1 = max(r["dy"] + r["h"] for r in ch)
+    im = Image.new("RGB", (max(1, x1 - x0), max(1, y1 - y0)), G.PALETTE[G.BG])
+    berwarna = 0
+    for r in ch:
+        px = arc.pixels(r)
+        sub = Image.new("RGB", (r["w"], r["h"]))
+        sub.putdata([G.PALETTE[c] for row in px for c in row])
+        im.paste(sub, (r["dx"] - x0, r["dy"] - y0))
+        berwarna += sum(1 for row in px for c in row if c != G.BG)
+    return im, berwarna == 0
+
+
+def build(entri, judul, kolom, sel, path):
+    baris = (len(entri) + kolom - 1) // kolom
+    W, H = kolom * sel, baris * sel + 40
+    canvas = Image.new("RGB", (W, H), G.PALETTE[G.BG])
+    d = ImageDraw.Draw(canvas)
+    d.text((8, 10), judul, font=FB, fill=HITAM)
+    for i, (im, label, kosong) in enumerate(entri):
+        cx = (i % kolom) * sel
+        cy = (i // kolom) * sel + 36
+        muat_w, muat_h = sel - 8, sel - 44
+        sc = min(muat_w / max(im.width, 1), muat_h / max(im.height, 1), 2.0)
+        if sc < 1:
+            w, h = max(1, int(im.width * sc)), max(1, int(im.height * sc))
+        else:
+            k = max(1, int(sc))
+            w, h = im.width * k, im.height * k
+        canvas.paste(im.resize((w, h), Image.NEAREST),
+                     (cx + (sel - w) // 2, cy + 2))
         for j, ln in enumerate(label.split("\n")):
-            canvas.blit(FONT.render(ln, True, (0, 0, 0)), (cx + 2, cy + cell - 30 + j * 13))
-    Image.frombytes("RGB", (W, H), pygame.image.tostring(canvas, "RGB")).save(path)
-    print("->", path, "(%d item)" % len(entries))
+            d.text((cx + 2, cy + sel - 39 + j * 13), ln, font=F,
+                   fill=MERAH if ("kosong" in ln or "tak dipakai" in ln) else HITAM)
+    canvas.save(path)
+    print("-> %s (%d item)" % (path, len(entri)))
 
 
-# --- MEKANISME: satu ikon per major MECHS ---
-mech_entries = []
-seen = set()
-for r in mechs.records:
-    mj = r["major"]
-    if mj in MECH_NAMES and mj not in seen:
-        seen.add(mj)
-        mech_entries.append((mechs, r["idx"], "%s\nid=%d" % (MECH_NAMES[mj], mj)))
-build(mech_entries, "MEKANISME (MECHS)", 5, 130,
-      r"C:\Projects\Creative_Contraptions\work\catalog_mechs.png")
+def tipe_terpakai():
+    """Tipe yang BENAR-BENAR dirujuk CONTRAP, termasuk goal 7 dan 128.
 
-# --- ZANY OBJECT: major GRAPH yg muncul di goal/title ---
-used = set()
-for fp in glob.glob(r"C:\Projects\Creative_Contraptions\port\cc\draws\draws_*.json"):
-    for d in json.load(open(fp)):
-        if d.get("arch") == "GRAPH" and d["idx"] >= 0:
-            used.add(graph.records[d["idx"]]["major"])
-zany_entries = []
-for mj in sorted(used):
-    idxs = graph.by_major.get(mj, [])
-    if idxs:
-        zany_entries.append((graph, graph.records[idxs[0]]["idx"], "id=%d" % mj))
-build(zany_entries, "ZANY OBJECT / PEMANDANGAN (GRAPH)", 8, 90,
-      r"C:\Projects\Creative_Contraptions\work\catalog_zany.png")
-pygame.quit()
+    Dibaca dari sumbernya, bukan dari tangkapan emulator -- tangkapan hanya
+    memuat varian yang kebetulan terpilih saat itu.
+    """
+    b = open(os.path.join(G.DATA, "CONTRAP"), "rb").read()
+    n = struct.unpack_from("<I", b, 2)[0] // 6
+    zany, mech = set(), set()
+    for i in range(n):
+        gid, off = struct.unpack_from("<HI", b, i * 6)
+        if gid == 0:
+            continue
+        p = off + 2
+        cA = struct.unpack_from("<H", b, p)[0]
+        p += 2 + cA * 4
+        cB = struct.unpack_from("<H", b, p)[0]
+        p += 2
+        for k in range(cB):
+            mech.add(struct.unpack_from("<hhH", b, p + k * 6)[2])
+        p += cB * 6
+        cC = struct.unpack_from("<H", b, p)[0]
+        p += 2
+        for k in range(cC):
+            zany.add(struct.unpack_from("<hhH", b, p + k * 6)[2])
+    return sorted(zany), sorted(mech)
+
+
+def main():
+    graph = G.Archive(os.path.join(G.DATA, "GRAPH"))
+    mechs = G.Archive(os.path.join(G.DATA, "MECHS"))
+    zt, mt = tipe_terpakai()
+
+    # Katalog MECHS menampilkan SEMUA id di arsip, bukan hanya yang dirujuk
+    # CONTRAP -- ini katalog isi berkas. Yang tidak pernah dipakai ditandai,
+    # karena itu fakta yang menarik: id 131 (Pendulum bentuk kedua) ADA di
+    # arsip tapi tak satu pun kontraption memakainya.
+    ent = []
+    for t in sorted({r["id"] for r in mechs.recs}):
+        vs = mechs.variants(t)
+        if not vs:
+            continue
+        im, kosong = gambar_rantai(mechs, vs[0])
+        # Penanda di BARIS KETIGA: sel 130 px tidak muat untuk
+        # "id=131 (tak dipakai)" dalam satu baris.
+        lbl = "%s\nid=%d" % (MECH_NAMES.get(t, "?"), t)
+        if kosong:
+            lbl += "\n(kosong)"
+        elif t not in mt:
+            lbl += "\n(tak dipakai)"
+        ent.append((im, lbl, kosong or t not in mt))
+    build(ent, "MEKANISME (MECHS) — %d tipe, %d dipakai kontraption"
+          % (len(ent), len(mt)), 5, 130,
+          os.path.join(ROOT, "work", "catalog_mechs.png"))
+
+    ent = []
+    for t in zt:
+        vs = graph.variants(t)
+        if not vs:
+            continue
+        im, kosong = gambar_rantai(graph, vs[0])
+        # Keterangan ditaruh di BARIS KEDUA, bukan disambung ke baris pertama:
+        # sel cuma 96 px, dan "id=82  (kosong)" melebar sampai ke sel tetangga.
+        lbl = "id=%d" % t
+        if kosong:
+            lbl += "\n(kosong)"
+        elif len(vs) > 1:
+            lbl += "\n%d varian" % len(vs)
+        ent.append((im, lbl, kosong))
+    build(ent, "ZANY OBJECT / PEMANDANGAN (GRAPH) — %d tipe" % len(ent), 8, 96,
+          os.path.join(ROOT, "work", "catalog_zany.png"))
+
+
+if __name__ == "__main__":
+    main()

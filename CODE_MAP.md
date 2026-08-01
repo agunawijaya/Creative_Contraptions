@@ -64,7 +64,7 @@ dibaca dari lima berkas di disket.
 | berkas | isi | jumlah record |
 |---|---|---|
 | `GRAPH` | objek zany dan pemandangan | 562 |
-| `MECHS` | 15 gambar untuk 9 tipe mekanisme | 30 |
+| `MECHS` | 15 id → 9 nama mekanisme | 30 |
 | `ANIMATE` | skrip animasi | 240 |
 | `MISC` | potongan antarmuka | 20 |
 | `CONTRAP` | susunan kontraption per tujuan | direktori 36 entri |
@@ -405,18 +405,33 @@ Daftar ini pendek, dan itu memang tujuannya.
 
 ![Katalog mekanisme](work/catalog_mechs.png)
 
-**Penjelasan gambar.** Seluruh isi `MECHS`: 15 gambar, 9 tipe mekanisme, dengan nomor id
-internalnya. Id 100–150. Beberapa tipe punya lebih dari satu bentuk — katrol menghadap
-dua arah, tuas miring dua arah — dan game memilih bentuk yang cocok dengan posisinya.
+**Penjelasan gambar.** Seluruh isi `MECHS`. Tiga angka yang perlu dibedakan:
+**30 record** di berkas → **15 id** berbeda → **9 nama mekanisme**. Beberapa mekanisme
+punya lebih dari satu bentuk (katrol menghadap dua arah, tuas miring dua arah), dan game
+memilih bentuk yang cocok dengan posisinya.
 
 Gunakan gambar ini sebagai kunci saat membaca dump `CONTRAP`: angka `jenis` di record
 6-byte merujuk langsung ke id di sini.
 
+⚠ **id 131 (Pendulum bentuk kedua) ADA di arsip tapi tidak dirujuk kontraption mana pun.**
+Ditandai merah di gambar. Kemungkinan bentuk cadangan yang tidak jadi dipakai — sisa
+proses pembuatan yang ikut terkirim.
+
 ![Katalog objek zany](work/catalog_zany.png)
 
-**Penjelasan gambar.** Isi `GRAPH`: objek zany dan pemandangan, dengan id-nya. Id di
-sini jauh lebih beragam (2 sampai 222) dan sebagian punya banyak varian `row` —
-itulah kenapa satu tujuan bisa terlihat berbeda tiap kali dimuat.
+**Penjelasan gambar.** **70 tipe** objek zany dan pemandangan yang benar-benar dirujuk
+`CONTRAP` — termasuk yang hanya muncul di goal 7 (demo) dan goal 128 (layar judul).
+Angka di bawah tiap gambar menunjukkan berapa **varian** yang tersedia untuk tipe itu;
+itulah sebabnya satu tujuan bisa terlihat berbeda tiap kali dimuat.
+
+Tiap gambar disusun dengan aturan **rantai** dari bagian 2.3 — kalau sebuah part terdiri
+dari dua record (`row` dan `row+100`), keduanya ditempel pada geser masing-masing. Versi
+katalog yang lama hanya menggambar record pertama, sehingga part seperti id 94 tampak
+terpotong dan tidak cocok dengan layar yang dibangkitkan.
+
+⚠ **id 82 dan 83 memang KOSONG** — masing-masing satu record 4×2 piksel yang seluruhnya
+warna latar, dan id 83 benar-benar dipakai di layar judul. Ditandai merah supaya tidak
+terbaca sebagai kesalahan render.
 
 ---
 

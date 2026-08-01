@@ -113,14 +113,19 @@ dan solusinya ikut berubah.
 
 ![Katalog mekanisme](work/catalog_mechs.png)
 
-**Penjelasan gambar.** Seluruh isi berkas `MECHS` — 15 gambar yang mengelompok menjadi
+**Penjelasan gambar.** Seluruh isi berkas `MECHS` — 15 bentuk yang mengelompok menjadi
 9 tipe mekanisme, lengkap dengan nomor id internalnya. Dari kiri atas: bidang miring
 (dua bentuk), katrol (tiga bentuk), roda-dan-poros, baji, bandul (dua bentuk), magnet,
 sekrup, tuas (dua bentuk), dan pegas.
 
-Kenapa ada 15 gambar untuk 9 tipe? Karena beberapa mekanisme punya **beberapa bentuk**
-— katrol yang menghadap kiri dan kanan, tuas yang miring ke dua arah. Saat kamu memilih
-"katrol", game memilihkan bentuk yang cocok dengan posisinya.
+Kenapa 15 bentuk untuk 9 tipe? Karena beberapa mekanisme punya **arah** — katrol yang
+menghadap kiri dan kanan, tuas yang miring ke dua sisi. Saat kamu memilih "katrol", game
+memilihkan bentuk yang cocok dengan posisinya.
+
+Satu keanehan kecil yang ikut ketahuan saat membedah berkasnya: **bandul bentuk kedua
+(id 131) ada di dalam game tapi tidak pernah dipakai di kontraption mana pun.** Ditandai
+merah di gambar — sebuah part yang dibuat, dikirim bersama game, lalu tidak pernah
+dijumpai pemain.
 
 Ini persis sembilan mesin sederhana yang diajarkan di pelajaran fisika sekolah. Layar
 pembuka mode Review menyatakannya terang-terangan: *"Here are the simple mechanisms that
@@ -133,9 +138,10 @@ tidak malu-malu soal itu.
 
 ![Katalog objek zany](work/catalog_zany.png)
 
-**Penjelasan gambar.** Isi berkas `GRAPH`: 60-an objek "zany" yang menjadi hiasan dan
+**Penjelasan gambar.** Isi berkas `GRAPH`: **70 objek "zany"** yang menjadi hiasan dan
 pemicu di sepanjang kontraption. Ada drum, timbangan, balon, gunting, kucing, anjing,
-ayam jago, cangkir teh, meriam, tempat tidur — masing-masing dengan nomor id-nya.
+ayam jago, cangkir teh, meriam, tempat tidur — masing-masing dengan nomor id-nya, dan
+angka **varian** yang menunjukkan berapa bentuk berbeda yang dimiliki objek itu.
 
 Objek-objek inilah yang mengubah teka-teki mekanika menjadi lelucon visual. Sebuah tuas
 hanyalah tuas; tuas yang melontarkan seekor kucing ke atas drum adalah *Creative
