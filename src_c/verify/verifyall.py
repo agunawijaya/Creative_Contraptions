@@ -32,6 +32,12 @@ def entries():
         for tok in p[3:]:
             if tok.startswith("art="):
                 art = {int(v) for v in tok[4:].split(",")}
+        if int(p[2]) == 0:
+            # Entri berukuran NOL bukan fungsi, melainkan pembantu TATA LETAK
+            # (mis. `dgalign` yang hanya memberi atribut PARA pada segmen DATA).
+            # Menghitungnya sebagai "fungsi yang belum cocok" membuat laporan
+            # berbunyi 83/84 padahal semua fungsi sudah cocok.
+            continue
         yield p[0], int(p[1], 16), int(p[2]), art
 
 
@@ -95,10 +101,15 @@ def main():
     if art_bytes:
         print("      %d byte di antaranya ARTEFAK KOMPILER yang TIDAK cocok "
               "(tidak dihitung di atas)" % art_bytes)
-    # KODE NYATA = wilayah 0x0082..0x69d7 (26.965 B) DIKURANGI 1.207 byte NOL
-    # di 0x5F93..0x6442 yang TERBUKTI bukan kode. Pembagi lama (~26.000)
-    # memuat byte nol itu, jadi semua persentase dulu terlalu KECIL.
-    CODE_TARGET = 25758
+    # Wilayah kode yang digarap = 0x0082..0x69d7 = 26.965 byte, SELURUHNYA.
+    #
+    # ⚠ KOREKSI (2026-08-01): pembagi sempat 25.758 (= 26.965 dikurangi 1.207
+    # byte NOL di 0x5F93..0x6442) dengan alasan byte nol itu "bukan kode".
+    # Itu SALAH secara aritmetika: byte-byte itu direkonstruksi oleh `mode4`
+    # yang berstatus COCOK, jadi mereka IKUT di pembilang. Mengurangkannya dari
+    # pembagi saja membuat persentase melewati 100% (sempat terbaca 104,7%).
+    # Pembilang dan pembagi harus memakai wilayah yang SAMA.
+    CODE_TARGET = 26965
     print("Kode C game   : %d / %d byte  (%.1f%%)"
           % (ok_bytes, CODE_TARGET, ok_bytes * 100.0 / CODE_TARGET))
 

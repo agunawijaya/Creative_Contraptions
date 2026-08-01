@@ -149,8 +149,12 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
     }
     both = 0;
     /* Pola yang sama: `mov ax,140h` dimuat SEBELUM simpanan-immediate `ticks`. */
-    prevtop = 0x140;
+    /* ⚠ Situs INI kebalikan dari lima situs `prev*` lain di berkas ini:
+       biner menyimpan prevtop DULU, baru prevx. Karena simpanan dipancarkan
+       terbalik dari urutan sumber, di sini sumbernya `prevx` dulu. Jangan
+       diseragamkan dengan yang lain -- sudah dicocokkan ke biner. */
     prevx = 0x140;
+    prevtop = 0x140;
     ticks = 0x27;
     sndoff();
     /* ⚠ `sndptr` DULU walau simpanannya belakangan: aslinya memuat
@@ -205,8 +209,8 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
     c1 = 0;
     c2 = 0;
     failed = 0;
-    prevx = 0x140;
     prevtop = 0x140;
+    prevx = 0x140;
     kbflush();
 
     for (i = 0; i < n1 + n2; i++) {
@@ -311,8 +315,8 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
             case 0x10:          /* 0x1d09 — akhir goal: bonus + skor + hint */
                 if (mode == 4 && lvl == 2 && mflag == 1) {
                     for (u40 = 0; u40 < goal; u40++) {
-                        prevx = 0x140;
                         prevtop = 0x140;
+                        prevx = 0x140;
                         setball(0, u40 * 10 + 2);
                     }
                     goal++;
@@ -377,8 +381,8 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
             /* ⚠ 0x0a JATUH TEMBUS ke 0x08 (dan 0x07 ke 0x09): di biner badan
                0x0a berakhir tepat di awal badan 0x08 tanpa lompatan. */
             case 0x0a:          /* 0x1f32 */
-                prevx = 0x140;
                 prevtop = 0x140;
+                prevx = 0x140;
             case 0x08:          /* 0x1f3b */
                 f2714(u22, u24);
                 break;
@@ -390,8 +394,8 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 break;
 
             case 0x07:          /* 0x1f70 */
-                prevx = 0x140;
                 prevtop = 0x140;
+                prevx = 0x140;
             case 0x09:          /* 0x1f79 */
                 f278e(u22, u24, u20, u4a);
                 break;
@@ -575,8 +579,8 @@ int *rec2, *sel2, *ord2;        /* 0x7a, 0x7c, 0x7e */
                 break;
 
             case 0x06:          /* 0x2315 */
-                prevx = 0x140;
                 prevtop = 0x140;
+                prevx = 0x140;
                 break;
 
             case 0x0d:          /* 0x2321 — tandai AWAL badan gelung */

@@ -248,8 +248,8 @@ main()
        (aturan MS C 1.04 yang sudah dikenal), jadi urutan sumbernya
        page, page2, prevtop, prevx -- bukan sebaliknya. */
     /* Urutan dibaca dari MUATAN: ax=140h, bx=26Ch, cx=284h, dx=8004h. */
-    prevx = 0x140;
     prevtop = 0x140;
+    prevx = 0x140;
     /* ⭐⭐ ALAMAT SIMBOL, bukan literal. 0x26c dan 0x284 ternyata `pbufA`/
        `pbufB` (dideklarasikan di drawball.c). `&larik` memancarkan
        `mov reg,offset` + simpanan yang DITUNDA — persis bentuk asli

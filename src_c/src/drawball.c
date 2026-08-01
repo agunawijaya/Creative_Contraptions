@@ -44,10 +44,17 @@ int n;
         page = (int) pbufA;
         page2 = (int) pbufB;
     }
+    /* ⭐ URUTAN INI PENTING dan sudah dicocokkan ke biner: muatan mengikuti
+       urutan SUMBER (asli memuat ballx, ballrow, bally), sedangkan simpanan
+       dipancarkan dengan yang PERTAMA tetap di depan dan sisanya berputar
+       satu langkah (prevtop, prevrow, prevy, prevx). Urutan lama
+       (prevrow, prevy, prevx) memberi byte yang cocok tapi IDENTITAS
+       simbolnya bergeser satu putaran -- tidak terlihat oleh perbandingan
+       per-fungsi karena slot relokasi di-wildcard. */
     prevtop = balltop;
+    prevx = ballx;
     prevrow = ballrow;
     prevy = bally;
-    prevx = ballx;
 }
 
 /* ⚠ TEMUAN symcheck.py yang BELUM dibereskan (2026-07-30).

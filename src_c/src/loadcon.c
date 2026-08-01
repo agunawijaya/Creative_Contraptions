@@ -154,13 +154,21 @@ int want;
        pertama jadi "add cx,4" lalu memancarkan yang ketiga sebagai
        "inc cx; inc cx" -- jadi urutannya terbaca langsung dari biner. */
     expect = 2 + nmax * 4 + 2 + nmech * 3 * 2 + 2 + nzany * 3 * 2 +
-             (nmech + nzany) * 2;
+             (nzany + nmech) * 2;
     /* ⚠ SUDAH DICOBA & GAGAL: menukar jadi `(nmech + nzany) * 2` karena
        fixorder melaporkan beda simbol di +587 (kita nmech, asli nzany).
        Hasilnya GLOBAL 687 -> 682 dan BEDA simbol malah 1 -> 2. Jadi laporan
        beda itu ARTEFAK wilayah yang belum sejajar di sekitar 0x527E, bukan
        kesalahan operan. */
     if (total == expect) {
+        /* ⭐ LABEL TELANJANG: ia menutup blok dasar sehingga cache register
+           MC2 dibuang di sini. Tanpa itu kompiler meng-CSE `nmech` (karena
+           dipakai lagi di sini) dan MEMUATNYA DULUAN di `expect`, sehingga
+           `(nzany + nmech)` terpancar sebagai `mov ax,[nmech]/add ax,[nzany]`
+           -- byte-nya cocok tapi SIMBOLNYA TERTUKAR dengan asli. Dengan label
+           ini `nzany` dimuat lebih dulu dan `nmech` DIMUAT ULANG di sini,
+           persis biner asli. Tidak memancarkan satu byte pun. */
+blk1:
         nmechb = nmech;
         /* Urutan TERBALIK dari urutan simpanan di biner (i lalu zcnt): untuk
            penugasan nol berturut yang berbagi satu register, simpanannya

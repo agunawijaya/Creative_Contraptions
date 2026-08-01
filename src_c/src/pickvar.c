@@ -191,64 +191,74 @@ again:
        harus ditulis. Jangan "diperbaiki". */
     /* `idx == q`, BUKAN `q == idx`: aslinya memuat idx ke AX lebih dulu dan
        memakainya ULANG di perbandingan berikutnya (add ax,141h). */
-    /* ⭐ `q` di KIRI dan `idx` di-cast: menghasilkan
-         mov ax,[idx] / mov [dy3],bx / mov bx,[q] / cmp bx,ax
-       -- IDENTIK dengan asli 0x44fa..0x4503. Bentuk `idx == q` dengan `q`
-       bertipe int memberi `cmp ax,[q]` (operan memori) dan menunda simpanan. */
-    if (q == (char *)idx)
-        goto part2;
-    /* BLOK MATI: `idx + 141h != q` selalu salah karena q diset = idx + 141h.
-       Byte-nya ada di biner (0x451A..0x45DC) jadi tetap ditulis apa adanya. */
-    if ((char *)idx + 0x141 != q) {
-        /* Bentuk PENUNJUK (aturan 3), BUKAN offset ((char*)recbase)[k*0xc+3]:
-           yang offset memaksa recbase dimuat DUA KALI (+15 byte). Bentuk
-           struct `[k].h` memberi instruksi yang benar tapi menuntut temp
-           kelima -- bingkai jadi 54h, jadi tidak bisa dipakai. */
-        fillrect(y + oy, x + ox,
-                 y + oy + (k * 0xc + recbase)[3] - 1,
-                 x + ox + (k * 0xc + recbase)[2] - 1, 1);
-        if (sel != -1) {
-            rp2 = rb + sel * 0xc;
-            dx2 = rp2[4];
-            dx2 = (dx2 >= 0x80) ? dx2 - 0x100 : dx2;
-            dy2 = rp2[5];
-            dy2 = (dy2 >= 0x80) ? dy2 - 0x100 : dy2;
-            fillrect(y + dy2, x + dx2, y + dy2 + rp2[3] - 1,
-                     x + dx2 + rp2[2] - 1, 1);
+    /* ⭐⭐ SELURUH wilayah sampai `part2:` adalah BADAN `if` ini -- BUKAN
+       `if (q == (char *)idx) goto part2;`. Maknanya sama, byte cabangnya juga
+       sama (`jne`+`jmp` karena sasarannya >127 byte), tapi bentuk `goto`
+       menaruh LABEL tepat sesudah cabang dan MC2 membuang cache registernya di
+       situ -- sehingga uji berikutnya memuat ULANG `idx` dan `q` (+4 byte).
+       Sebagai badan `if`, kode menyambung tanpa label: AX (=idx) dan BX (=q)
+       bertahan, dan uji kedua cukup `add ax,141h / cmp ax,bx` seperti asli.
+
+       ⭐ `q` di KIRI dan `idx` di-cast: menghasilkan
+           mov ax,[idx] / mov [dy3],bx / mov bx,[q] / cmp bx,ax
+       Arah `cmp`-nya ditentukan bentuk uji KEDUA: dengan `(char *)idx + 0x141`
+       di sana, kompiler memancarkan `cmp ax,bx` (1 byte beda). Dengan
+       `idx + 0x141 != (int)q` -- cor di sisi `q`, bukan `idx` -- barulah
+       `cmp bx,ax`. Cor di sisi `idx` juga memaksa spill temp `mov [bp],ax`. */
+    if (q != (char *)idx) {
+        /* BLOK MATI: `idx + 141h != q` selalu salah karena q diset = idx + 141h.
+           Byte-nya ada di biner (0x451A..0x45DC) jadi tetap ditulis apa adanya. */
+        if (idx + 0x141 != (int)q) {
+            /* Bentuk PENUNJUK (aturan 3), BUKAN offset ((char*)recbase)[k*0xc+3]:
+               yang offset memaksa recbase dimuat DUA KALI (+15 byte). Bentuk
+               struct `[k].h` memberi instruksi yang benar tapi menuntut temp
+               kelima -- bingkai jadi 54h, jadi tidak bisa dipakai. */
+            fillrect(y + oy, x + ox,
+                     y + oy + (k * 0xc + recbase)[3] - 1,
+                     x + ox + (k * 0xc + recbase)[2] - 1, 1);
+            if (sel != -1) {
+                rp2 = rb + sel * 0xc;
+                dx2 = rp2[4];
+                dx2 = (dx2 >= 0x80) ? dx2 - 0x100 : dx2;
+                dy2 = rp2[5];
+                dy2 = (dy2 >= 0x80) ? dy2 - 0x100 : dy2;
+                fillrect(y + dy2, x + dx2, y + dy2 + rp2[3] - 1,
+                         x + dx2 + rp2[2] - 1, 1);
+            }
         }
-    }
-    /* Pola yang SAMA berulang di 0x45DD, tapi `q = idx` (bukan idx+141h). */
-    q = (char *)idx;
-    sel = -1;
-    if (idx + 1 < n) {
-        if ((0xc * list[idx + 1] + recbase)[1] - 100 ==
-                (list[idx] * 0xc + recbase)[1]) {
-            /* Blok load/blit IDENTIK dengan yang di 0x43F6 -- bentuk yang
-               sudah terbukti dipakai ulang tanpa perubahan. */
-            sel = list[idx + 1];
-            rp2 = rb + sel * 0xc;
-            dx2 = rp2[4];
-            dx2 = (dx2 >= 0x80) ? dx2 - 0x100 : dx2;
-            dy2 = rp2[5];
-            dy2 = (dy2 >= 0x80) ? dy2 - 0x100 : dy2;
-            load(fh, recbase, sel, buf);
-            /* BEDA dengan kembarannya di 0x4455: yang ini MENYIMPAN keempat
-               sudutnya ke slot 34/38/3c/40 sebelum memanggil blit. */
-            x1 = x + dx2;
-            y1 = y + dy2;
-            x2 = x1 + rp2[2];
-            y2 = y1 + rp2[3];
-            blit(buf, x1, y1, rp2[2], rp2[3]);
+        /* Pola yang SAMA berulang di 0x45DD, tapi `q = idx` (bukan idx+141h). */
+        q = (char *)idx;
+        sel = -1;
+        if (idx + 1 < n) {
+            if ((0xc * list[idx + 1] + recbase)[1] - 100 ==
+                    (list[idx] * 0xc + recbase)[1]) {
+                /* Blok load/blit IDENTIK dengan yang di 0x43F6 -- bentuk yang
+                   sudah terbukti dipakai ulang tanpa perubahan. */
+                sel = list[idx + 1];
+                rp2 = rb + sel * 0xc;
+                dx2 = rp2[4];
+                dx2 = (dx2 >= 0x80) ? dx2 - 0x100 : dx2;
+                dy2 = rp2[5];
+                dy2 = (dy2 >= 0x80) ? dy2 - 0x100 : dy2;
+                load(fh, recbase, sel, buf);
+                /* BEDA dengan kembarannya di 0x4455: yang ini MENYIMPAN keempat
+                   sudutnya ke slot 34/38/3c/40 sebelum memanggil blit. */
+                x1 = x + dx2;
+                y1 = y + dy2;
+                x2 = x1 + rp2[2];
+                y2 = y1 + rp2[3];
+                blit(buf, x1, y1, rp2[2], rp2[3]);
+            }
         }
+        /* 0x46CD -- di LUAR kedua if; kedua kegagalan syarat melompat ke sini. */
+        load(fh, recbase, k2, buf);
+        xa = x + dx3;
+        ya = y + dy3;
+        xb = xa + ww;
+        yb = ya + hh;
+        blit(buf, xa, ya, ww, hh);
+        goto tail;
     }
-    /* 0x46CD -- di LUAR kedua if; kedua kegagalan syarat melompat ke sini. */
-    load(fh, recbase, k2, buf);
-    xa = x + dx3;
-    ya = y + dy3;
-    xb = xa + ww;
-    yb = ya + hh;
-    blit(buf, xa, ya, ww, hh);
-    goto tail;
 part2:
     /* 0x4713 -- badannya DUPLIKAT PERSIS blok 0x46CD (68 byte, byte demi
        byte). Sumbernya karena itu juga harus identik. */

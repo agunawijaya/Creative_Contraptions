@@ -2284,3 +2284,69 @@ apakah nilainya layak register; posisi operan menentukan yang mana yang dimuat.
 ⭐ Ini kali KETIGA sumbu TIPE membayar setelah semua sumbu BENTUK buntu
 (`main_` 0x0c83, `pickvar` rb/rp2, dan sekarang `q`). Kalau sebuah situs
 bertahan melewati belasan varian bentuk pernyataan, **periksa tipenya**.
+
+## 🏁 SELESAI: .EXE IDENTIK dengan biner asli (kecuali 1 byte artefak kompiler)
+
+```
+python src_c/verify/execmp.py -v
+  muatan  : asli 46532 byte, kita 46532 byte  (SAMA)
+  cs:ip / ss:sp / nreloc : sama
+  BEDA    : 1 byte -> 0x5485  load+134  [ARTEFAK KOMPILER]
+```
+
+83/83 fungsi, 26.964/26.965 byte kode, DATA 9.556/9.556, dan satu putaran penuh
+`emu.py` memberi **14/14 tangkapan byte-identik TANPA pemetaan alamat apa pun**.
+
+## ⚠⚠ "COCOK BYTE-PER-BYTE" TIDAK MELIHAT IDENTITAS SIMBOL — 24 byte tersembunyi
+
+`verifyall.py`/`aligncmp.py` membandingkan `.OBJ` dengan slot relokasi
+di-WILDCARD; terpaksa, karena di `.OBJ` alamatnya belum diisi. Akibatnya kode
+yang menunjuk simbol SALAH tetap dilaporkan COCOK.
+
+Membandingkan `.EXE` HASIL LINK menemukan 24 byte seperti itu di empat fungsi
+yang semuanya berstatus "COCOK byte-per-byte":
+
+| fungsi | byte | isinya |
+|---|---|---|
+| `main_` | 2 | `prevtop`/`prevx` tertukar |
+| `animvm` | 12 | `prevtop`/`prevx` tertukar di ENAM situs |
+| `drawball` | 6 | `ballx`/`ballrow`/`bally` dan `prevrow`/`prevy`/`prevx` bergeser SATU PUTARAN |
+| `loadcon` | 4 | `nzany`/`nmech` tertukar |
+
+⭐ Alat barunya `src_c/verify/execmp.py`. **Jalankan setiap kali sesudah link.**
+
+Yang dipelajari dari perbaikannya:
+
+1. **Simpanan berpasangan dipancarkan TERBALIK dari urutan sumber** — sudah jadi
+   aturan lama, tapi baru sekarang bisa DIPERIKSA. ⚠ Tidak seragam: lima situs
+   `prev*` di `animvm` butuh `prevtop` dulu di sumber, satu situs (yang pertama,
+   0x1930) justru kebalikannya. Cocokkan PER SITUS ke binernya, jangan
+   diseragamkan.
+2. **Tiga simpanan atau lebih: yang PERTAMA tetap di depan, sisanya berputar satu
+   langkah.** `drawball` menulis `prevtop, prevrow, prevy, prevx` dari sumber
+   `prevtop, prevx, prevrow, prevy`.
+3. ⭐ **Label telanjang mematahkan CSE.** `loadcon` menulis `(nzany + nmech)`, tapi
+   karena `nmech` dipakai lagi di `nmechb = nmech;` kompiler meng-CSE-nya dan
+   memuatnya DULUAN — byte cocok, simbol tertukar. Menaruh label telanjang tepat
+   sebelum `nmechb = nmech;` menutup blok dasar, cache register dibuang, `nzany`
+   dimuat lebih dulu dan `nmech` dimuat ULANG. Nol byte, simbol benar.
+   ⚠ Ini KEBALIKAN pemakaian label di `place`: di sana label MEMBEBASKAN register,
+   di sini ia MEMBUANG nilai yang di-cache. Satu mekanisme, dua kegunaan.
+
+## ⭐ SATU byte yang memang TIDAK BISA dicocokkan — sekarang terukur
+
+`load+134` (0x5485): byte TINGGI dari immediate sampah `add ax,9449h` yang
+dipancarkan MS C untuk perbandingan `p == -1L` yang rusak (lihat catatan di
+`load.c`). Nilainya ALAMAT HEAP INTERNAL kompiler.
+
+Diukur dengan mengompilasi sumber yang SAMA di bawah delapan nama berkas:
+
+| nama | byte | nama | byte |
+|---|---|---|---|
+| `LD`, `L` | 0x3a | `LOADIT`, `RDBLK`, `GETREC`, `LOADX` | 0x36 |
+| `LOAD` | 0x38 | `LOADREC` | 0x34 |
+
+Nama berkas MENGGESERNYA, tapi hanya di rentang 0x34..0x3a — tidak pernah
+mendekati 0x94. Jadi ia ditentukan tata letak memori mesin yang MENGOMPILASI,
+bukan oleh sumber C. Catatan lama "bergantung nama berkas" benar tapi terlalu
+longgar; batas kerasnya ada di lingkungan build, bukan di sumber.

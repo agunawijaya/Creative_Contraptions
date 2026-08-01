@@ -15,60 +15,28 @@ Langkah pertama tiap sesi baru:
 2. Baca **`src_c/JOURNAL.md`** — KEPUTUSAN & alasannya, jalan buntu yang sebabnya
    sudah dipahami, dan pertanyaan yang masih menggantung untuk user.
 3. Jalankan `pwsh src_c/build/buildall.ps1` lalu `python src_c/verify/verifyall.py`
-   untuk status faktual (jangan percaya angka di dokumen, percaya alatnya).
+   untuk status faktual, DAN `python src_c/verify/execmp.py` (satu-satunya alat
+   yang melihat identitas simbol). Jangan percaya angka di dokumen, percaya alatnya.
 
 Arsip percakapan mentah ada di folder memory Claude Code (`*.jsonl`, 9,3 MB).
 Pakai HANYA kalau perlu menelusuri satu detail spesifik; jangan dibaca utuh dan
 jangan dipakai sebagai sumber status. Path lengkapnya ada di `src_c/JOURNAL.md`.
 
-**Pekerjaan berikutnya (per 2026-07-31 sore):**
+**Jalur `src_c` SUDAH SELESAI (2026-08-01).** Tidak ada pekerjaan tersisa di
+sana: `.EXE` hasil link identik dengan biner asli kecuali satu byte artefak
+kompiler yang terbukti ditentukan lingkungan build, bukan sumber C.
 
-⚠ **Cara mengukur:** metrik **GLOBAL** yang memutuskan.
-`python src_c/verify/gapprof.py --semua` untuk PANJANG (profil celah),
-`python src_c/verify/shapediff.py <nama> <addr> <ukuran>` untuk BENTUK.
-Jangan pakai "byte cocok per posisi" maupun metrik serakah — keduanya
-menyesatkan begitu panjang draf bergeser.
+Kalau user bilang "lanjutkan" tanpa konteks lain, TANYAKAN dulu — pilihannya:
+- melanjutkan jalur **port Python** di `port/` yang sedang JEDA (rencana ada di
+  §"Status port" di bawah), atau
+- pekerjaan lain di `src_c` yang sifatnya perawatan (mis. menaikkan cakupan
+  `symcheck`, atau mencoba mencocokkan byte terakhir dengan menyetel lingkungan
+  build — nilainya kecil).
 
-⭐⭐ **PAKAI ORACLE BATCH.** `python src_c/verify/sweep.py <dir-varian> --pola RX`
-menjalankan puluhan pasang MC1+MC2 dalam SATU peluncuran DOSBox. Kalau sebuah
-situs bertahan sesudah 3-4 varian, jangan menambah satu per satu — tulis 12-16
-sekaligus di sumbu yang BERBEDA. Inilah yang menutup `main_` dan `loadcon`.
-⚠ MC1 punya batas panjang BARIS: badan fungsi satu baris memberi
-`Error 4: invalid lexical token` (bukan sintaks yang salah).
-
-⚠ **UKUR DENGAN `shiftcmp.py` selama masih ada geseran.** GLOBAL menghukum
-perbaikan yang BENAR begitu panjangnya bergeser (wildcard slot relokasi mendarat
-di byte yang salah). `python src_c/verify/shiftcmp.py pickvar 42ca 1730 4515 +2`
-membandingkan prefiks apa adanya dan ekor dengan kompensasi — dua-duanya bersih.
-
-**Sisa pekerjaan — DUA fungsi, DUA situs, 2 byte masing-masing:**
-1. `pickvar` 1.703/1.730. Situs 0x44fd: asli meng-commit simpanan tertunda
-   `dy3` SEBELUM perbandingan sehingga BX bebas, `q` masuk register dan dipakai
-   ULANG di uji kedua (`cmp bx,ax` lalu `cmp ax,bx`); kita menahan BX, memakai
-   operan memori dua kali, dan karena AX jadi operan KIRI ia dilepas di label
-   sehingga `idx` dimuat ulang (+3 byte).
-2. `place` 501/503. Situs 0x4fd4: `dp` ke DI, asli ke SI, karena `sp` masih
-   dianggap hidup melewati simpanan `dp->spr2`.
-
-⭐ Keduanya SATU sebab: **kapan simpanan tertunda di-COMMIT**. Yang sudah
-terbukti membalik keputusan itu sekali (`loadcon` 0x5115) adalah mengosongkan
-badan gelung dan memindahkan semua syarat ke `while (A && B && C)`. Cari analog
-kontrol-alirnya di kedua situs ini. Sudah dicoba dan GAGAL: 48 varian di
-`pickvar`, 24 di `place` — daftarnya di kepala masing-masing berkas.
-
-**Keputusan yang sudah diambil user (2026-08-01):**
-- `gendata.py` **DIRAPIKAN**. `START = 4` TETAP — itu fakta struktural (4 byte
-  pertama DGROUP disumbang `C.OBJ`/crt0), bukan penyaring yang boleh dipilih.
-  Yang diperbaiki: dua tempat yang membuang simbol DIAM-DIAM (alamat < START,
-  dan simbol tumpang tindih) sekarang MELAPOR ke log build. Langsung berguna —
-  laporannya menemukan `sndbuf` @0x670e di luar segmen DATA (itu BSS, sah).
-  `gdata.c` tidak berubah sebyte pun, DGROUP tetap 100%.
-- Penggantian nama `mode_`/`seed` ternyata **SUDAH dilakukan** sebelumnya:
-  0x846 = `miscfh`, 0x72a = `mechfh`, dan kedua nama lama sudah tidak ada di
-  mana pun. Yang tersisa cuma komentar basi — `goalmenu.c` masih menyebut 0x846
-  "mode permainan yang dipilih" (keliru; ia argumen PERTAMA `load()`), dan
-  `main_.c` masih melarang penggantian nama yang sudah terjadi. Dua-duanya
-  dikoreksi.
+⚠ Sebelum menyentuh `src_c` lagi, WAJIB baca `src_c/README.md`. Dan sesudah
+SETIAP link jalankan `python src_c/verify/execmp.py` — itu satu-satunya alat
+yang melihat identitas simbol; perbandingan per-fungsi mem-wildcard slot
+relokasi dan pernah menyembunyikan 24 byte yang salah simbol.
 
 ## Proyek ini apa
 
@@ -160,38 +128,35 @@ python src_c/verify/verifyall.py   # tabel status per fungsi + segmen DATA
 python src_c/verify/symcheck.py    # WAJIB: identitas simbol (call + global)
 ```
 
-## Status decompile→source (per 2026-07-31 sore)
+## Status decompile→source — ✅ SELESAI (2026-08-01)
 
-- **LINK berhasil**: 61 `.OBJ` + `MC.LIB` → `src_c/out/CONTRAP.EXE`, tanpa error.
-- **Segmen DATA 9.556/9.556 byte, 0 beda** vs biner asli (diukur dari .EXE hasil link).
-- **COCOK byte-per-byte 82/83 fungsi, 25.234 byte. Kode C game 98,0%; TOTAL 98,5%.**
-  Tidak ada stub tersisa.
-- ✅ **EXE-nya SETARA SECARA PERILAKU** (2026-08-01). Header MZ identik
-  (muatan 46.532, nreloc 4, cs:ip, ss:sp), DATA 9.556/9.556, 4.010 instruksi
-  pertama cocok, dan satu putaran penuh `emu.py` memberi **14/14 berkas
-  tangkapan BYTE-IDENTIK** dengan putaran biner asli.
-  Tiga cacat diperbaiki untuk sampai ke sini — semuanya tersembunyi di balik
-  angka "DATA 100%" yang lama: data MC.LIB dipancarkan dua kali, `stubs.OBJ`
-  basi ikut di-link, dan DGROUP tidak selaras paragraf (DS meleset satu
-  paragraf sehingga SETIAP offset DGROUP salah +4). Rinciannya di
-  `src_c/README.md`.
-- Sisa yang belum eksak tinggal SATU: `pickvar` **1.721/1.730 (99,5%)**,
-  diukur `shiftcmp.py`. Satu situs, 4 byte, di uji kedua 0x4510: asli
-  mempertahankan AX dan BX melintasi cabang `jne`, kita memuat ulang keduanya.
-  Uji PERTAMA sudah identik sejak `q` dijadikan `char *`. Rinciannya di kepala
-  `pickvar.c`.
-- ⭐ **Alat penentu: `src_c/verify/sweep.py` (ORACLE BATCH).** Satu peluncuran
-  DOSBox memuat puluhan pasang MC1+MC2, jadi 16 varian selesai sekali langkah
-  alih-alih 16 iterasi. Ini yang membuka `main_` dan `loadcon`.
-- ⭐ **Kompilernya DUA FASE**: MC1 → berkas QUAD `<nama>.Q` → MC2 → `.OBJ`
-  (MC2 menghapus `.Q`-nya). Register TIDAK ADA di quad, jadi pilihan BX/SI/DI
-  adalah fungsi murni dari urutan quad. Jalankan MC1 sendirian untuk melihatnya.
-- Batas wilayah pustaka MC.LIB TERBUKTI di 0x69d7 (`src_c/verify/libmatch.py`),
-  jadi target rekonstruksi = 25.758 byte kode game nyata (26.965 byte wilayah
-  0x0082..0x69d7 DIKURANGI 1.207 byte NOL di 0x5F93..0x6442).
-- Batas keras: 1 byte di `load` (0x53ff+134) adalah artefak kompiler yang
-  bergantung NAMA BERKAS, bukan sumber C — lihat `src_c/README.md`.
-- Aturan & jebakan lengkap: **`src_c/README.md`** (baca sebelum menyentuh `src_c/`).
+**`.EXE` hasil link IDENTIK dengan biner asli**, kecuali SATU byte artefak
+kompiler. Periksa kapan saja:
+
+```
+pwsh src_c/build/buildall.ps1 ; pwsh src_c/build/link.ps1
+python src_c/verify/execmp.py -v      # <- SATU-SATUNYA alat yang melihat IDENTITAS SIMBOL
+python src_c/verify/verifyall.py      # tabel per fungsi + segmen DATA
+python src_c/verify/symcheck.py       # identitas simbol (call + global)
+```
+
+- muatan 46.532 byte = 46.532 byte, `cs:ip`/`ss:sp`/`nreloc` sama, **1 byte beda**
+- **83/83 fungsi COCOK**, kode 26.964/26.965, DATA 9.556/9.556
+- putaran penuh `emu.py`: **14/14 tangkapan byte-identik**, log identik baris per
+  baris, TANPA pemetaan alamat apa pun
+
+Satu byte itu `load+134` (0x5485): byte tinggi immediate sampah `add ax,9449h`
+dari perbandingan `p == -1L` yang rusak. Nilainya alamat heap internal kompiler.
+Nama berkas sumber menggesernya (0x34..0x3a) tapi tidak pernah mencapai 0x94 —
+jadi ia ditentukan tata letak memori mesin yang MENGOMPILASI, bukan sumber C.
+
+⚠⚠ **"COCOK byte-per-byte" TIDAK melihat identitas simbol.** `verifyall`/
+`aligncmp` mem-WILDCARD slot relokasi, jadi kode yang menunjuk simbol SALAH
+tetap dilaporkan COCOK. `execmp.py` menemukan 24 byte semacam itu di `main_`,
+`animvm`, `drawball`, dan `loadcon` — semuanya berstatus "COCOK". **Jalankan
+`execmp.py` setiap kali sesudah link.**
+
+Aturan & jebakan lengkap: **`src_c/README.md`**.
 
 ## Status port (per 2026-07-21)
 
