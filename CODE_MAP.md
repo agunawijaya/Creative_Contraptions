@@ -214,6 +214,42 @@ fillrect(x + 1, y, x + 0x1e, y + 0x17, 3);   /* blok penuh 30x24, warna 3 */
 
 Itulah kotak abu yang Anda lihat di layar. Satu baris kode.
 
+### 3.1 Petak pemilih part, dan kenapa jumlahnya berubah-ubah
+
+Di dasar layar ada deretan sembilan petak 32×24 tempat memilih part. Tiga hal di sana
+mudah salah dibaca:
+
+* **urutannya terbalik** — `blit(..., 0xa8, 0x110 - i * 0x20, ...)`, jadi pilihan
+  pertama muncul di ujung **kanan**;
+* **hanya sembilan yang tampak**, berpusat di pilihan sekarang (`lo = sel - 4`), dan
+  petak yang jatuh di luar daftar diisi **hitam**, bukan dibiarkan kosong;
+* **berapa banyak pilihan yang ada sama sekali berbeda menurut mode.**
+
+Yang terakhir ditentukan satu baris di `mkpal` (`0x3909`):
+
+```c
+if (lvl3 != 1 || base[i * 0xc] == tab[j * 3 + 2]) { /* ...masuk palet */ }
+```
+
+`lvl3` bernilai 1 di mode *Review*/*Fill in Mechanisms*/*Fill in Zany Objects*, dan 3 di
+*Contraption Mix Up*. Jadi di mode isian sebuah record hanya masuk palet kalau `id`-nya
+memang salah satu jenis yang dibutuhkan kontraption itu — **Anda hanya ditawari part
+yang memang dipakai**, dan soalnya menjadi "taruh di kotak yang benar". Di Mix Up
+syaratnya gugur dan seluruh daftar ditawarkan.
+
+Terukur dari memori gim (`nmech` @0x3AC): tujuan 1 → 3 pilihan, tujuan 2 → 4, tujuan 4
+→ 3, dan Mix Up → 13.
+
+Angka 13 itu sendiri menjelaskan aturan terakhir `mkpal`: daftar dikocok lalu
+**di-dedup**, dan dua entri dianggap sama kalau `id`-nya sama **atau kalau keduanya
+≥ 0x8C**. MECHS punya 15 `id` berbeda; tiga di antaranya (140, 141, 150) ≥ 0x8C dan
+menciut jadi satu — 15 − 2 = 13.
+
+Kotak sorotannya sendiri `drawbox` (`0x3886`), empat garis warna 3 yang digambar
+**XOR**, sehingga memanggilnya dua kali mengembalikan layar seperti semula. Di atas
+petak yang sudah berwarna 3, XOR menghasilkan garis gelap **di dalam** kotak — bukan
+bingkai terang di luarnya.
+
 **⚠ Pemulihan tanda punya DUA ambang, dan keduanya benar di tempatnya:**
 
 | jalur | ambang | fungsi |

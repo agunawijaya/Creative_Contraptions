@@ -245,12 +245,20 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   `CC_NOSKIP=1` mematikan bypass-nya. Hasil: aturan jendela-geser + urutan-dibalik +
   isian hitam berlaku sama di mode ISIAN, pada posisi piksel yang sama.
 - ⭐ **BERAPA pilihan yang ditawarkan tergantung MODE** (2026-08-01). `nmech` @0x3ac
-  terukur 3, 4, 3 untuk goal 1, 2, 4 — jumlah JENIS yang DIBUTUHKAN kontraption itu,
-  bukan sembilan kategori seperti yang selalu diberikan port lama. Sebabnya di
-  `mkpal()` @0x3909: `if (lvl3 != 1 || base[i*0xc] == tab[j*3+2])`, dan `lvl3 == 1` di
-  mode 1/2/3 sedangkan `lvl3 == 3` di mode 4. Jadi Fill in Mechanisms hanya menawarkan
-  part yang memang dipakai — soalnya "taruh di kotak yang benar" — sementara
-  Contraption Mix Up menawarkan seluruh daftar, dan itulah yang membuatnya lebih sulit.
+  terukur 3, 4, 3 untuk goal 1, 2, 4 dan **13** untuk Mix Up — jumlah JENIS yang
+  DIBUTUHKAN kontraption itu, bukan sembilan kategori seperti yang selalu diberikan
+  port lama. Sebabnya di `mkpal()` @0x3909:
+  `if (lvl3 != 1 || base[i*0xc] == tab[j*3+2])`, dan `lvl3 == 1` di mode 1/2/3
+  sedangkan `lvl3 == 3` di mode 4. Jadi Fill in Mechanisms hanya menawarkan part yang
+  memang dipakai — soalnya "taruh di kotak yang benar" — sementara Contraption Mix Up
+  menawarkan seluruh daftar (13 = 15 id record MECHS sesudah 140/141/150 diciutkan
+  jadi satu oleh dedup), dan itulah yang membuatnya lebih sulit.
+  `mkpal()` kini ditiru utuh di `pick.palet_mekanisme()`, dan pencocokan jawaban
+  memakai id record EKSAK seperti gim (`ord1[c1] != rec1[3*c1+2]`), bukan kategori.
+- ⭐ **STRIP PALET terukur di KEDUA mode**: **48.384/48.384 piksel**
+  (`python work/test_palet.py`). ⚠ `idtab[]` @0x2ea mengindeks `base`, dan `base`
+  berbeda per mode — `loadarc(mechfh, base, lvl3 == 1 ? 0 : 1, ...)`: mode isian 6
+  record (disaring+dipadatkan), Mix Up 30 (direktori penuh).
 - ⭐ **CONTRAPTION MIX UP = RENTETAN 6 KONTRAPTION** (2026-08-01), bukan satu yang
   dipilih lewat layar goal. `main_.c` case 4 tidak pernah memanggil `goalmenu()`; ia
   memasang `sub = 0; goal = 6; pickmax();` lalu tiap putaran `sub++`. Master Builder =
@@ -265,9 +273,17 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   `resensi.py`. Menu utama **64.000/64.000 piksel**, layar Review **64.000/64.000**
   vs tangkapan VRAM emulator. Strip pemilih part: `palet.py` (`drawpal()`).
 - ⚠ **Angka 448.000/448.000 itu layar ATTRACT**, bukan layar permainan — emulator
-  menambal nomor goal pada `loadcon` PERTAMA, yang terjadi saat layar judul. Layar
-  Fill in Mechanisms sungguhan: pita atas 2.560/2.560 dan pita bawah 12.800/12.800;
-  arenanya belum cocok karena keadaan RNG saat itu bukan seed 0.
+  menambal nomor goal pada `loadcon` PERTAMA, yang terjadi saat layar judul.
+- ⭐ **LAYAR BERMAIN sungguhan kini terukur** (2026-08-01): pita atas 2.560/2.560,
+  pita bawah 12.800/12.800 (termasuk strip `drawpal`), kotak slot kosong
+  2.160/2.160 = **17.520/17.520 piksel** (`python work/test_play.py`). Empat hal
+  yang ternyata karangan port dan sekarang dari gim:
+  `drawslot()` (slot kosong = PETAK PENUH warna 3, bukan kotak bergaris berisi
+  huruf), `drawbox()` (sorotan EMPAT garis XOR warna 3), baris pesan (di baris
+  teks cyan `fillrect(0x10,0xc0,0x12f,199,1)`, bukan di pita atas), dan pojok
+  kanan pita atas yang menampung SKOR **atau** nama goal menurut `f171f()` —
+  port lama selalu menggambar skor sehingga "Up and At 'Em" jadi "00' Em".
+  Arenanya belum diadu langsung karena keadaan RNG saat itu bukan seed 0.
 
 **Berikutnya untuk jalur PORT:**
 1. ~~Frame animasi yang belum byte-identik~~ — **SELESAI**: 1.210/1.210 frame,
@@ -282,13 +298,23 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
    Diuji `python work/test_bunyi.py`. 117 not terdekode dari skrip goal 1.
 3. Sisa pemakaian tangkapan, keduanya data ANTARMUKA bukan render kontraption:
    `cc/anim/review_layout.json` (tata letak Review Mechanisms) dan `cc/anim/icons/`.
-4. **Strip palet di mode Mix Up belum terukur.** Di mode 4 `runplay` memanggil
-   `pickvar`, bukan `review`, jadi `drawpal` tidak lewat RET 0x3C4E; empat percobaan
-   menangkapnya gagal. Model "seluruh daftar ditawarkan di mode 4" diturunkan dari
-   `mkpal.c` yang byte-exact — belum diadu piksel. Jangan catat sebagai terverifikasi.
-5. **Antarmuka bermain port masih karangan sendiri.** Yang sudah terukur adalah layar,
-   animasi, strip palet, HUD, dan struktur mode; kotak sorotan/panah/pesan di
-   `_play()` belum pernah diadu piksel dengan gim asli.
+4. ~~Strip palet di mode Mix Up~~ — **SELESAI**: `python work/test_palet.py`,
+   **48.384/48.384 piksel** di KEDUA mode. Yang menghalanginya bukan `pickvar`
+   melainkan urutan tombol OBSERVE bawaan yang diakhiri ESC.
+5. ~~Antarmuka bermain port karangan sendiri~~ — **SELESAI untuk chrome-nya**:
+   `python work/test_play.py`, **17.520/17.520 piksel** (pita atas + pita bawah
+   berikut strip + kotak slot kosong). `drawslot()`/`drawbox()` kini di
+   `port/cc/core/render.py`.
+   ⚠ Yang MASIH belum terukur di layar itu: **baris pesan**. Posisinya
+   diturunkan dari `setupscr.c` (`fillrect(0x10, 0xc0, 0x12f, 199, 1)` = satu
+   baris teks cyan 36 karakter), bukan diadu piksel — pesan gim keluar lewat
+   `printf()` dari MC.LIB dan emulator tidak merender teks DOS.
+6. **Arena layar bermain belum diadu langsung.** Bukan karena ada yang meragukan:
+   jalur render-nya sudah terbukti lewat genscreens 197/197 dan animasi
+   1.210/1.210. Yang menghalangi adu langsung adalah keadaan RNG emulator pada
+   tangkapan itu bukan seed 0, dan `VARIANT=` tidak bisa dipakai (hook-nya
+   memaksa SEMUA `rnd()` di dalam `loadcon`, membuat gelung do/while pemilih
+   varian tak berujung).
 
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
 
@@ -299,11 +325,18 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   frame-0) sudah dibuang: adegan dan animasi kini lahir dari data yang sama, oleh undian
   yang sama, jadi tidak ada yang perlu dicocokkan. Bug "layar design ≠ layar run" tidak
   bisa terjadi lagi **secara konstruksi**, bukan karena diperbaiki.
-- **"TERHALANG EMULATOR" DUA KALI TERNYATA "TERHALANG HARNESS SENDIRI".** Pertama:
+- **"TERHALANG EMULATOR" TIGA KALI TERNYATA "TERHALANG HARNESS SENDIRI".** Pertama:
   tangkapan `drawpal` diambil di alamat MASUK, bukan RET. Kedua: `work/emu.py` sengaja
   mem-bypass gelung penempatan part (`hook_2e90`) dan `drawpal` hidup di dalamnya —
-  saklar `CC_NOSKIP=1` menyelesaikannya. Sebelum menyimpulkan "emulator tidak bisa",
-  periksa dulu hook dan stub milik sendiri.
+  saklar `CC_NOSKIP=1` menyelesaikannya. Ketiga: di mode Mix Up penghalangnya urutan
+  tombol OBSERVE bawaan yang diakhiri **ESC**, yang membuat `runplay()` mengembalikan
+  -1 sebelum strip sempat digambar. Sebelum menyimpulkan "emulator tidak bisa",
+  periksa dulu hook, stub, dan urutan tombol milik sendiri.
+- **`VARIANT=` TIDAK BISA DIPAKAI untuk menyamakan varian.** Hook-nya memaksa SEMUA
+  `rnd()` yang dipanggil dari dalam `loadcon`, dan gelung
+  `do { pick = rnd(cnt) } while (... pick == lastvar)` jadi tak berujung — gejalanya
+  "0 frame", yang mudah salah dibaca sebagai "emulator tak mencapai titik itu".
+  Cara yang benar: BACA tabel `base` gim (`CC_VSPTR=73a:`) lalu cocokkan ke CONTRAP.
 - **UJI YANG BASI GAGAL DIAM-DIAM, ATAU LEBIH BURUK: TETAP LULUS.** `test_fill`,
   `test_zany`, `test_review` sudah lama gagal karena melewatkan layar LEVEL yang
   ditambahkan belakangan. `test_mixup` lebih licin: ia menavigasi lewat layar GOAL, dan
