@@ -355,7 +355,7 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
    `askopts()` @0x31DA sudah dipasang, dan bersamanya URUTAN PEMBUKA yang
    benar (lihat di bawah).
 4. ~~Menu GOAL belum diadu piksel~~ — **SELESAI**: **64.000/64.000**, bersama
-   menu LEVEL. Penghalangnya jebakan LAMA yang terulang: tangkapan diambil di
+   menu LEVEL dan layar CREDITS tahap 0 (ketiganya lewat `setsel()` yang sama). Penghalangnya jebakan LAMA yang terulang: tangkapan diambil di
    alamat MASUK `setsel`, jadi yang terlihat layar SEBELUMNYA. Di RET (0x3819)
    keduanya langsung muncul. Butuh juga `CC_NOMENUSTUB=1`.
 5. ~~Suara belum diadu dgn gim~~ — **SELESAI**: `python work/test_suara.py`.

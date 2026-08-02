@@ -68,6 +68,21 @@ MTAB12 = (0x18F8, 12)            # Contraption Mix Up
 MTAB_SETUP1 = (0x1AD2, 3)
 MTAB_SETUP2 = (0x1AF6, 2)
 
+# ── Status pengukuran layar-layar bertabel ──────────────────────────────
+#
+# `setsel()` @0x3769 adalah SATU penggambar untuk semua layar ini; yang berbeda
+# hanya tabelnya. Empat tabel sudah diadu piksel dgn VRAM gim, masing-masing
+# 64.000/64.000:
+#
+#     mtabmn  (menu utama)      mtablv (level)
+#     menu    (goal)            credits tahap 0
+#
+# ⚠ BELUM diadu piksel, walau digambar penggambar yang sama dari tabel DGROUP
+# yang sama: `askopts` (MTAB_SETUP1/2) dan ketiga layar instruksi. Untuk
+# menangkapnya perlu `keyhit()` @0x1791 ikut dilepas dari stub emulator --
+# gelung `credits()`/`askopts()` menunggu di situ, jadi eksekusinya tak pernah
+# sampai ke layar berikutnya. Empat percobaan; dicatat, bukan diklaim.
+
 # `credits()` @0x312A: empat tabel DITUMPUK berurutan dgn `pause(100)` di
 # antaranya -- jadi teksnya muncul bertahap, bukan sekaligus:
 #

@@ -962,7 +962,15 @@ def hook_30bb(uc, addr, size, user):        # konfirmasi mode 2 -> !=-1
     print("  [nav] 30bb")
     ret_ax(0)
 
+# CC_NOSTARTSTUB=1 -- biarkan `credits()` @0x312A dan `askopts()` @0x31DA
+# BENAR-BENAR jalan. Bawaannya keduanya di-stub (langsung mengembalikan 0),
+# jadi kedua layar pembuka itu tak pernah digambar dan tak bisa diadu piksel.
+NOSTARTSTUB = os.environ.get("CC_NOSTARTSTUB") == "1"
+
+
 def hook_ret0(uc, addr, size, user):        # 312a/31da -> !=-1 agar lanjut ke menu
+    if NOSTARTSTUB:
+        return
     print("  [nav] ret0 @ off=0x%x" % (addr - CODE))
     ret_ax(0)
 
