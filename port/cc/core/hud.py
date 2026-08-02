@@ -309,10 +309,10 @@ class Petunjuk:
         cur2  @0x7f8   lvl6  @0x7f6   timer @0x7f2   tx    @0x7ee
     """
 
-    def __init__(self, rng, nmax, jangkauan=0x140 - 0x14, count=4):
+    def __init__(self, rng, nmax, count=4):
         self.rng = rng
         self.nmax = nmax
-        self.range_ = jangkauan
+        self.range_ = 0x140
         self.count = count
         self.best = -1000
         self.cur2 = 0
@@ -320,7 +320,36 @@ class Petunjuk:
         self.timer = 0
         self.mflag = 0
         self.warna = 2
-        self.pickmax()
+        self.pickmax()               # dipanggil sekali saat mode 4 dimasuki
+
+    def mulai_ronde(self, nmax, tx=0x140, tinit=True):
+        """Pembuka `runplay()` @0x5505 -- keadaan penanda tiap kontraption:
+
+            timer = -1;
+            lvl6  = nmax;
+            if (tinit == 1) { range = tx - (rnd(200) * 0x17 / 199 + 2); tinit = 0; }
+            else              range = 0x140;
+            if (best > range) best = tx - range;
+
+        ⚠ DUA nilai awal ini dulu SALAH di port: `lvl6` dimulai 0 (seharusnya
+        `nmax`) dan `range` dipatok `0x140 - 0x14`. Terukur dari DGROUP pada
+        panggilan `hintmark()` pertama: lvl6 = 10 = nmax, dan range = 314 --
+        bukan 300. `range` memang DIACAK tiap kontraption pertama.
+
+        `lvl6` penting karena `cur2 = lvl6 + rnd(3) + rnd(3) - 2`: ia PUSAT
+        sebaran penanda. Dimulai dari 0, penandanya akan selalu terdorong ke
+        slot pertama alih-alih ke slot terakhir.
+        """
+        self.nmax = nmax
+        self.timer = -1
+        self.lvl6 = nmax
+        if tinit:
+            self.range_ = tx - (self.rng.rnd(200) * 0x17 // 199 + 2)
+        else:
+            self.range_ = 0x140
+        if self.best > self.range_:
+            self.best = tx - self.range_
+        return self.range_
 
     def pickmax(self):
         self.best, self.count = pickmax(self.rng, self.count, self.range_)

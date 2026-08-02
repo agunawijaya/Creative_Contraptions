@@ -530,14 +530,21 @@ class Game:
         skor = self.mix_skor
         self.start_play(self.mix_sub, fill="both")
         self.score = skor                     # skor TERKUMPUL lintas ronde
-        # pickmax() dipanggil SEKALI saat mode dimasuki di main_.c, tapi
+        # `pickmax()` dipanggil SEKALI saat mode dimasuki (`main_.c`), dan
         # `count` yang dikurangi tiap panggilan ikut lintas ronde -- karena itu
         # objeknya dibuat sekali lalu dipakai ulang.
+        #
+        # Tiap RONDE, `runplay()` menyetel ulang keadaan penandanya:
+        # `timer = -1; lvl6 = nmax; range = tx - (rnd(200)*0x17/199 + 2);`
+        # Dua nilai itu dulu salah di port (lvl6 mulai 0, range dipatok);
+        # sekarang `mulai_ronde()` yang mengerjakannya, memakai RNG gim yang
+        # sama supaya `range` ikut rantai yang benar.
+        nmax = max(1, len(self._postab()))
         if self.petunjuk is None:
-            self.petunjuk = _hud.Petunjuk(_rng.Rng(random.randrange(0x10000)),
-                                          max(1, len(self.slots)))
-        else:
-            self.petunjuk.nmax = max(1, len(self.slots))
+            self.petunjuk = _hud.Petunjuk(_rng.Rng(self.rng_seed), nmax)
+        self.petunjuk.rng = _rng.Rng(self.rng_seed)
+        self.petunjuk.mulai_ronde(nmax, tx=self.tx or 0x140, tinit=True)
+        self.rng_seed = self.petunjuk.rng.state()
 
     def _mix_ronde_selesai(self):
         """SPACE sesudah animasi menang: lanjut ke kontraption berikutnya."""

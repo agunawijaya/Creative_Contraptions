@@ -856,9 +856,16 @@ def hook_menu_mode(uc, addr, size, user):   # 341a -> pilih mode
     print("  [nav] 341a -> mode", m)
     ret_ax(m)
 
-def hook_menu_level(uc, addr, size, user):  # 32bb -> pilih level 1
-    print("  [nav] 32bb -> level 1")
-    ret_ax(1)
+# CC_LEVEL=1|2 -- level yang dipilihkan stub menu. Bawaannya 1 (Apprentice).
+# Perlu 2 (Master Builder) untuk menjangkau `hintmark()`, yang badannya diawali
+# `if (mode != 4 || lvl != 2) return;` -- di level 1 ia tidak pernah berbuat
+# apa pun, jadi tanpa saklar ini fungsi itu tak bisa diukur sama sekali.
+LEVEL = int(os.environ.get("CC_LEVEL", "1"))
+
+
+def hook_menu_level(uc, addr, size, user):  # 32bb -> pilih level
+    print("  [nav] 32bb -> level %d" % LEVEL)
+    ret_ax(LEVEL)
 
 def hook_menu_goal(uc, addr, size, user):   # 3322 -> pilih goal N
     print("  [nav] 3322 -> goal", GOAL)
