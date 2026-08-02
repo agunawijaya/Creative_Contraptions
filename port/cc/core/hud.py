@@ -47,6 +47,24 @@ S_BANGUN1 = 0xAD4        # "Press ENTER to build"
 S_BANGUN2 = 0xAE9        # "another contraption."
 S_ULANG = 0xAFE          # "Press SPACE BAR to see it work again."
 S_HINT = 0xA26           # "GAME OVER"
+# Pesan "salah taruh". Keluar lewat `printf()` di `animvm.c`, jadi ia teks DOS
+# -- BUKAN digambar `text()`. Spasi depannya bagian dari string dan itulah yang
+# menempatkannya: tujuh spasi untuk mekanisme, enam untuk objek zany.
+S_SALAH_MEK = 0x9DD      # "       Mechanism %c does not work." + LF
+S_SALAH_ZANY = 0xA01     # "      Zany object %c does not work." + LF
+
+
+def pesan_salah(zany, huruf):
+    """Teks gim untuk part yang salah taruh. -> string siap gambar.
+
+    ⚠ Port dulu mengarang "Part A does not work." dan "Box A isn't right
+    yet - fix it.". Yang benar ada di DGROUP, LENGKAP dgn spasi depannya --
+    tujuh spasi untuk mekanisme, enam untuk objek zany. Spasi itu bukan hiasan:
+    pesannya keluar lewat `printf()` (teks DOS di posisi kursor), jadi spasi
+    depan itulah yang menempatkannya.
+    """
+    t = _str(S_SALAH_ZANY if zany else S_SALAH_MEK)
+    return t.replace("%c", chr(huruf)).rstrip()
 
 HINT_REC = 19            # load(miscfh, level_, 0x13, hintspr) -> MISC record 19
 TBL_NAMA = 0x922         # tabel nama goal, diindeks `sub` (1..6)

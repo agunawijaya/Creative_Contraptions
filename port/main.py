@@ -710,7 +710,10 @@ class Game:
         self.cur_slot = 0
         self.cur_part = 0
         self.score = 0
-        self.message = "Pick parts to fill the empty boxes."
+        # ⚠ Baris pesan gim KOSONG saat mulai bermain -- terukur di tangkapan
+        # VRAM ketiga mode. "Pick parts to fill the empty boxes." adalah
+        # karangan port; kalimat itu tidak ada di DGROUP sama sekali.
+        self.message = ""
         self.chosen_goal = gid
         self.running = False
         self.run_fail_slot = None
@@ -916,7 +919,7 @@ class Game:
             self.tx = max(0, int(0x140 * max(0.0, self.timer) / _total))
             if self.timer <= 0:
                 self.timer = 0
-                self.message = "TIME'S UP! ESC for menu."
+                self.message = ""      # gim tidak menulis apa pun di sini
             # `hintmark()` dipanggil dari gelung pemilih part (review.c), yaitu
             # tempat yang sama dengan `timebar()` -- bukan dari penggambar.
             # Ia hanya berbuat sesuatu di mode 4 level Master Builder.
@@ -936,8 +939,11 @@ class Game:
                 self.ball_i = -1
                 self.running = False
                 if self.run_fail_slot is not None:
-                    self.message = "Mechanism %c does not work! Fix it and try again." \
-                        % (0x41 + self.run_fail_slot)
+                    # Teks GIM, dari DGROUP @0x9dd -- lengkap dgn tujuh spasi
+                    # depannya. Ekor "Fix it and try again." itu karangan port.
+                    self.message = _hud.pesan_salah(
+                        self.slots[self.run_fail_slot]["arch"] == "GRAPH",
+                        0x41 + self.run_fail_slot)
         else:
             self.ball_pos = (cx + dx / dist * self.BALL_SPEED,
                              cy + dy / dist * self.BALL_SPEED)
@@ -988,10 +994,11 @@ class Game:
                 self.ball_i = 1
                 self.run_fail_slot = fs
                 self.running = True
-                self.message = "The ball is running..."
+                self.message = ""
             else:
                 # zany/both: beri tahu masih ada yg salah/kosong
-                self.message = "Box %c isn't right yet - fix it." % (0x41 + wrong[0])
+                self.message = _hud.pesan_salah(
+                    self.slots[wrong[0]]["arch"] == "GRAPH", 0x41 + wrong[0])
             return
         if self.running:                      # saat bola jalan, hanya SPACE/ESC di atas
             return
@@ -1019,19 +1026,21 @@ class Game:
             s["filled"] = s["correct"]    # simpan id jawaban
             if pidx >= 0:
                 s["sprite"] = pidx        # tempatkan gambar EKSAK yg tampil di palet
-            self.message = "Correct!"
+            self.message = ""          # gim diam kalau jawabannya benar
             empties = [i for i, sl in enumerate(self.slots) if sl["filled"] is None]
             if empties:
                 self.cur_slot = empties[0]
             else:
-                self.message = "GREAT! Contraption complete."
+                self.message = ""      # `prompts()` yang menulis "GREAT!"
         else:
             # `zcnt` @0x7e6 = penghitung kesalahan untuk SELURUH kontraption.
             # Skornya dihitung SEKALI di akhir goal dari angka ini, bukan
             # per kotak -- lihat cc/core/hud.py:skor_akhir().
             self.zcnt += 1
             s["tries"] += 1
-            self.message = "%s %c does not work." % (self.part_word, 0x41 + self.cur_slot)
+            self.message = _hud.pesan_salah(
+                self.slots[self.cur_slot]["arch"] == "GRAPH",
+                0x41 + self.cur_slot)
 
     # ---------- input ----------
     def key(self, k):
@@ -1066,7 +1075,9 @@ class Game:
             if k == pygame.K_ESCAPE:
                 if self.anim_fail is not None:   # gagal dari Fill -> lanjut membangun
                     self.state = PLAY
-                    self.message = "Try again - fix Box %c." % (0x41 + self.anim_fail)
+                    self.message = _hud.pesan_salah(
+                        self.slots[self.anim_fail]["arch"] == "GRAPH",
+                        0x41 + self.anim_fail)
                     self.anim_fail = None
                 elif self.anim_from_play and self.mode_asli == 4:
                     # Mix Up tidak punya pemilih goal untuk dituju: ESC di
