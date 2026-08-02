@@ -747,6 +747,7 @@ class Game:
     def start_play(self, gid, fill="mech"):
         vs = self.k_goals.get(gid) or []
         self.fill_mode = fill                     # "mech" | "zany" | "both" (Mix Up)
+        self.pilih_selesai = False                # lihat SPACE di `_play_key()`
         # ⭐ JUMLAH BOLA, dipasang SEBELUM adegan disusun karena ikon bola di
         # pita atas digambar `setupscr()`. `main_.c` case 4:
         #     goal = 6;  while (goal > 0) { ... if (lvl == 1) goal = 1; ... }
@@ -1208,8 +1209,26 @@ class Game:
             else:
                 self._back_to_goal()         # ESC saat main -> pilihan tema (GOAL)
             return
-        if k == pygame.K_SPACE:               # RUN: bola keluar & jalan (spt game asli)
+        if k == pygame.K_SPACE:
             if self.running:
+                return
+            # ⭐ SPACE PUNYA DUA TAHAP DI GIM, dan port dulu hanya punya satu.
+            #
+            #   review()  @0x3C4F : case ' ' -> `return cur | 0x8000`
+            #   pickloop() @0x2E90: `v = r & 0x7fff;`
+            #                       `if (sel[curz] != v) { ...taruh... }`
+            #                       `curz++;`   lalu gelung KELUAR (r < 0)
+            #                       `switch (clrbot())`  0x20 jalan / 0x0d
+            #                                            pilih lagi / 0x1b batal
+            #
+            # Jadi SPACE PERTAMA **MENARUH** part yang sedang disorot lalu
+            # mengakhiri pemilihan; SPACE KEDUA baru menjalankan. Port lama
+            # langsung menjalankan, sehingga penempatan akhirnya BERBEDA dari
+            # gim untuk urutan tombol yang sama -- terukur 293 piksel di
+            # pembanding animasi jalur bermain.
+            if not getattr(self, "pilih_selesai", False):
+                self._place()
+                self.pilih_selesai = True
                 return
             if self.timer is not None and self.timer <= 0:
                 return
@@ -1270,6 +1289,10 @@ class Game:
                 else:
                     self.cur_slot = empties[0]
         elif k in (pygame.K_RETURN, pygame.K_KP_ENTER):
+            # `clrbot()` case 0x0d = kembali memilih (goto top).
+            if getattr(self, "pilih_selesai", False):
+                self.pilih_selesai = False
+                return
             self._place()
 
     def _autofill(self):

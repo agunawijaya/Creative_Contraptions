@@ -88,7 +88,13 @@ def main_uji():
         if not isi_benar(g):
             gagal.append("ronde %d tidak bisa diisi benar" % (ronde + 1))
             break
-        g.key(pygame.K_SPACE)            # menang -> animasi
+        # ⚠ SPACE punya DUA tahap, seperti di gim: yang pertama menaruh part
+        # yang sedang disorot lalu mengakhiri pemilihan (`review()` case ' '
+        # -> `cur | 0x8000`), yang kedua baru dibaca `clrbot()` sebagai
+        # "jalankan". Uji ini dulu menekan SPACE sekali dan lolos karena port
+        # memang langsung menjalankan -- yaitu perilaku yang TIDAK sesuai gim.
+        g.key(pygame.K_SPACE)            # taruh + akhiri pemilihan
+        g.key(pygame.K_SPACE)            # jalankan -> menang -> animasi
         skor.append(g.score)
         g.key(pygame.K_SPACE)            # SPACE = kontraption berikutnya
     cek("urutan kontraption 1..6", urut, [1, 2, 3, 4, 5, 6])
@@ -106,8 +112,9 @@ def main_uji():
         urut.append(g.chosen_goal)
         if not isi_benar(g):
             break
-        g.key(pygame.K_SPACE)
-        g.key(pygame.K_SPACE)
+        g.key(pygame.K_SPACE)            # taruh + akhiri pemilihan
+        g.key(pygame.K_SPACE)            # jalankan -> menang
+        g.key(pygame.K_SPACE)            # kontraption berikutnya
     cek("berputar sesudah kontraption ke-6", urut, [1, 2, 3, 4, 5, 6, 1, 2])
     cek("masih bermain, tidak keluar ke menu",
         g.state in (main.PLAY, main.PLAYANIM), True)

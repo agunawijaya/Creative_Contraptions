@@ -698,16 +698,33 @@ ronde itu, `isi`/`isi_zany` menurut mode, `clrbot()`, tanpa pembuka).
 Hasil: bingkai pertama **24.501 → 293 piksel**, jumlah bingkai **195 → 46**
 (gim 34).
 
-**Yang masih kurang, jangan diklaim selesai:**
-- ⭐ **SEMANTIK `SPACE` BERBEDA.** Di gim, `SPACE` di dalam `review()`
-  mengembalikan `cur | 0x8000` — ia **MENEMPATKAN part yang sedang disorot
-  lalu mengakhiri pemilihan**. Di port, `SPACE` langsung MENJALANKAN. Itulah
-  sisa 293 piksel: gim punya satu slot terisi part (yang tak sengaja
-  ditempatkan SPACE) dan dua slot petak abu, sementara port punya keadaan
-  lain. Ini perbedaan PERILAKU MASUKAN, bukan penggambar.
+⭐ **SEMANTIK `SPACE` SUDAH DIBETULKAN (2026-08-02).** Di gim, `SPACE` punya
+DUA tahap:
+
+    review()  @0x3C4F : case ' ' -> `return cur | 0x8000`
+    pickloop() @0x2E90: `v = r & 0x7fff; if (sel[curz] != v) {...taruh...}`
+                        `curz++;` lalu gelung KELUAR (r < 0)
+                        `switch (clrbot())` 0x20 jalan / 0x0d pilih lagi /
+                                            0x1b batal
+
+Jadi SPACE PERTAMA **menaruh** part yang sedang disorot lalu mengakhiri
+pemilihan; SPACE KEDUA baru menjalankan. Port lama langsung menjalankan.
+Sekarang `_play_key()` memakai bendera `pilih_selesai` yang meniru
+`clrbot()`.
+
+**Buktinya penempatan kini cocok BY CONSTRUCTION:** dgn urutan tombol yang
+sama (SPACE, SPACE), gim dan port sama-sama berakhir dgn slot 0 terisi part
+`141` dan dua slot lain kosong. Sebelumnya port berakhir di keadaan lain.
+
+⚠ Sembilan uji mengunci semantik lama dan ikut dibetulkan (`test_mixup`
+menekan SPACE dua kali; `test_bantuan` menyatakan `pilih_selesai = True`
+karena skenarionya sengaja menyisakan slot salah).
+
+**Yang masih kurang — dan sekarang TIDAK terhalang lagi:**
 - larian GAGAL: port memodelkannya dgn lintasan bola pra-hitung (`_jalur()`),
   gim dgn VM yang BERHENTI (`animvm.c` baris 222) + skrip KARANGAN (baris
-  433). Dua mekanisme berbeda; mengadunya sekarang tidak bermakna.
+  433). Untuk mengadunya: matikan paksaan cocok emulator (`CC_SALAH=1`) supaya
+  gim benar-benar gagal, lalu ganti jalur gagal port dari `_jalur()` ke VM.
 - `test_anim_main.py` baru menjalankan mode 2; mode 3 dan 4 belum menghasilkan
   tangkapan dgn urutan tombol SPACE-saja.
 

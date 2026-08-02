@@ -57,6 +57,12 @@ def dua_kali_salah(g):
             if c:
                 g.cur_slot, g.cur_part = i, c[0]
                 g.key(pygame.K_RETURN)
+        # ⚠ SPACE punya DUA tahap di gim: yang pertama MENARUH part yang
+        # sedang disorot lalu mengakhiri pemilihan, yang kedua menjalankan.
+        # Uji ini sengaja menyisakan slot yang salah/kosong, jadi tahap
+        # "menaruh" akan merusak skenarionya. Yang dinyatakan di sini:
+        # pemilihan sudah selesai, tinggal dijalankan.
+        g.pilih_selesai = True
         g.key(pygame.K_SPACE)
         for _ in range(400):
             g.tick()

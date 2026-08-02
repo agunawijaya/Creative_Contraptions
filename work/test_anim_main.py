@@ -122,10 +122,12 @@ def bingkai_port(obs, mode, sel_menu, punya_goal, lc):
         if punya_goal:
             g.sel = g.goal_ids.index(GOAL)
             g.key(pygame.K_RETURN)
-        # Samakan dgn hook emulator: seluruh slot dianggap terisi BENAR.
-        for s in g.slots:
-            s["filled"] = s["correct"]
-        g.key(pygame.K_SPACE)                  # jalankan -> PLAYANIM
+        # Urutan tombol yang SAMA dgn yang diumpankan emulator. Penempatannya
+        # lahir dari tombol itu sendiri, bukan dipaksakan: SPACE pertama
+        # menaruh part yang disorot lalu mengakhiri pemilihan, SPACE kedua
+        # menjalankan.
+        g.key(pygame.K_SPACE)
+        g.key(pygame.K_SPACE)
         # `anim_frames` adalah daftar pygame.Surface; disalin apa adanya
         # karena `pygame.quit()` di bawah tidak membatalkan permukaannya.
         return list(getattr(g, "anim_frames", [])), g
