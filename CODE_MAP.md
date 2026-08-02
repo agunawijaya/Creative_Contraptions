@@ -250,6 +250,42 @@ Kotak sorotannya sendiri `drawbox` (`0x3886`), empat garis warna 3 yang digambar
 petak yang sudah berwarna 3, XOR menghasilkan garis gelap **di dalam** kotak — bukan
 bingkai terang di luarnya.
 
+### 3.1b Apa yang kosong, berbeda tiap mode
+
+Ketiga mode bermain menghapus hal yang berbeda, dan cara menghapusnya juga
+berbeda:
+
+| mode | slot mekanisme | objek zany |
+|---|---|---|
+| Fill in Mechanisms | **petak penuh warna 3** (`drawslot`) | utuh |
+| Fill in Zany | utuh | **tidak digambar sama sekali** (kecuali yang terakhir) |
+| Contraption Mix Up | utuh | utuh — tapi slot **bertanda** memakai sprite pengganti |
+
+Tiga hal yang mudah salah di situ:
+
+* petak abu itu milik `drawslot` (penggambar **mekanisme**). Objek zany
+  digambar `f498c`, dan slot zany yang kosong tidak menggambar apa pun — ia
+  hanya menyisakan huruf penandanya;
+* objek zany **terakhir** selalu ada, bahkan di mode yang menghapus objek zany:
+  ia gambar **hasil** kontraption, dan `pickpart` memaksa variannya `row == sub`
+  alih-alih mengundinya;
+* di Mix Up tidak ada yang benar-benar dikosongkan. `setmark` menandai beberapa
+  slot, dan `pickpart` memberi slot bertanda sebuah record dari **kelompok
+  kedua** (`id >= 0x80`) — bentuk pengganti. Ujinya kebalikan dari cabang umum:
+
+```c
+/* slot bertanda  */ while (rec.row > 100 || rec.id <  0x80) j = rnd(cnt);
+/* slot biasa     */ while (rec.row > 100 || rec.id >= 0x80) j = rnd(cnt);
+```
+
+Dan yang menandai slot itu — `setmark` (`0x10FD`) untuk Mix Up, `setzany`
+(`0x1200`) untuk Fill in Zany — **memakai `rnd()`**. Keduanya berjalan di
+antara `loadcon` dan `pickpart`, jadi melewatkannya menggeser seluruh
+pemilihan part sesudahnya, walaupun hasil tandanya sendiri tak terlihat.
+
+> **Pelajaran umum.** Fungsi yang "hasilnya tidak kelihatan" tetap bisa
+> menentukan segalanya kalau ia menyentuh keadaan yang dipakai bersama.
+
 ### 3.2 Baris pesan
 
 Di dasar layar ada satu baris teks setinggi 8 piksel yang `setupscr` bersihkan

@@ -274,9 +274,24 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   vs tangkapan VRAM emulator. Strip pemilih part: `palet.py` (`drawpal()`).
 - ⚠ **Angka 448.000/448.000 itu layar ATTRACT**, bukan layar permainan — emulator
   menambal nomor goal pada `loadcon` PERTAMA, yang terjadi saat layar judul.
-- ⭐ **LAYAR BERMAIN sungguhan: 64.000/64.000 piksel** (2026-08-02) — SELURUH
-  layar termasuk arena, dan diukur dua kali: lewat modul inti DAN lewat jalur
-  pemain (`main.Game` + `key()`). `python work/test_play.py`. Empat hal
+- ⭐ **KETIGA MODE BERMAIN 64.000/64.000 piksel** (2026-08-02) — SELURUH layar
+  termasuk arena, untuk Fill in Mechanisms, Fill in Zany, DAN Contraption Mix
+  Up; Fill in Mechanisms juga diukur lewat jalur pemain (`main.Game` + `key()`).
+  `python work/test_play.py`. Aturannya berbeda tiap mode: slot mekanisme
+  kosong = petak abu; slot zany kosong TIDAK menggambar apa pun (kecuali yang
+  TERAKHIR — itu gambar hasil goal); di Mix Up keduanya tetap digambar dan yang
+  "kosong" adalah slot BERTANDA dgn sprite pengganti (id >= 0x80).
+- ⭐ **`prompts()` dan `hintmark()` TERUKUR** (2026-08-02):
+  `python work/test_prompts.py`. prompts diadu MASUK-vs-RET, 64.000/64.000
+  untuk goal 1 dan 6. hintmark butuh saklar baru `CC_LEVEL=2` — ia mati total
+  di level 1, jadi selama ini tak terjangkau. Dua nilai awalnya ternyata salah
+  di port: `lvl6` mulai dari `nmax` (bukan 0) dan `range` DIACAK tiap
+  kontraption (`tx - (rnd(200)*0x17/199 + 2)`), bukan dipatok `0x140 - 0x14`.
+- ⭐ **SEMUA TEKS ANTARMUKA dari DGROUP** (2026-08-02). Port mengarang sembilan
+  kalimat; tak satu pun ada di gim. Dan di gim baris pesan itu KOSONG saat
+  bermain. Yang benar mis. `'       Mechanism %c does not work.'` @0x9dd —
+  tujuh spasi depannya bagian dari string, dan itulah yang menempatkannya.
+  Empat hal
   yang ternyata karangan port dan sekarang dari gim:
   `drawslot()` (slot kosong = PETAK PENUH warna 3, bukan kotak bergaris berisi
   huruf), `drawbox()` (sorotan EMPAT garis XOR warna 3), baris pesan (di baris
@@ -316,13 +331,20 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
    SEMUA `rnd()` di dalam `loadcon` sehingga gelung do/while itu tak berujung
    (gejalanya "0 frame"). Yang benar: BACA seed @0x71a, lastgoal @0x1e2e, dan
    lastvar @0x1e30 dari memori gim.
-7. **Pesan DALAM permainan belum diadu piksel.** Barisnya sudah pasti — 
-   `prompts()` menulis di `y = 0xc0, x mulai 0x10, warna 2`, yaitu baris cyan
-   yang dibersihkan `setupscr()`. Yang belum terukur teks in-play-nya sendiri:
-   ia keluar lewat `printf()` @0x6a48 dari MC.LIB, dan dgn `CC_TRACEDOS=1`
-   terukur **NOL** peristiwa keluaran teks DOS/BIOS — `printf` tak pernah
-   terpanggil di jalur yang bisa dijangkau harness (histogram INT 21h hanya
-   berisi FCB I/O).
+7. **Pesan DALAM permainan: sudah sejauh yang bisa diukur.** Yang TERUKUR:
+   string-nya (DGROUP @0x9dd/@0xa01, lengkap dgn tujuh/enam spasi depan),
+   barisnya (y 192..199), dan warnanya (2) — `prompts()` menulis di sana dan
+   diadu 64.000/64.000. Yang TIDAK BISA diukur: penempatan glyph-nya, karena
+   emulator tidak merender teks DOS sama sekali (font ROM BIOS) dan `printf`
+   @0x6a48 terbukti tak terpanggil di jalur mana pun yang bisa dijangkau —
+   diperiksa dgn `CC_TRACEDOS=1` (nol peristiwa) dan `CC_SALAH=1` (memaksa
+   jawaban salah; printf tetap nol). Alamatnya sendiri dikonfirmasi
+   `libmatch.py` (cocok byte-per-byte dgn modul PRINTF MC.LIB).
+8. ~~Sisa pemakaian tangkapan (`review_layout.json`, `icons/`)~~ — **SELESAI**,
+   dan catatan lama itu memang sudah basi. Dibuktikan `work/test_mandiri.py`:
+   `builtins.open` dan `pygame.image.load` dibungkus supaya SETIAP pembacaan
+   di bawah `port/cc/anim/` atau `port/cc/draws/` melempar, lalu port
+   dijalankan lewat jalur pemain — nol pembacaan.
 
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
 
@@ -346,6 +368,16 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   "0 frame", yang mudah salah dibaca sebagai "emulator tak mencapai titik itu".
   Cara yang benar: BACA keadaan RNG gim (seed @0x71a, lastgoal @0x1e2e,
   lastvar @0x1e30) lalu berikan ke `susun()`.
+- **SEKALI SATU MODE DIUKUR, JANGAN ANGGAP MODE LAIN IKUT TERBUKTI.** Fill in
+  Mechanisms cocok 64.000/64.000 sementara Fill in Zany masih meleset 12.194
+  piksel dan Mix Up 10.784 — dan yang membongkarnya LIMA bug berbeda, termasuk
+  dua yang tak mungkin terlihat di mode pertama (`setzany`/`setmark` memakai
+  RNG, dan cabang `lvl2 == 2 && mark[i]` di `pickpart` yang dicatat "belum
+  diperlukan"). Aturan bacanya: satu mode terukur = satu mode terukur.
+- **KECOCOKAN PIKSEL TIDAK SELALU MEMBUKTIKAN RANTAI RNG.** Layar Fill in Zany
+  cocok 64.000/64.000 bahkan sebelum `setzany()` ditambahkan — karena yang
+  tampak di sana cuma mekanisme (deterministik lewat `fillans`) dan objek zany
+  TERAKHIR (dipaksa `row == sub`). Yang membuktikan rantai adalah mode 4.
 - **UJI LEWAT MODUL INTI TIDAK MELIHAT BUG DI `main.py`.** Layar bermain cocok
   64.000/64.000 lewat modul inti sementara jalur pemain masih meleset 738 piksel:
   `start_play()` mengocok palet DUA KALI — kocokan gim yang benar, lalu
