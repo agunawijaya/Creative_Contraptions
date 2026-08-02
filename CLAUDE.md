@@ -665,11 +665,31 @@ sana, semuanya diukur bukan diterka:
 Bawaannya `jawaban_mech=None` → perilaku lama persis, diverifikasi: animasi
 attract tetap **1.565/1.565**, 23/23 uji lulus.
 
+**Sisa 689 piksel itu sudah TERJELASKAN** (2026-08-02), dan jawabannya
+mengubah bentuk pekerjaan yang tersisa:
+
+- `fillans()` mengisi **jawaban BENAR untuk semua slot** lalu `place()`
+  menggambarnya, SEBELUM `animvm` jalan. Jadi layar larian menampilkan part
+  yang benar untuk slot yang TERISI, apa pun yang ditaruh pemain; yang dipakai
+  memeriksa hanya `ord1`.
+- Slot yang BELUM diisi tampil sebagai petak abu (`drawslot()`), dan model itu
+  terbukti **EKSAK**: dgn urutan tombol yang tidak menaruh apa pun, dua dari
+  tiga slot cocok **0 piksel**.
+- Sisa satu slot ternyata TERISI: `SPACE` di dalam `review()` mengembalikan
+  `cur | 0x8000`, dan karena `sel[curz]` awalnya berbeda, ia MENEMPATKAN part
+  strip #0. Jadi bahkan "hanya menekan SPACE" pun menaruh satu part.
+
+⇒ **Penempatan pemain menentukan DUA hal sekaligus**: gambar di layar dan
+titik berhenti animasi. Maka pembandingnya tidak bisa memakai `frames()` dgn
+`jawaban_mech` karangan — ia harus **menjalankan port lewat `main.Game` dgn
+urutan tombol yang SAMA seperti yang diumpankan ke emulator**, supaya
+penempatannya cocok BY CONSTRUCTION. Itulah pekerjaan berikutnya, dan ia
+harness, bukan port.
+
 **Yang masih kurang, jangan diklaim selesai:**
-- sisa **689 piksel** di ARENA pada bingkai pertama (y 89..160, tersebar di
-  beberapa pita). `isi=True` lebih dekat daripada `isi=False` (689 vs 879) —
-  belum jelas kenapa, dan itu justru pertanyaan berikutnya yang tepat.
-- jumlah bingkai masih 46 vs 41: titik berhentinya belum tepat.
+- pembanding jalur pemain untuk animasi (lihat paragraf di atas) — belum ada.
+- titik berhenti belum diadu (46 vs 41 bingkai) karena penempatannya belum
+  cocok; angka itu TIDAK bermakna sampai harness-nya benar.
 - aturan 2 (skrip karangan, `animvm.c` baris 433) belum dimodelkan.
 
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
