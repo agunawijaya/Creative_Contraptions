@@ -17,6 +17,13 @@ Skrip itu menyalin 4 berkas yang benar-benar dipakai (`GRAPH`, `MECHS`, `ANIMATE
 asli boleh dipindah, di-rename, atau dihapus. `run_port.bat` menjalankan impor ini otomatis
 kalau bundelnya belum ada.
 
+Di ujungnya skrip itu juga menjalankan **`port/import_romfont.py`** — langkah PILIHAN yang
+mengekstrak font teks 8×8 milik ROM BIOS ke `port/cc/data/romfont.bin`. Pesan dalam
+permainan ("Mechanism A does not work.") keluar lewat `printf()`, yaitu teks DOS, dan yang
+menggambarnya font ROM — bukan font gim. Ekstraksinya butuh DOSBox-X di `tools/`; kalau
+tidak ada, langkah ini dilewati dengan pesan dan port tetap jalan memakai font gim
+(hurufnya sedikit berbeda, dan itu dinyatakan apa adanya, bukan didiamkan).
+
 `port/cc/data/` **tidak ikut ke git** — repo berisi kode, bukan berkas game. Pengguna
 menyediakan salinan game miliknya sendiri.
 

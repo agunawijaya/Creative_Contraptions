@@ -81,6 +81,37 @@ def check_bundle(verbose=True):
     return ok
 
 
+def romfont():
+    """Ekstrak font ROM BIOS kalau bisa — LANGKAH PILIHAN, bukan syarat.
+
+    Pesan dalam permainan keluar lewat `printf()` = teks DOS, dan yang
+    menggambarnya font ROM BIOS, bukan font gim. Tanpa berkas ini port tetap
+    jalan: `dosfont.tersedia()` mengembalikan False dan pemanggil jatuh ke
+    font gim. Bentuk hurufnya sedikit berbeda, dan itu dinyatakan apa adanya
+    — lebih baik daripada diam-diam mengaku setia.
+
+    Butuh DOSBox-X di `tools/`. Font ROM bukan bagian dari gim, jadi
+    hasilnya pun tidak ikut ke git (`port/cc/data/` di-.gitignore).
+    """
+    print()
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(HERE), "work"))
+        import dosprobe as dp
+        if not dp.ada_dosbox():
+            print("  font ROM : DOSBox-X tidak ada di tools/ — dilewati.")
+            print("             Pesan dalam permainan memakai font gim.")
+            return
+        import subprocess
+        r = subprocess.run([sys.executable,
+                            os.path.join(HERE, "import_romfont.py")],
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                           timeout=300)
+        baris = r.stdout.decode("utf-8", "replace").strip().splitlines()
+        print("  font ROM : %s" % (baris[-1] if baris else "selesai"))
+    except Exception as e:                    # noqa: BLE001 — langkah pilihan
+        print("  font ROM : dilewati (%s)" % e)
+
+
 def main(argv):
     if "--check" in argv:
         print("Memeriksa bundel aset port")
@@ -114,6 +145,11 @@ def main(argv):
             print("  PERINGATAN %s: %d byte, diharapkan %d — tetap disalin, "
                   "tapi versi game mungkin berbeda." % (name, actual, size))
         d = os.path.join(BUNDLE, name)
+        # Bundel lama bisa berbendera hanya-baca (MISC pernah tertinggal 0444),
+        # dan itu membuat impor ULANG gagal di tengah jalan -- setengah bundel
+        # tersalin, setengah tidak. Lepas dulu benderanya.
+        if os.path.exists(d):
+            os.chmod(d, 0o666)
         shutil.copyfile(s, d)
         os.chmod(d, 0o644)
         manifest[name] = dict(size=actual, sha256=sha256(d))
@@ -121,6 +157,8 @@ def main(argv):
 
     with open(os.path.join(BUNDLE, "manifest.json"), "w", encoding="utf-8") as f:
         json.dump(dict(source=src, files=manifest), f, indent=2)
+
+    romfont()
 
     print()
     print("Bundel siap. Port sekarang MANDIRI — folder game asli boleh dipindah/dihapus.")

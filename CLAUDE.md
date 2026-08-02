@@ -132,6 +132,8 @@ python port/main.py            # jendela; ESC/Q keluar
 python port/main.py --shots    # render tiap layar ke PNG (headless)
 python work/test_allgoals.py   # regresi: semua goal × varian bisa dimenangkan
 python work/test_nav.py        # regresi navigasi menu
+python work/test_intro.py      # pembuka animvm (jam pasir + bilah bola)
+python work/test_tabmenu.py    # 12 tabel layar vs sumber src_c byte-exact
 ```
 Env emulator: `VARIANT=n VCAP=1 python work/emu.py <goal> <mode>` → capture VRAM + jalur bola.
 
@@ -421,6 +423,29 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
    `builtins.open` dan `pygame.image.load` dibungkus supaya SETIAP pembacaan
    di bawah `port/cc/anim/` atau `port/cc/draws/` melempar, lalu port
    dijalankan lewat jalur pemain — nol pembacaan.
+   ⭐ Font ROM sekarang ikut alur pemasangan biasa: `port/import_assets.py`
+   memanggil `import_romfont.py` di ujungnya. Kalau DOSBox-X tidak ada di
+   `tools/`, langkahnya dilewati dengan pesan dan port tetap jalan.
+9. ~~Pembuka `animvm()` (jam pasir + bilah bola)~~ — **SELESAI (2026-08-02)**:
+   `adegan.intro()`, **59/59 bingkai, 151.040/151.040 piksel**
+   (`python work/test_intro.py`). Sebelum bola pertama, `animvm()` @0x18db
+   menjalankan dua gelung di pita atas: jam pasir 48×8 berkedip di x=0x88,
+   lalu bilah 16×8 meluncur dari x=0x78 ke `nbola*10`, 2 piksel per bingkai,
+   ditutup `shftr()` dua kali + satu `fillrect`.
+   ⚠ Mengukurnya butuh memperbaiki HARNESS SENDIRI dua kali — lihat §Jebakan.
+   Primitif `render.shftr()` (geser CGA per BYTE, `blitmsk.asm` @0x6600) baru
+   ditambahkan: `delta = -1` menggeser isi ke KIRI; namanya menggambarkan arah
+   SUMBER, bukan arah isinya.
+10. ~~`askopts` + ketiga layar instruksi belum diadu piksel~~ — **DITUTUP
+   LEWAT SUMBU LAIN (2026-08-02)**. Enam percobaan memotretnya kandas: stub
+   0x312A/0x31DA dilepas, `keyhit()` @0x1791 dipaksa ENTER, `getkey()` @0x1814
+   disambung ke antrean tombol — dan emulator tetap menggantung sesudah layar
+   credits. Memotretnya toh tidak menjawab banyak: penggambarnya SATU fungsi
+   (`setsel()` @0x3769) yang sudah cocok 64.000/64.000 pada empat tabel lain,
+   dan byte tabelnya pasti benar (DATA 9.556/9.556). Yang benar-benar masih
+   hipotesis cuma ALAMAT dan JUMLAH ENTRI tiap tabel — dan itu diadu langsung
+   dgn `src_c/src/*.c` yang `.EXE`-nya byte-identik: **12/12 tabel cocok**
+   (`python work/test_tabmenu.py`).
 
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
 
