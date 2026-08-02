@@ -10,7 +10,12 @@ g = main.Game(assets.find_data_dir())
 fb = cga.make_framebuffer()
 
 # TITLE -> ENTER -> MENU
-g.key(pygame.K_RETURN); assert g.state == main.MENU, g.state
+# ⚠ Alur pembuka gim: TITLE -> ENTER -> CREDITS -> ENTER -> SET UP
+# (dua pertanyaan Y/N) -> MENU. Ini dari `main_.c`, bukan tambahan port.
+g.key(pygame.K_RETURN)               # TITLE -> CREDITS
+g.key(pygame.K_RETURN)               # CREDITS -> SET UP
+g.key(pygame.K_y); g.key(pygame.K_y) # dua pertanyaan -> MENU
+assert g.state == main.MENU, g.state
 # ⚠ USANG lalu DIPERBAIKI: "Review Mechanisms" TIDAK lagi lewat pemilih goal.
 # Sejak ensiklopedia mekanisme ada, sel 0 langsung ke REVIEW. Uji ini masih
 # menegaskan alur LAMA dan gagal diam-diam. Lihat juga test_review2.py dan

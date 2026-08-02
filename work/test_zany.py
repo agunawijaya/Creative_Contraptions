@@ -11,7 +11,11 @@ fb = cga.make_framebuffer()
 # ⚠ Layar LEVEL ditambahkan belakangan; uji ini sempat MELEWATKANNYA dan
 # gagal diam-diam berbulan-bulan. Alat ukur yang basi menyembunyikan
 # perubahan perilaku, bukan melaporkannya.
-g.key(pygame.K_RETURN)               # TITLE->MENU
+# ⚠ Alur pembuka gim: TITLE -> ENTER -> CREDITS -> ENTER -> SET UP
+# (dua pertanyaan Y/N) -> MENU. Ini dari `main_.c`, bukan tambahan port.
+g.key(pygame.K_RETURN)               # TITLE -> CREDITS
+g.key(pygame.K_RETURN)               # CREDITS -> SET UP
+g.key(pygame.K_y); g.key(pygame.K_y) # -> MENU
 g.key(pygame.K_DOWN); g.key(pygame.K_DOWN)   # sel=2 (Fill Zany)
 g.key(pygame.K_RETURN)               # ->LEVEL
 g.key(pygame.K_RETURN)               # Apprentice -> INSTRUKSI (menu11)

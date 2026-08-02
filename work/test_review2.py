@@ -8,7 +8,10 @@ import main
 pygame.init()
 g = main.Game(assets.find_data_dir())
 fb = cga.make_framebuffer()
-g.key(pygame.K_RETURN)              # TITLE->MENU
+# ⚠ Alur pembuka gim: TITLE -> CREDITS -> SET UP (dua Y/N) -> MENU.
+g.key(pygame.K_RETURN)              # TITLE -> CREDITS
+g.key(pygame.K_RETURN)              # CREDITS -> SET UP
+g.key(pygame.K_y); g.key(pygame.K_y)  # -> MENU
 g.key(pygame.K_RETURN)              # Review (sel 0) -> REVIEW browse
 assert g.state == main.REVIEW, g.state
 g.draw(fb)

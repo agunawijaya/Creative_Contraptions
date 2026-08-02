@@ -172,8 +172,16 @@ def uji_interaktif(folder, arc):
     _pal.penunjuk = lambda *a, **k: None       # penunjuk sedang di fase padam
     try:
         g = portmain.Game(assets.find_data_dir())
+        # Alur pembuka gim: TITLE -> CREDITS -> SET UP (dua Y/N) -> MENU.
+        g.key(pygame.K_RETURN)                 # TITLE -> CREDITS
+        g.key(pygame.K_RETURN)                 # CREDITS -> SET UP
+        g.key(pygame.K_y)                      # monitor berwarna? Y
+        g.key(pygame.K_y)                      # suara? Y  -> MENU
+        # ⚠ Seed dipasang SESUDAH pembuka: `askopts()` diikuti 20 undian
+        # pemanasan (`for (i=0;i<0x14;i++) rnd(1);`), jadi menyetelnya lebih
+        # dulu akan tergeser. Nilai yang ditangkap emulator adalah keadaan di
+        # `loadcon`, yaitu SESUDAH pemanasan itu.
         g.rng_seed, g.lastgoal, g.lastvar = seed, lastgoal, lastvar
-        g.key(pygame.K_RETURN)                 # TITLE -> MENU
         g.key(pygame.K_DOWN)                   # sel 1 = Fill in Mechanisms
         g.key(pygame.K_RETURN)                 # -> LEVEL
         g.key(pygame.K_RETURN)                 # Apprentice -> INSTRUKSI (menu9)

@@ -302,6 +302,27 @@ def hook_in(uc, port, size, user):
 
 uc.hook_add(UC_HOOK_INSN, hook_in, None, 1, 0, UC_X86_INS_IN)
 
+# CC_TRACEIO=1 -- rekam penulisan port PC-speaker.
+#
+#   0x43  perintah PIT      0x42  pembagi kanal 2 (dua byte, rendah lalu tinggi)
+#   0x61  gerbang speaker   (bit 0 dan 1 menyalakan/mematikan bunyi)
+#
+# Ini satu-satunya cara mengukur SUARA dari gim: `snd2.asm` menghitung
+# `0x1234DE / CX` lalu menulis hasilnya ke 0x42, jadi frekuensi yang
+# sebenarnya terdengar bisa dihitung balik dari pembagi yang tercatat.
+_TIO = os.environ.get("CC_TRACEIO") == "1"
+_tio_log = []
+
+
+def hook_out(uc, port, size, value, user):
+    if _TIO and port in (0x42, 0x43, 0x61):
+        _tio_log.append((port, value & 0xFF))
+    return 0
+
+
+if _TIO:
+    uc.hook_add(UC_HOOK_INSN, hook_out, None, 1, 0, UC_X86_INS_OUT)
+
 CODE = LOAD_SEG * 16
 SS_ = lambda: uc.reg_read(UC_X86_REG_SS)
 
@@ -608,7 +629,7 @@ def hook_input(uc, addr, size, user):
             ret_ax(obs_keyq.pop(0)); return
     if off == 0x1814:
         c1814[0] += 1
-        if started[0] and CAP_ATTRACT:
+        if started[0] and CAP_ATTRACT and not NOSTOP:
             print("  [attract] 18db selesai, stop capture")
             uc.emu_stop()
             return
@@ -884,6 +905,45 @@ LEVEL = int(os.environ.get("CC_LEVEL", "1"))
 # TIDAK PERNAH digambar dan tak bisa diadu piksel. Dgn saklar ini keduanya
 # menggambar sungguhan, dan tombol dari CC_OBSKEYS yang memilih.
 NOMENUSTUB = os.environ.get("CC_NOMENUSTUB") == "1"
+
+# CC_NOSTOP=1 -- jangan berhenti sesudah animasi attract PERTAMA selesai.
+# Bawaannya emulator berhenti di situ, jadi apa yang gim lakukan SESUDAH layar
+# judul (mis. berpindah ke kontraption berikutnya) tak pernah terlihat.
+NOSTOP = os.environ.get("CC_NOSTOP") == "1"
+
+# CC_SNDISR=1 -- JALANKAN ISR timer suara (`sndisr` @0x670E) sendiri.
+#
+# Bunyi gim tidak digerakkan gelung utama melainkan penangan INT 1Ch yang
+# dipasang `sndsave(sndisr)`. Emulator ini tidak menjalankan interupsi timer,
+# jadi ISR itu tak pernah jalan dan TIDAK ADA satu pun nada yang terdengar --
+# port speaker tetap sunyi berapa lama pun dijalankan.
+#
+# Di sini ISR-nya dipanggil secara manual dari `vbwait` (0x5D98), yang memang
+# terpanggil sekali per bingkai: dorong FLAGS/CS/IP seperti interupsi asli lalu
+# lompat ke ISR; `IRET` di ujungnya mengembalikan eksekusi ke tempat semula.
+SNDISR = os.environ.get("CC_SNDISR") == "1"
+_isr = {"n": 0, "dalam": False}
+
+
+def hook_vbwait_isr(uc, addr, size, user):
+    if not SNDISR or _isr["dalam"]:
+        return
+    _isr["n"] += 1
+    _isr["dalam"] = True
+    ssg = uc.reg_read(UC_X86_REG_SS)
+    sp = uc.reg_read(UC_X86_REG_SP)
+    fl = uc.reg_read(UC_X86_REG_EFLAGS) & 0xFFFF
+    cs = uc.reg_read(UC_X86_REG_CS)
+    ip = uc.reg_read(UC_X86_REG_IP)
+    for v in (fl, cs, ip):                     # urutan dorong interupsi 8086
+        sp = (sp - 2) & 0xFFFF
+        uc.mem_write(ssg * 16 + sp, struct.pack("<H", v))
+    uc.reg_write(UC_X86_REG_SP, sp)
+    uc.reg_write(UC_X86_REG_IP, 0x670E)
+
+
+def hook_isr_selesai(uc, addr, size, user):
+    _isr["dalam"] = False
 
 
 def hook_menu_level(uc, addr, size, user):  # 32bb -> pilih level
@@ -1195,6 +1255,9 @@ hooks = [(0x5035, hook_5035), (0x5a5b, hook_5a5b), (0x1791, hook_input), (0x1814
 hooks.append((0x6869, hook_flip))
 hooks.append((0x18db, hook_18db_salah))
 hooks.append((0x2b11, hook_waitn))
+if SNDISR:
+    hooks.append((0x5d98, hook_vbwait_isr))
+    hooks.append((0x5d98, hook_isr_selesai))
 if _TW:
     hooks.insert(0, (_TW_A, hook_tw_masuk))
 if _VRAMSEQ:
@@ -1382,6 +1445,26 @@ for k, pts in sorted(byptr.items(), key=lambda kv: -len(set(kv[1]))):
     if len(uniq) >= 4:
         print("  sptr=0x%04x w=%d h=%d  n=%d uniq=%d  %s" % (k[0], k[1], k[2], len(pts), len(uniq), uniq[:12]))
 
+if _TIO:
+    # Rekonstruksi urutan not dari pembagi PIT: tiap pasang tulis ke 0x42
+    # (rendah, tinggi) = satu pembagi; frekuensinya 1.193.182 / pembagi.
+    print("PORT SPEAKER: %d penulisan" % len(_tio_log))
+    _div = []
+    _lo = None
+    for _p, _v in _tio_log:
+        if _p != 0x42:
+            continue
+        if _lo is None:
+            _lo = _v
+        else:
+            _div.append(_lo | (_v << 8))
+            _lo = None
+    print("  pembagi PIT (%d): %s" % (len(_div), _div[:16]))
+    print("  -> frekuensi Hz: %s"
+          % [round(1193182 / d) if d else 0 for d in _div[:16]])
+    _gate = [v for p, v in _tio_log if p == 0x61]
+    print("  gerbang 0x61 (%d): %s" % (len(_gate), _gate[:16]))
+
 if _TDOS:
     # Ringkas: karakter tunggal berurutan digabung jadi satu baris supaya
     # keluarannya terbaca.
@@ -1397,6 +1480,8 @@ if _TDOS:
         print("  %-8s %r" % (_k, _v))
     if _buf:
         print("  teks: %r" % _buf)
+    if _tio_log:
+        print("PORT SPEAKER: %d penulisan" % len(_tio_log))
     if _tdos_bl:
         from collections import Counter as _C
         print("  WARNA teletype (BL) yang terpakai: %s"

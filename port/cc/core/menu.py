@@ -68,8 +68,16 @@ MTAB12 = (0x18F8, 12)            # Contraption Mix Up
 MTAB_SETUP1 = (0x1AD2, 3)
 MTAB_SETUP2 = (0x1AF6, 2)
 
-# `credits()` @0x312A: empat tabel ditumpuk berurutan dgn jeda 100 bingkai.
-MTAB_CREDITS = ((0x1A2A, 3), (0x1A42, 3), (0x1A5A, 3), (0x1A72, 3))
+# `credits()` @0x312A: empat tabel DITUMPUK berurutan dgn `pause(100)` di
+# antaranya -- jadi teksnya muncul bertahap, bukan sekaligus:
+#
+#     setsel(t1, 2); pause(100); show(t2, 2); pause(100);
+#     show(t3, 2);   pause(100); show(t4, 1);
+#
+# Jumlah entri tiap tabel diambil dari argumen kedua itu, bukan ditebak.
+# `setsel` menggambar latarnya; `show` hanya menambahkan di atasnya.
+MTAB_CREDITS = ((0x1A2A, 2), (0x1A42, 2), (0x1A5A, 2), (0x1A72, 1))
+CREDITS_JEDA = 100               # pause(100) -- satuannya BINGKAI, bukan tik
 
 REC_MENU = (7, 8, 9, 10)         # MISC record ikon menu utama
 REC_LEVEL = (11, 12)             # MISC record ikon pemilih level
@@ -155,6 +163,29 @@ def kotak(k, it, nyala=True):
     k.xor(x + w - 2, y + 1, x + w - 2, y + h - 2, 1)
     k.xor(x, y - 1, x + w - 1, y - 1, 2)
     k.xor(x, y + h, x + w - 1, y + h, 2)
+
+
+def tumpuk(misc, tabel_urut, sampai=None):
+    """Gambar beberapa tabel BERTINDIH di satu layar -> framebuffer.
+
+    Dipakai `credits()`: `setsel()` yang pertama (menggambar latar), lalu
+    `show()` untuk sisanya. `sampai` membatasi berapa tabel yang sudah tampil,
+    supaya pemanggil bisa memunculkannya bertahap seperti `pause(100)` di gim.
+    """
+    fb = rend.new_fb()
+    k = rend.KanvasFB(fb)
+    for i, (addr, n) in enumerate(tabel_urut):
+        if sampai is not None and i > sampai:
+            break
+        it = tabel(addr, n)
+        if i == 0:
+            setsel(k, it, misc, ())
+        else:
+            for x in it:
+                if x["teks"]:
+                    k.teks(_str(x["ptr"]), x["x"], x["y"], x["warna"],
+                           x["w"], x["h"])
+    return fb
 
 
 def layar(misc, mana="utama"):

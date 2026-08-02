@@ -40,7 +40,9 @@ def cek(nama, dapat, harap):
 
 def mulai(g, level):
     """TITLE -> MENU -> Mix Up -> LEVEL. TIDAK ada layar GOAL."""
-    g.key(pygame.K_RETURN)
+    g.key(pygame.K_RETURN)               # TITLE -> CREDITS
+    g.key(pygame.K_RETURN)               # CREDITS -> SET UP
+    g.key(pygame.K_y); g.key(pygame.K_y)  # dua pertanyaan -> MENU
     for _ in range(3):
         g.key(pygame.K_DOWN)             # sel = 3 = Contraption Mix Up
     g.key(pygame.K_RETURN)               # -> LEVEL
@@ -73,7 +75,8 @@ def main_uji():
     g = main.Game(d)
     mulai(g, 1)
     cek("langsung PLAY tanpa layar GOAL", g.state, main.PLAY)
-    cek("layar INSTRUKSI muncul sekali", 3 in g.instruksi_tampil, True)
+    # `k` di main_.c: layar instruksi ditampilkan, lalu `k = 0`.
+    cek("layar INSTRUKSI sudah ditampilkan", g.k_instruksi, False)
     cek("kontraption pertama = sub 1", g.chosen_goal, 1)
     cek("sisa ronde = 6", g.mix_sisa, 6)
     cek("penanda petunjuk Master dibuat", g.petunjuk is not None, True)
@@ -111,7 +114,9 @@ def main_uji():
 
     print("\nFill in Mechanisms TETAP lewat layar GOAL")
     g = main.Game(d)
-    g.key(pygame.K_RETURN)
+    g.key(pygame.K_RETURN)               # TITLE -> CREDITS
+    g.key(pygame.K_RETURN)               # CREDITS -> SET UP
+    g.key(pygame.K_y); g.key(pygame.K_y)  # dua pertanyaan -> MENU
     g.key(pygame.K_DOWN)                 # sel = 1 = Fill in Mechanisms
     g.key(pygame.K_RETURN)
     g.key(pygame.K_RETURN)               # Apprentice -> INSTRUKSI

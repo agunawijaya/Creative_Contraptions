@@ -44,7 +44,7 @@ MECH_CATEGORIES = [
 ]
 
 (TITLE, MENU, LEVEL, GOAL, CONTRAPTION, PLAY, PLAYANIM, REVIEW, REVIEW_DETAIL,
- INSTRUKSI) = range(10)
+ INSTRUKSI, CREDITS, SETUP) = range(12)
 
 # urutan mekanisme di Review = urutan MECH_CATEGORIES (Inclined Plane, Pulley, ...)
 
@@ -181,8 +181,14 @@ class Game:
         self.mix_sisa = None
         self.mix_skor = 0
         self.petunjuk = None          # hud.Petunjuk (hintmark), hanya mode 4 Master
-        # `k` di main_.c: mode yang layar instruksinya SUDAH ditampilkan.
-        self.instruksi_tampil = set()
+        # `k` di main_.c. ⚠ Ia di-set 1 di PUNCAK gelung utama -- jadi layar
+        # instruksi muncul TIAP KALI pemain lewat menu utama, bukan sekali
+        # selamanya. Di dalam satu mode ia tidak diulang (`k = 0` sesudahnya).
+        self.k_instruksi = True
+        self.credits_tick = 0
+        self.setup_q = 0              # 0 = monitor berwarna, 1 = suara
+        self.opsi_warna = 1
+        self.opsi_suara = 1
         self.chosen_goal = 1
         self.slots = []       # slot mekanisme yg diisi saat PLAY
         self.cur_slot = 0
@@ -217,6 +223,10 @@ class Game:
             self._review_detail(fb)
         elif self.state == INSTRUKSI:
             self._instruksi(fb)
+        elif self.state == CREDITS:
+            self._credits(fb)
+        elif self.state == SETUP:
+            self._setup(fb)
 
     # ---------- Review Mechanisms (layout EKSAK dari data game) ----------
     def _rev_text(self, fb, recs):
@@ -310,6 +320,40 @@ class Game:
         surf = self._scene_surface(128, None, True)
         if surf is not None:
             fb.blit(surf, (0, 0))
+
+    def _credits(self, fb):
+        """`credits()` @0x312A -- empat tabel teks ditumpuk bertahap.
+
+            setsel(t1, 2); pause(100); show(t2, 2); pause(100);
+            show(t3, 2);   pause(100); show(t4, 1);
+
+        `pause(n)` satuannya BINGKAI (ia memanggil vbwait/vbend berpasangan),
+        jadi tiap tahap 100 bingkai. Port lama melompati layar ini sama sekali.
+        """
+        tahap = min(len(_menu.MTAB_CREDITS) - 1,
+                    self.credits_tick // _menu.CREDITS_JEDA)
+        key = ("credits", tahap)
+        if key not in self._scene_cache:
+            self._scene_cache[key] = _rend.to_surface(
+                _menu.tumpuk(self.k_misc, _menu.MTAB_CREDITS, sampai=tahap),
+                pygame)
+        fb.blit(self._scene_cache[key], (0, 0))
+
+    def _setup(self, fb):
+        """`askopts()` @0x31DA -- dua pertanyaan Y/N berurutan.
+
+        Pertanyaan 1 (tabel @0x1AD2) menyetel `curopt` (monitor berwarna);
+        pertanyaan 2 (@0x1AF6) menyetel `sndflag` (suara). Tabel kedua
+        MENIMPA pertanyaan pertama dgn warna 1 lebih dulu -- itu cara gim
+        menghapusnya, jadi keduanya digambar bertindih, bukan diganti.
+        """
+        key = ("setup", self.setup_q)
+        if key not in self._scene_cache:
+            urut = (_menu.MTAB_SETUP1,) if self.setup_q == 0 else (
+                _menu.MTAB_SETUP1, _menu.MTAB_SETUP2)
+            self._scene_cache[key] = _rend.to_surface(
+                _menu.tumpuk(self.k_misc, urut), pygame)
+        fb.blit(self._scene_cache[key], (0, 0))
 
     def _lanjut_sesudah_level(self):
         """Sesudah LEVEL (dan layar instruksinya) -> pemilih goal, atau Mix Up.
@@ -1138,8 +1182,41 @@ class Game:
     # ---------- input ----------
     def key(self, k):
         if self.state == TITLE:
+            # `do { m = getkey(); } while (m != 0xd && m != 0x1b);`
+            # ENTER melanjutkan ke credits; ESC keluar.
             if k in (pygame.K_RETURN, pygame.K_KP_ENTER):
-                self.state = MENU; self.sel = 0
+                self.state = CREDITS
+                self.credits_tick = 0
+        elif self.state == CREDITS:
+            # `if (credits() == -1) goto quit;` -- ENTER lanjut, ESC keluar.
+            if k in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                self.state = SETUP
+                self.setup_q = 0
+            elif k == pygame.K_ESCAPE:
+                self.state = TITLE
+        elif self.state == SETUP:
+            # Dua pertanyaan Y/N. ESC di salah satunya membatalkan.
+            if k == pygame.K_ESCAPE:
+                self.state = TITLE
+            elif k in (pygame.K_y, pygame.K_n):
+                ya = (k == pygame.K_y)
+                if self.setup_q == 0:
+                    self.opsi_warna = 1 if ya else 0
+                    self.setup_q = 1
+                else:
+                    self.opsi_suara = 1 if ya else 0
+                    # `sndok = sndini(); for (i=0;i<0x14;i++) rnd(1);`
+                    # ⭐ 20 undian PEMANASAN sebelum gelung utama. Hasilnya
+                    # dibuang, tapi seed-nya maju -- jadi seluruh pemilihan
+                    # part di permainan bergantung padanya.
+                    r = _rng.Rng(self.rng_seed)
+                    for _ in range(0x14):
+                        r.rnd(1)
+                    self.rng_seed = r.state()
+                    if not self.opsi_suara:
+                        self.bunyi.aktif = False
+                    self.state = MENU
+                    self.sel = 0
         elif self.state in (MENU, LEVEL, GOAL):
             n = {MENU: len(MENU_OPTIONS), LEVEL: len(LEVELS),
                  GOAL: len(self.goal_ids)}[self.state]
@@ -1229,8 +1306,8 @@ class Game:
             self.level = self.sel            # 0=Apprentice, 1=Master Builder
             # `k == 1` di gim = "mode ini belum pernah dimasuki". Layar
             # instruksinya muncul SEKALI, lalu `k = 0`.
-            if self.mode + 1 in _menu.INSTRUKSI and self.mode not in self.instruksi_tampil:
-                self.instruksi_tampil.add(self.mode)
+            if self.mode + 1 in _menu.INSTRUKSI and self.k_instruksi:
+                self.k_instruksi = False          # `k = 0` sesudah ditampilkan
                 self.state = INSTRUKSI
                 self.sel = 0
                 return
