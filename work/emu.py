@@ -1345,7 +1345,31 @@ if _TW:
     if os.environ.get("CC_TRACERD") == "1":
         uc.hook_add(UC_HOOK_MEM_READ, hook_tw_read)
 
-hooks = [(0x5035, hook_5035), (0x5a5b, hook_5a5b), (0x1791, hook_input), (0x1814, hook_input),
+# CC_SEED=<heks> -- pasang keadaan RNG gim @0x71a saat MASUK `loadcon()`.
+#
+# ⚠ Ini BUKAN `VARIANT=`. Saklar itu memaksa SETIAP `rnd()` di dalam loadcon
+# mengembalikan nomor varian, dan gelung
+#     do { pick = rnd(cnt) + first; } while (lastgoal == sub && ... );
+# jadi tak berujung -- gejalanya "0 frame", yang mudah salah dibaca sebagai
+# "emulator tak sampai ke sana". Di sini yang disetel cuma KEADAAN AWAL
+# generatornya; undiannya sendiri berjalan apa adanya, jadi varian yang
+# terpilih adalah hasil aturan gim, bukan hasil paksaan.
+#
+# @0x71a memang seed-nya: `snd1.asm` menghitung `seed = seed*0x3E85 + 0x3619`
+# langsung di `DS:[71AH]`, dan `main_` mengisinya lewat `sndok = sndini()`.
+_CC_SEED = os.environ.get("CC_SEED")
+
+
+def hook_seed(uc, addr, size, user):
+    if _CC_SEED is None or _seed_done[0]:
+        return
+    _seed_done[0] = True
+    uc.mem_write(DGROUP * 16 + 0x71a, struct.pack("<H", int(_CC_SEED, 16)))
+
+
+_seed_done = [False]
+
+hooks = [(0x5035, hook_seed), (0x5035, hook_5035), (0x5a5b, hook_5a5b), (0x1791, hook_input), (0x1814, hook_input),
          (0x672f, hook_672f), (0x26ae, hook_ball),
          (0x1b13, hook_mechmatch), (0x1bcd, hook_zanymatch),
          (0x341a, hook_menu_mode), (0x32bb, hook_menu_level),

@@ -148,12 +148,26 @@ class VM:
         self.sisa = -1
 
     def _tujuan(self, ke):
-        """Titik mendarat di part berikutnya.
+        """Titik mendarat di part berikutnya, atau None kalau tidak ada.
 
         `op03` membaca opcode PERTAMA skrip part tujuan; kalau ia titik jalur
         (0x00/0x08/0x0a/0x0b), titik pertamanya dipakai sebagai tempat mendarat.
         Jadi lemparan diarahkan ke tempat part itu memang menunggu bola --
         bukan ke titik tengah part atau sudutnya.
+
+        ⭐ KALAU TIDAK ADA titik jalur sama sekali, lemparannya TIDAK TERJADI.
+        Dulu di sini ada cadangan `return p.y, p.x` (posisi part itu sendiri),
+        dan itu KELIRU -- terukur di goal 6 varian 2: port melempar bola ke
+        (63,133) (77,127) (92,121) lalu melompat balik ke (64,117), sementara
+        gim langsung ke (64,117) tanpa satu bingkai antara. Jejak `scrptr`
+        @0x3AE membuktikannya: antara kedua bola itu gim memakan 9 byte --
+        `03 0a 03 | 09 00 | ff | 08 09 0c` -- yaitu op03 DAN op09 DAN penutup
+        part DAN op08 part berikutnya, semuanya tanpa satu pun `drawball`.
+        Jadi op03-nya memang dijalankan; yang tidak terjadi cuma lemparannya.
+
+        Kasus ini SATU-SATUNYA di sepuluh varian (diperiksa: hanya goal 6
+        varian 2 part 2 yang melempar ke part tanpa titik jalur) -- jadi
+        cadangan lama tidak pernah benar, ia hanya tidak pernah terpakai.
         """
         p = self.parts[ke]
         for nama, data in ((s[0], s[1] if len(s) > 1 else None) for s in p.simpul):
@@ -164,7 +178,7 @@ class VM:
             else:
                 continue
             return p.y + sgn(a), p.x + sgn(b)
-        return p.y, p.x
+        return None
 
     def _lempar(self, nama, data):
         """op03 / op0c -> deretan titik parabola (f2823).
@@ -189,7 +203,10 @@ class VM:
             ke = self.aktif + 1
             if ke >= len(self.parts):
                 return None
-            ty, tx = self._tujuan(ke)
+            sasaran = self._tujuan(ke)
+            if sasaran is None:
+                return "lewati"          # part tujuan tak punya titik jalur
+            ty, tx = sasaran
         else:
             # op0c: sasarannya dibaca dari operan opcode BERIKUTNYA di skrip
             # yang SAMA, relatif ke posisi PART -- bukan ke posisi bola:
@@ -424,8 +441,11 @@ class VM:
                 self.antre = self._bounce() + [("teks", data)]
                 return self.antre.pop(0)
             if nama in ("op03", "op0c"):
-                if self._lempar(nama, data) is None:
+                hasil = self._lempar(nama, data)
+                if hasil is None:
                     return ("selesai", None)
+                # "lewati": opcode-nya DIJALANKAN tapi tidak melempar apa pun,
+                # dan kursor TETAP di skrip yang sama -- lihat _tujuan().
                 return self.langkah()
             return ("belum", nama, data)
         return None

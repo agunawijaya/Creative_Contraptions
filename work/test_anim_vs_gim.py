@@ -16,6 +16,24 @@ dipakai ulang; hapus foldernya untuk membuatnya lagi.
 ⚠ Bandingannya adalah kotak VRAM saat MASUK `drawball`. Panggilan `setball()`
 dari `setupscr` adalah drawball PERTAMA game dan TIDAK dihitung di port --
 karena itu tangkapan f0000 dilewati dan f0001 diadu dgn frame port ke-0.
+
+TAHAP KEDUA: VARIAN LAIN
+------------------------
+CONTRAP punya 10 varian (goal 1:2, 2:1, 3:2, 4:2, 5:1, 6:2). Tahap pertama
+mengadu SATU varian per goal -- yang kebetulan terpilih undian dari seed awal
+gim. Empat varian sisanya lama tidak pernah diadu piksel, dan "jalur kodenya
+sama" itu argumen, bukan pengukuran.
+
+Cara menggesernya HARUS lewat keadaan RNG, bukan lewat `VARIANT=`: saklar itu
+memaksa SETIAP `rnd()` di dalam `loadcon` mengembalikan nomor varian, dan
+gelung `do { pick = rnd(cnt)+first; } while (lastgoal == sub && ...)` jadi tak
+berujung. Saklar `CC_SEED=<heks>` hanya menyetel KEADAAN AWAL generator
+@0x71a (yang di gim diisi `sndok = sndini()`); undiannya sendiri berjalan apa
+adanya, jadi varian yang muncul adalah hasil aturan gim.
+
+Seed 0x7 memberi varian ke-2 untuk keempat goal itu -- dan itu dipastikan dua
+arah: port memilih `vi = 1`, emulator mencatat `lastvar` = 1, 4, 6, 9, yaitu
+`first + 1` untuk goal 1, 3, 4, 6.
 """
 import os
 import subprocess
@@ -31,6 +49,11 @@ from cc.core.archive import Archive                            # noqa: E402
 AKAR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 D = os.path.join(AKAR, "_ORIGINAL_READONLY")
 LAYAR = (1, 2, 3, 4, 5, 6, 128)
+# Goal yang punya varian KEDUA, dan seed yang memunculkannya. Seed-nya dicari
+# dgn menyapu model RNG port lalu DIPASTIKAN di emulator: `lastvar` @0x1e30
+# tercatat 1, 4, 6, 9 = `first + 1` untuk keempat goal itu.
+GOAL_VAR2 = (1, 3, 4, 6)
+SEED_VAR2 = 0x7
 PALET = {(0, 0, 170): 0, (0, 170, 170): 1, (170, 0, 170): 2, (170, 170, 170): 3}
 
 
@@ -39,14 +62,17 @@ def muat(p):
     return [[PALET[im[x, y]] for x in range(320)] for y in range(200)]
 
 
-def tangkap(folder, goal):
+def tangkap(folder, goal, seed=None):
     """Jalankan emulator sampai animasi satu layar habis, simpan tiap frame."""
-    seq = os.path.join(folder, "seq%d" % goal)
+    seq = os.path.join(folder, "seq%d%s" % (goal, "" if seed is None else "_s%x" % seed))
     if os.path.isdir(seq) and os.listdir(seq):
         return seq
-    print("  [emu] menangkap goal %d ..." % goal)
+    print("  [emu] menangkap goal %d%s ..."
+          % (goal, "" if seed is None else " (seed 0x%x)" % seed))
     env = dict(os.environ)
     env["CC_OUT"] = os.path.join(folder, "out")
+    if seed is not None:
+        env["CC_SEED"] = "%x" % seed
     # Batas 1200: layar judul saja butuh 676 frame (enam pantulan `bounce()`
     # sebelum teks judul muncul). Bawaan CC_VRAMSEQ 400 memotongnya.
     env["CC_VRAMSEQ"] = "26ae=%s:1200" % seq
@@ -109,14 +135,12 @@ def main(folder):
     an = Archive(D + "/ANIMATE")
     cs = contrap.parse(D + "/CONTRAP")
 
-    tot_ok = tot = beda_piksel = 0
-    semua = True
-    for goal in LAYAR:
-        seq = tangkap(folder, goal)
+    def banding(goal, seed, label):
+        seq = tangkap(folder, goal, seed)
         n = len([f for f in os.listdir(seq) if f.endswith(".png")])
-        fs = adegan.frames(goal, g, m, mi, an, cs, mode=0,
+        fs = adegan.frames(goal, g, m, mi, an, cs, mode=0, seed=seed or 0,
                            sub=(goal if goal != 128 else None), maks=1200)
-        ok = dibanding = 0
+        ok = dibanding = bp = 0
         gagal = []
         for k in range(1, n):
             if k - 1 >= len(fs):
@@ -126,20 +150,36 @@ def main(folder):
             b = sum(1 for y in range(200) for x in range(320)
                     if por[y][x] != ref[y][x])
             dibanding += 1
-            beda_piksel += b
+            bp += b
             if b:
                 gagal.append((k, b))
             else:
                 ok += 1
-        tot_ok += ok
-        tot += dibanding
         sisa = (n - 1) - dibanding
-        print("  layar %-3s : %3d/%-3d frame identik%s"
-              % ("judul" if goal == 128 else goal, ok, dibanding,
+        print("  %-14s : %3d/%-3d frame identik%s"
+              % (label, ok, dibanding,
                  "   (%d frame rujukan belum dijangkau VM)" % sisa if sisa else ""))
         for k, b in gagal[:5]:
             print("      f%04d beda %d piksel" % (k, b))
-        semua = semua and not gagal
+        return ok, dibanding, bp, not gagal
+
+    tot_ok = tot = beda_piksel = 0
+    semua = True
+    for goal in LAYAR:
+        ok, d, bp, bersih = banding(goal, None,
+                                    "layar judul" if goal == 128 else "layar %d" % goal)
+        tot_ok += ok; tot += d; beda_piksel += bp
+        semua = semua and bersih
+
+    # ── Tahap 2: varian yang tidak terpilih undian awal ──────────────────
+    # Empat goal punya varian kedua. Digeser lewat KEADAAN RNG (CC_SEED),
+    # bukan lewat `VARIANT=` -- lihat catatan di kepala berkas.
+    print("")
+    print("  varian kedua (seed 0x%x):" % SEED_VAR2)
+    for goal in GOAL_VAR2:
+        ok, d, bp, bersih = banding(goal, SEED_VAR2, "layar %d v2" % goal)
+        tot_ok += ok; tot += d; beda_piksel += bp
+        semua = semua and bersih
 
     semua = uji_jalur_pemain(folder) and semua
 

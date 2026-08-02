@@ -51,7 +51,12 @@ AKAR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 D = os.path.join(AKAR, "_ORIGINAL_READONLY")
 PALET = {(0, 0, 170): 0, (0, 170, 170): 1, (170, 0, 170): 2, (170, 170, 170): 3}
 TOMBOL = ",".join(["0d"] * 12)
-GOAL = 1
+GOAL = 1                      # goal untuk uji JALUR PEMAIN (satu saja, mahal)
+# ⚠ Ketiga mode dulu hanya diadu untuk goal 1. "Jalur kodenya sama untuk goal
+# lain" itu ARGUMEN, bukan pengukuran -- dan di berkas ini justru sudah
+# terbukti dua kali bahwa satu jalur yang sama bisa meleset di kasus lain
+# (lihat catatan mode 3 vs mode 4 di kepala berkas). Sekarang keenamnya diadu.
+SEMUA_GOAL = (1, 2, 3, 4, 5, 6)
 
 # nama, OBSERVE, mode gim, offset tangkap, isi_mekanisme, isi_zany, ada strip
 KASUS = [
@@ -68,7 +73,7 @@ def muat(p):
     return [[PALET[im[x, y]] for x in range(320)] for y in range(200)]
 
 
-def _emu(folder, nama, obs, mode, env_extra):
+def _emu(folder, nama, obs, mode, env_extra, goal=GOAL):
     seq = os.path.join(folder, nama)
     if os.path.isdir(seq) and os.path.exists(os.path.join(seq, "globals.json")):
         return seq
@@ -78,23 +83,25 @@ def _emu(folder, nama, obs, mode, env_extra):
                CC_NOSKIP="1", CC_MAXINSN="300000000", CC_OBSKEYS=TOMBOL)
     env.update(env_extra)
     subprocess.run([sys.executable, os.path.join(AKAR, "work", "emu.py"),
-                    str(GOAL), str(mode)], env=env, cwd=AKAR,
+                    str(goal), str(mode)], env=env, cwd=AKAR,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return seq
 
 
-def tangkap_layar(folder, obs, mode, off):
-    seq = _emu(folder, obs + "_layar", obs, mode, {
-        "CC_VRAMSEQ": "%s=%s:2" % (off, os.path.join(folder, obs + "_layar")),
+def tangkap_layar(folder, obs, mode, off, goal):
+    nm = "%s_layar_g%d" % (obs, goal)
+    seq = _emu(folder, nm, obs, mode, {
+        "CC_VRAMSEQ": "%s=%s:2" % (off, os.path.join(folder, nm)),
         "CC_VSWORD": "3ac,51c,738,718,7ee",
-        "CC_VSMEM": "2ea:20", "CC_VSPTR": "73a:480"})
+        "CC_VSMEM": "2ea:20", "CC_VSPTR": "73a:480"}, goal)
     return json.load(open(os.path.join(seq, "globals.json"))), seq
 
 
-def tangkap_rng(folder, obs, mode):
-    seq = _emu(folder, obs + "_rng", obs, mode, {
-        "CC_VRAMSEQ": "5035=%s:10" % os.path.join(folder, obs + "_rng"),
-        "CC_VSWORD": "71a,3b2,1e2e,1e30"})
+def tangkap_rng(folder, obs, mode, goal):
+    nm = "%s_rng_g%d" % (obs, goal)
+    seq = _emu(folder, nm, obs, mode, {
+        "CC_VRAMSEQ": "5035=%s:10" % os.path.join(folder, nm),
+        "CC_VSWORD": "71a,3b2,1e2e,1e30"}, goal)
     G = json.load(open(os.path.join(seq, "globals.json")))
     r = G[-1]
     return r["w71a"], r["w1e2e"], r["w1e30"]
@@ -118,20 +125,21 @@ def cek(nama, dapat, harap):
     print("    %-30s %7s/%-7s %s" % (nama, dapat, harap, "OK" if ok else "GAGAL"))
 
 
-def uji_mode(folder, nama, obs, mode, off, isi, isiz, ada_strip, arc):
+def uji_mode(folder, nama, obs, mode, off, isi, isiz, ada_strip, arc, goal=GOAL):
     g, m, mi, an, cs = arc
-    G, seq = tangkap_layar(folder, obs, mode, off)
+    nama = "%s goal %d" % (nama, goal)
+    G, seq = tangkap_layar(folder, obs, mode, off, goal)
     if not G:
         print("  %s: emulator tidak mencapai titik tangkap" % nama)
         gagal.append(nama)
         return
     r0 = G[0]
     ref = muat(os.path.join(seq, "f%04d.png" % r0["frame"]))
-    seed, lastgoal, lastvar = tangkap_rng(folder, obs, mode)
+    seed, lastgoal, lastvar = tangkap_rng(folder, obs, mode, goal)
     print("  %s  (seed=%04x lastgoal=%d lastvar=%d)" % (nama, seed, lastgoal, lastvar))
 
     var, _p, fb, _pil = adegan.susun_lengkap(
-        GOAL, g, m, mi, an, cs, seed=seed, mode=mode, sub=GOAL,
+        goal, g, m, mi, an, cs, seed=seed, mode=mode, sub=goal,
         isi=isi, isi_zany=isiz, nbola=r0["w718"],
         lastgoal=lastgoal, lastvar=lastvar, lvl=1)
     k = rend.KanvasFB(fb)
@@ -144,7 +152,7 @@ def uji_mode(folder, nama, obs, mode, off, isi, isiz, ada_strip, arc):
         palet.drawpal(k, r0["w51c"],
                       lambda i: (m, base[idtab[i]]), r0["w3ac"])
     if mode == 4:
-        hud.timedrw(k, r0["w7ee"], 4, r0["w718"], GOAL)
+        hud.timedrw(k, r0["w7ee"], 4, r0["w718"], goal)
 
     beda = sum(1 for y in range(200) for x in range(320) if fb[y][x] != ref[y][x])
     cek("SELURUH LAYAR", 64000 - beda, 64000)
@@ -163,9 +171,9 @@ def uji_interaktif(folder, arc):
     from cc.core import palet as _pal
     import main as portmain
 
-    G, seq = tangkap_layar(folder, "fillmech", 2, "3c4e")
+    G, seq = tangkap_layar(folder, "fillmech", 2, "3c4e", GOAL)
     ref = muat(os.path.join(seq, "f%04d.png" % G[0]["frame"]))
-    seed, lastgoal, lastvar = tangkap_rng(folder, "fillmech", 2)
+    seed, lastgoal, lastvar = tangkap_rng(folder, "fillmech", 2, GOAL)
 
     pygame.init()
     asli = _pal.penunjuk
@@ -205,7 +213,8 @@ def main(folder):
     arc = (Archive(D + "/GRAPH"), Archive(D + "/MECHS"), Archive(D + "/MISC"),
            Archive(D + "/ANIMATE"), contrap.parse(D + "/CONTRAP"))
     for nama, obs, mode, off, isi, isiz, strip in KASUS:
-        uji_mode(folder, nama, obs, mode, off, isi, isiz, strip, arc)
+        for goal in SEMUA_GOAL:
+            uji_mode(folder, nama, obs, mode, off, isi, isiz, strip, arc, goal)
     print("  Fill in Mechanisms lewat JALUR PEMAIN")
     uji_interaktif(folder, arc)
     print("\n%s" % ("LAYAR BERMAIN IDENTIK DENGAN GAME ASLI (3 mode)"
