@@ -329,8 +329,31 @@ menaruh kursor di (22, 0), mencetak satu huruf lewat jalur yang sama, lalu
 membuang seluruh memori layar ke berkas. Hasilnya: **warna 3**, di x 0..5,
 y 176..182 — yang sekaligus mengonfirmasi barisnya dari arah yang berbeda.
 
+Hal yang sama berlaku untuk **bentuk hurufnya**: DOS menggambar dengan font ROM
+BIOS 8×8, bukan dengan font gim yang ada di DGROUP. Jadi satu program berisi
+DUA font, dipilih menurut jalur mana yang dipakai:
+
+| jalur | font | contoh |
+|---|---|---|
+| `text()` @0x6453 | tabel di DGROUP (milik gim) | menu, nama tujuan, `prompts` |
+| `printf()` @0x6a48 | ROM BIOS lewat DOS | "Mechanism A does not work." |
+
 > **Pelajaran umum.** Kalau sebuah nilai ditentukan oleh SISTEM dan bukan oleh
-> program, membaca programnya lebih teliti tidak akan pernah menjawabnya.
+> program, membaca programnya lebih teliti tidak akan pernah menjawabnya. Yang
+> menjawabnya adalah menjalankan sistem itu dan mengukur hasilnya.
+
+Satu lagi yang mudah terlewat, dan bukan soal tampilan melainkan **aturan
+main**: gim tidak pernah menolak part yang salah saat diletakkan. Satu-satunya
+tempat jawaban diperiksa adalah `animvm` — yaitu ketika kontraption
+**dijalankan**:
+
+```c
+if (ord1[c1] != rec1[3 * c1 + 2]) { failed = -1; zcnt++; printf(msgmech, ...); }
+```
+
+Tidak ada pemeriksaan di `pickloop`/`review` sama sekali. Jadi rasa permainannya
+memang "aku baru tahu salah setelah menekan tombol jalan" — dan itu bagian dari
+rancangannya, bukan kelalaian.
 
 **⚠ Pemulihan tanda punya DUA ambang, dan keduanya benar di tempatnya:**
 

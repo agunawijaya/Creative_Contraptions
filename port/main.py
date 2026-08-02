@@ -485,10 +485,9 @@ class Game:
             # try again." (@0xa5d) -- yang dipakai `prompts()` untuk kasus
             # gagal. "ESC = keep building" itu karangan port.
             k = _rend.KanvasSurface(fb, pygame)
-            k.teks(_hud.pesan_salah(
+            _hud.gambar_pesan(k, _hud.pesan_salah(
                 self.slots[self.anim_fail]["arch"] == "GRAPH",
-                0x41 + self.anim_fail),
-                _hud.PESAN_X, _hud.PESAN_Y, _hud.PESAN_WARNA)
+                0x41 + self.anim_fail))
             k.teks(_hud.teks(_hud.S_COBA), 0x28, 0xC0, 2)
         elif done and self.anim_from_play:           # MENANG
             # Pesan akhir goal memakai `prompts()` gim asli: teks, posisi, dan
@@ -886,11 +885,7 @@ class Game:
         # jalur yang bisa dijangkau harness. Jadi posisinya diturunkan dari
         # `prompts()`, yang menulis di baris yang sama.
         if self.message:
-            # Baris TERUKUR: `animvm` memanggil `f66fd(0x16, 0)` sebelum tiap
-            # pemeriksaan slot, dan itu set kursor teks ke baris 22 kolom 0
-            # (INT 10h AH=02h, terekam 11 kali = 11 slot). y = 22*8 = 176.
-            k.teks(self.message[:40], _hud.PESAN_X, _hud.PESAN_Y,
-                   _hud.PESAN_WARNA)
+            _hud.gambar_pesan(k, self.message)
 
     def _palette_strip(self, fb):
         """Strip pemilih part -- `drawpal()` gim asli, lewat cc/core/palet.py.
@@ -991,7 +986,14 @@ class Game:
                 return
             if self.timer is not None and self.timer <= 0:
                 return
+            # ⭐ Di sinilah gim memeriksa jawaban -- bukan saat part ditaruh.
+            # `animvm()` menyusuri slot berurutan; yang PERTAMA salah
+            # menghentikan animasi, menaikkan `zcnt`, dan mencetak pesannya.
+            # Slot yang masih KOSONG juga dihitung salah.
             wrong = [i for i, s in enumerate(self.slots) if s["filled"] != s["correct"]]
+            if wrong:
+                self.zcnt += 1              # animvm: zcnt++ di cabang salah
+                self.slots[wrong[0]]["tries"] += 1
             if not wrong:
                 # lengkap & benar -> MENANG. Penilaian mengikuti animvm.c case
                 # 0x10: SATU penilaian per kontraption dari `zcnt`, dan HANYA
@@ -1043,29 +1045,33 @@ class Game:
             self._place()
 
     def _place(self):
+        """Taruh part terpilih di kotak sekarang.
+
+        ⭐ SELALU BERHASIL, dan itu perbaikan kesetiaan. Port dulu MENOLAK part
+        yang salah di tempat dan langsung bilang "does not work" -- padahal gim
+        menerima apa pun yang ditaruh dan baru memberi tahu saat kontraption
+        DIJALANKAN. Satu-satunya tempat gim memeriksa jawaban adalah `animvm()`:
+
+            if (ord1[c1] != rec1[3 * c1 + 2]) { ...; zcnt++; printf(msgmech); }
+
+        Tidak ada pemeriksaan di `pickloop()`/`review()` sama sekali. Jadi
+        seluruh ketegangan mode ini -- "aku baru tahu salah setelah dijalankan"
+        -- hilang di port lama.
+
+        `zcnt` juga ikut pindah: ia dinaikkan saat MENJALANKAN, bukan saat
+        menaruh, karena di gim `animvm` yang menaikkannya.
+        """
         s = self.slots[self.cur_slot]
         if s["filled"] is not None:
             return
-        pname, pids, parch, pidx = self.palette[self.cur_part]
-        if s["correct"] in pids:          # mech: cocok by-KATEGORI; zany: id eksak
-            s["filled"] = s["correct"]    # simpan id jawaban
-            if pidx >= 0:
-                s["sprite"] = pidx        # tempatkan gambar EKSAK yg tampil di palet
-            self.message = ""          # gim diam kalau jawabannya benar
-            empties = [i for i, sl in enumerate(self.slots) if sl["filled"] is None]
-            if empties:
-                self.cur_slot = empties[0]
-            else:
-                self.message = ""      # `prompts()` yang menulis "GREAT!"
-        else:
-            # `zcnt` @0x7e6 = penghitung kesalahan untuk SELURUH kontraption.
-            # Skornya dihitung SEKALI di akhir goal dari angka ini, bukan
-            # per kotak -- lihat cc/core/hud.py:skor_akhir().
-            self.zcnt += 1
-            s["tries"] += 1
-            self.message = _hud.pesan_salah(
-                self.slots[self.cur_slot]["arch"] == "GRAPH",
-                0x41 + self.cur_slot)
+        _nm, pids, _arch, pidx = self.palette[self.cur_part]
+        s["filled"] = pids[0]              # apa pun yang dipilih, diterima
+        if pidx >= 0:
+            s["sprite"] = pidx
+        self.message = ""                  # gim DIAM saat part ditaruh
+        empties = [i for i, sl in enumerate(self.slots) if sl["filled"] is None]
+        if empties:
+            self.cur_slot = empties[0]
 
     # ---------- input ----------
     def key(self, k):

@@ -299,6 +299,10 @@ class KanvasFB:
             for xx in range(max(0, x0), min(x1 + 1, W)):
                 baris[xx] ^= c
 
+    def piksel(self, x, y, c):
+        if 0 <= x < W and 0 <= y < H:
+            self.fb[y][x] = c
+
 
 class KanvasSurface:
     """Kanvas di atas pygame.Surface, untuk menggambar LANGSUNG ke layar.
@@ -337,6 +341,10 @@ class KanvasSurface:
                             if 0 <= tx < W:
                                 self.surf.set_at((tx, ty), warna)
             cx += 8 * skx
+
+    def piksel(self, x, y, c):
+        if 0 <= x < W and 0 <= y < H:
+            self.surf.set_at((x, y), self._w(c))
 
     def blit(self, arc, rec, x, y):
         self.surf.blit(sprite_surface(arc, rec, self.pygame), (x, y))

@@ -103,6 +103,20 @@ PESAN_X = 0
 PESAN_WARNA = 3
 
 
+def gambar_pesan(k, teks):
+    """Gambar pesan bergaya `printf` di baris, kolom, dan warna TERUKUR.
+
+    Memakai font ROM BIOS kalau bundelnya ada (`python port/import_romfont.py`)
+    -- itulah yang dipakai gim, karena teksnya keluar lewat DOS. Kalau belum
+    diekstrak, jatuh ke font gim: terlihat sedikit berbeda, dan itu memang
+    dilaporkan apa adanya, bukan disamarkan.
+    """
+    from . import dosfont
+    teks = teks[:40]
+    if not dosfont.gambar(k, teks, PESAN_X, PESAN_Y, PESAN_WARNA):
+        k.teks(teks, PESAN_X, PESAN_Y, PESAN_WARNA)
+
+
 def pesan_salah(zany, huruf):
     """Teks gim untuk part yang salah taruh. -> string siap gambar.
 

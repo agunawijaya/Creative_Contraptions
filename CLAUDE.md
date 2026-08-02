@@ -287,6 +287,13 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   di level 1, jadi selama ini tak terjangkau. Dua nilai awalnya ternyata salah
   di port: `lvl6` mulai dari `nmax` (bukan 0) dan `range` DIACAK tiap
   kontraption (`tx - (rnd(200)*0x17/199 + 2)`), bukan dipatok `0x140 - 0x14`.
+- ⭐ **PART SALAH BARU KETAHUAN SAAT DIJALANKAN** (2026-08-02). Port dulu
+  MENOLAK part yang salah di tempat dan langsung bilang "does not work". Gim
+  menerima apa pun yang ditaruh; satu-satunya tempat yang memeriksa adalah
+  `animvm()` (`if (ord1[c1] != rec1[3*c1+2]) { zcnt++; printf(msgmech); }`) —
+  tidak ada pemeriksaan di `pickloop()`/`review()` sama sekali. Jadi seluruh
+  ketegangan mode ini hilang di port lama. `zcnt` ikut pindah ke saat
+  dijalankan, karena `animvm` yang menaikkannya.
 - ⭐ **SEMUA TEKS ANTARMUKA dari DGROUP** (2026-08-02). Port mengarang sembilan
   kalimat; tak satu pun ada di gim. Dan di gim baris pesan itu KOSONG saat
   bermain. Yang benar mis. `'       Mechanism %c does not work.'` @0x9dd —
@@ -360,8 +367,15 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
    (mode 4 → kursor (22,0) → cetak lewat AH=02h → buang 16 KB VRAM ke berkas),
    dijalankan headless di DOSBox-X. Hasil: 28 piksel, semuanya **warna 3**, di
    **x 0..5, y 176..182** — sekaligus KONFIRMASI INDEPENDEN atas barisnya.
-   ⚠ Bentuk GLYPH-nya tetap berbeda: DOS memakai font ROM BIOS, port memakai
-   font gim. Font ROM bukan bagian dari gim dan tidak ikut didistribusikan.
+   ⭐ BENTUK GLYPH-nya JUGA sudah ditutup. Font ROM BIOS diekstrak dgn teknik
+   PROBE yang sama (`python port/import_romfont.py`: cetak ASCII 32..126 di
+   mode 4, buang VRAM, dekode 95 sel 8x8) ke `port/cc/data/romfont.bin` —
+   di-.gitignore, sama seperti aset gim: **yang ikut ke git PENGEKSTRAKNYA,
+   bukan hasilnya**. `cc/core/dosfont.py` memuatnya; kalau belum diekstrak,
+   port jatuh ke font gim dan itu dikatakan apa adanya.
+   Diuji `python work/test_dosteks.py`: pesan gim sungguhan
+   `"       Mechanism A does not work."` dirender port lalu diadu dgn hasil DOS
+   di layar yang sama — **64.000/64.000 piksel**.
 8. ~~Sisa pemakaian tangkapan (`review_layout.json`, `icons/`)~~ — **SELESAI**,
    dan catatan lama itu memang sudah basi. Dibuktikan `work/test_mandiri.py`:
    `builtins.open` dan `pygame.image.load` dibungkus supaya SETIAP pembacaan

@@ -66,6 +66,13 @@ di dalam kotak yang berkedip, bukan di strip bawah layar.
 Berwaktu. Berskor. Kedua jenis part hilang sekaligus, dan **sebagian part yang
 ditawarkan memang salah.** Ini mode yang membuat orang mengulang.
 
+Satu hal berlaku di semua mode dan patut disebut, karena ia yang membentuk rasa
+permainannya: **game tidak pernah menghentikanmu saat kamu salah menaruh.**
+Kamu boleh mengisi seluruh papan dengan part yang keliru dan game diam saja.
+Kesalahan baru terungkap ketika kamu menekan tombol jalan — bola bergulir,
+berhenti di kotak yang salah, dan barulah muncul *"Mechanism A does not
+work."*. Menebak itu murah; menjalankan yang mahal.
+
 Dan ia bukan satu kontraption, melainkan **rentetan**. Kamu tidak memilih tujuan di
 sini: keenam kontraption datang berurutan, satu demi satu, dengan skor yang terus
 menumpuk. Di tingkat *Master Builder* rentetan itu berhenti sesudah kontraption keenam;
