@@ -906,15 +906,74 @@ def hook_2e90(uc, addr, size, user):        # skip penempatan part -> 0x2e8=0 (!
 # SP+10. Kita tulis nilai mustahil ke ord1[0] supaya cabang salahnya diambil.
 SALAH = os.environ.get("CC_SALAH") == "1"
 
+# CC_NOWAIT=1 -- stub `waitn()` @0x2B11 (35 byte) supaya langsung kembali.
+#
+# `animvm()` dibuka gelung "jam pasir" `for(;;) { waitn(0x10); ... }` yang
+# menunggu `ticks` habis. `ticks` dihitung mundur ISR timer, dan ISR itu tidak
+# berjalan di emulator ini -- jadi gelungnya TAK PERNAH selesai dan animvm
+# tidak pernah sampai ke gelung utamanya. Terlihat sebagai 2,1 juta penulisan
+# yang semuanya di offset kode 0x18db..0x19a1.
+#
+# Itulah sebab sebenarnya "printf tak pernah terpanggil" -- bukan karena
+# cabangnya tak terjangkau, melainkan karena eksekusinya berhenti jauh
+# sebelum sampai ke sana.
+NOWAIT = os.environ.get("CC_NOWAIT") == "1"
+sudah_main = [False]          # True sesudah animvm dipanggil dari jalur BERMAIN
 
+
+def hook_waitn(uc, addr, size, user):
+    """Stub `waitn()` -- TAPI harus juga menol-kan `ticks` @0x2e4.
+
+    Sekadar `force_ret_near()` TIDAK cukup, dan itu percobaan pertama yang
+    gagal: gelung pembukanya berbentuk
+
+        for (;;) { waitn(0x10); ...; if (ticks <= 0) break; keyhit(); }
+
+    jadi yang menghentikannya `ticks`, bukan kembalinya `waitn`. Dengan waitn
+    dikembalikan seketika tapi `ticks` tetap > 0, gelungnya cuma berputar
+    LEBIH CEPAT -- terlihat sebagai 2,7 juta penulisan yang semuanya di
+    offset kode 0x194d..0x1966.
+    """
+    if NOWAIT:
+        uc.mem_write(DGROUP * 16 + 0x2e4, struct.pack("<h", 0))
+        force_ret_near()
+
+
+# Sasarannya `recB[2]` @0x41e+4 -- jenis yang DIMINTA slot mekanisme pertama.
+# ⚠ Percobaan pertama memoke `ord1[0]`, dan itu keliru: `ord1` argumen yang
+# menunjuk lokal main_ di STACK, dan hook lain di alamat yang sama sudah
+# memanggil force_ret_near() sehingga SP sudah bergeser saat kita membacanya
+# (terbaca "ord1 @0007"). `recB` global, jadi alamatnya pasti.
+#
+# Poke-nya dilakukan SESUDAH papan digambar (animvm dipanggil belakangan),
+# jadi ia hanya membelokkan perbandingan `ord1[c1] != rec1[3*c1+2]`.
 def hook_18db_salah(uc, addr, size, user):
-    if not SALAH:
+    """Paksa jawaban slot mekanisme pertama SALAH, lewat `ord1`.
+
+    ⚠ Memoke `recB[2]` (sisi kanan perbandingan) TIDAK bekerja: `ord1` diisi
+    dari sumber yang sama, jadi kedua sisi berubah bersamaan dan
+    `ord1[c1] != rec1[3*c1+2]` tetap salah. Terukur: gelung berjalan penuh 11
+    slot tanpa satu pun menulis `zcnt`.
+
+    Yang benar memoke `ord1` -- argumen ke-5. Saat masuk fungsi, SS:SP+0 alamat
+    balik dan tiap argumen dua byte, jadi `ord1` di SP+10. Model SMALL: SS = DS
+    = DGROUP, jadi penunjuknya offset DGROUP biasa.
+    """
+    if not SALAH or not sudah_main[0]:
         return
     ssg = uc.reg_read(UC_X86_REG_SS)
     spx = uc.reg_read(UC_X86_REG_SP)
-    ord1 = struct.unpack_from("<H", bytes(uc.mem_read(ssg * 16 + spx + 10, 2)), 0)[0]
-    uc.mem_write(DGROUP * 16 + ord1, struct.pack("<H", 0x7FFF))
-    print("  [salah] ord1[0] @%04x dipaksa 0x7fff" % ord1)
+    arg = [struct.unpack_from("<H", bytes(uc.mem_read(ssg * 16 + spx + 2 * i, 2)), 0)[0]
+           for i in range(11)]
+    print("  [salah] stack di entry: %s" % " ".join("%d:%04x" % (i, v)
+                                                    for i, v in enumerate(arg)))
+    print("          global: state=04f2 recB=041e recC=04b6")
+    # ord1 = argumen ke-5 -> slot 5 kalau slot 0 alamat balik
+    tgt = int(os.environ.get("CC_SALAH_SLOT", "5"))
+    ptr = arg[tgt]
+    lama = struct.unpack_from("<H", bytes(uc.mem_read(DGROUP * 16 + ptr, 2)), 0)[0]
+    uc.mem_write(DGROUP * 16 + ptr, struct.pack("<H", 0x7FFF))
+    print("  [salah] slot %d -> @%04x : %d -> 0x7fff" % (tgt, ptr, lama))
 
 
 def hook_18db_entry(uc, addr, size, user):  # mulai capture pada 18db pertama
@@ -928,6 +987,7 @@ def hook_18db_entry(uc, addr, size, user):  # mulai capture pada 18db pertama
     if not inplay[0]:
         force_ret_near()                    # lewati 18db attract (loop tak berujung)
         return
+    sudah_main[0] = True
     if not started[0]:
         print("  [nav] 18db PLAY start capture")
         started[0] = True
@@ -1103,6 +1163,7 @@ hooks = [(0x5035, hook_5035), (0x5a5b, hook_5a5b), (0x1791, hook_input), (0x1814
          (0x2822, hook_278e_vframe)]
 hooks.append((0x6869, hook_flip))
 hooks.append((0x18db, hook_18db_salah))
+hooks.append((0x2b11, hook_waitn))
 if _TW:
     hooks.insert(0, (_TW_A, hook_tw_masuk))
 if _VRAMSEQ:

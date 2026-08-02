@@ -331,15 +331,24 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
    SEMUA `rnd()` di dalam `loadcon` sehingga gelung do/while itu tak berujung
    (gejalanya "0 frame"). Yang benar: BACA seed @0x71a, lastgoal @0x1e2e, dan
    lastvar @0x1e30 dari memori gim.
-7. **Pesan DALAM permainan: sudah sejauh yang bisa diukur.** Yang TERUKUR:
-   string-nya (DGROUP @0x9dd/@0xa01, lengkap dgn tujuh/enam spasi depan),
-   barisnya (y 192..199), dan warnanya (2) — `prompts()` menulis di sana dan
-   diadu 64.000/64.000. Yang TIDAK BISA diukur: penempatan glyph-nya, karena
-   emulator tidak merender teks DOS sama sekali (font ROM BIOS) dan `printf`
-   @0x6a48 terbukti tak terpanggil di jalur mana pun yang bisa dijangkau —
-   diperiksa dgn `CC_TRACEDOS=1` (nol peristiwa) dan `CC_SALAH=1` (memaksa
-   jawaban salah; printf tetap nol). Alamatnya sendiri dikonfirmasi
-   `libmatch.py` (cocok byte-per-byte dgn modul PRINTF MC.LIB).
+7. ~~Pesan DALAM permainan~~ — **TERUKUR** (2026-08-02), termasuk barisnya.
+   Yang dulu saya sebut "tidak bisa diukur" ternyata terhalang SATU hal di
+   harness sendiri: `animvm()` dibuka gelung "jam pasir"
+   `for(;;) { waitn(0x10); ...; if (ticks <= 0) break; }`, dan `ticks` dihitung
+   mundur ISR timer yang tidak berjalan di emulator — jadi eksekusi berhenti
+   jauh sebelum sampai ke `printf`. Terlihat sebagai 2,1 juta penulisan yang
+   SEMUANYA di offset kode 0x18db..0x19a1.
+   Saklar `CC_NOWAIT=1` menol-kan `ticks` di stub `waitn()`. ⚠ Sekadar
+   mengembalikan `waitn` seketika TIDAK cukup — gelungnya cuma berputar lebih
+   cepat; yang menghentikannya `ticks`, bukan kembalinya `waitn`.
+   Sesudah itu `CC_TRACEDOS=1` merekam **INT 10h AH=02h: set kursor ke
+   (baris 22, kolom 0), 11 kali** — dan `f66fd` @0x66fd, yang dipanggil
+   `animvm.c:219` sebagai `f66fd(0x16, 0)` di puncak gelung per-slot, juga
+   terpanggil tepat 11 kali (= 11 slot). Jadi baris pesannya **y = 176, x = 0**,
+   dan tujuh spasi depan `msgmech` menggeser katanya ke x = 56.
+   Port dibetulkan dari y = 192 ke y = 176.
+   ⚠ Yang MASIH belum terukur tinggal WARNA-nya: karakternya sendiri tak pernah
+   sampai ke INT 10h AH=0Eh, jadi atributnya tak terlihat. Dipakai 2.
 8. ~~Sisa pemakaian tangkapan (`review_layout.json`, `icons/`)~~ — **SELESAI**,
    dan catatan lama itu memang sudah basi. Dibuktikan `work/test_mandiri.py`:
    `builtins.open` dan `pygame.image.load` dibungkus supaya SETIAP pembacaan

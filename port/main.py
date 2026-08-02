@@ -487,7 +487,8 @@ class Game:
             k = _rend.KanvasSurface(fb, pygame)
             k.teks(_hud.pesan_salah(
                 self.slots[self.anim_fail]["arch"] == "GRAPH",
-                0x41 + self.anim_fail), 0x10, 0xB6, 2)
+                0x41 + self.anim_fail),
+                _hud.PESAN_X, _hud.PESAN_Y, _hud.PESAN_WARNA)
             k.teks(_hud.teks(_hud.S_COBA), 0x28, 0xC0, 2)
         elif done and self.anim_from_play:           # MENANG
             # Pesan akhir goal memakai `prompts()` gim asli: teks, posisi, dan
@@ -885,7 +886,11 @@ class Game:
         # jalur yang bisa dijangkau harness. Jadi posisinya diturunkan dari
         # `prompts()`, yang menulis di baris yang sama.
         if self.message:
-            k.teks(self.message[:36], 0x10, 0xC0, 2)
+            # Baris TERUKUR: `animvm` memanggil `f66fd(0x16, 0)` sebelum tiap
+            # pemeriksaan slot, dan itu set kursor teks ke baris 22 kolom 0
+            # (INT 10h AH=02h, terekam 11 kali = 11 slot). y = 22*8 = 176.
+            k.teks(self.message[:40], _hud.PESAN_X, _hud.PESAN_Y,
+                   _hud.PESAN_WARNA)
 
     def _palette_strip(self, fb):
         """Strip pemilih part -- `drawpal()` gim asli, lewat cc/core/palet.py.

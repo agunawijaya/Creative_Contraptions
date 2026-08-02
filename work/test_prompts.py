@@ -126,9 +126,46 @@ def uji_hintmark(folder):
     cek("mflag (syarat bonus bola)", p.mflag, b["w834"])
 
 
+def uji_baris_pesan(folder):
+    """Di baris mana keluaran `printf()` gim mendarat -- DIUKUR.
+
+    Dua hal harus dibuka dulu, dan keduanya sempat dikira "tak bisa":
+
+    1. `animvm()` dibuka gelung "jam pasir" `for(;;) { waitn(0x10); ... }`
+       yang berhenti pada `ticks <= 0`. `ticks` dihitung mundur ISR timer, dan
+       ISR itu tidak berjalan di emulator -- jadi eksekusi berhenti JAUH
+       sebelum sampai ke `printf`. Saklar `CC_NOWAIT=1` menol-kan `ticks` di
+       stub `waitn()`. (Sekadar mengembalikan `waitn` seketika TIDAK cukup:
+       gelungnya cuma berputar lebih cepat.)
+    2. keluaran teks DOS/BIOS dibuang diam-diam oleh emulator. `CC_TRACEDOS=1`
+       merekamnya, TERMASUK INT 10h AH=02h (set posisi kursor).
+
+    Hasilnya: 11 kali set kursor ke (baris 22, kolom 0), dan `f66fd` @0x66fd
+    -- yang dipanggil `animvm.c:219` sebagai `f66fd(0x16, 0)` di puncak gelung
+    per-slot -- juga terpanggil tepat 11 kali. 0x16 = 22, dan 11 = jumlah slot
+    kontraption. Jadi baris pesannya y = 22*8 = 176, x = 0.
+    """
+    import re
+    env = dict(os.environ)
+    env.update(CC_OUT=os.path.join(folder, "out_kursor"), OBSERVE="fillmech",
+               CC_NOWAIT="1", CC_TRACEDOS="1", CC_MAXINSN="300000000")
+    r = subprocess.run([sys.executable, os.path.join(AKAR, "work", "emu.py"),
+                        "1", "2"], env=env, cwd=AKAR,
+                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    keluar = r.stdout.decode("latin-1", "replace")
+    kursor = re.findall(r"kursor\s+\((\d+), (\d+)\)", keluar)
+    print("  baris pesan printf -- diukur lewat INT 10h AH=02h")
+    cek("jumlah set kursor", len(kursor), 11)
+    cek("posisi kursor (baris, kolom)",
+        sorted(set(kursor)), [("22", "0")])
+    cek("hud.PESAN_Y == baris * 8", hud.PESAN_Y, 22 * 8)
+    cek("hud.PESAN_X == kolom * 8", hud.PESAN_X, 0)
+
+
 def main(folder):
     uji_prompts(folder)
     uji_hintmark(folder)
+    uji_baris_pesan(folder)
     print("\n%s" % ("prompts() DAN hintmark() COCOK DENGAN GIM" if not gagal
                     else "GAGAL: %s" % ", ".join(gagal)))
     return 1 if gagal else 0

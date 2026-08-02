@@ -68,6 +68,25 @@ def teks(addr):
     return _str(addr)
 
 
+# ⭐ BARIS pesan `printf` -- TERUKUR, bukan diturunkan.
+#
+# `animvm()` memanggil `f66fd(0x16, 0)` di puncak gelung per-slot, dan `f66fd`
+# @0x66fd (modul keyio.asm) ternyata SET POSISI KURSOR TEKS: emulator merekam
+# INT 10h AH=02h dgn DH=22, DL=0 tepat 11 kali -- sama dgn 11 panggilan f66fd
+# untuk 11 slot kontraption.
+#
+# Jadi keluaran printf mendarat di baris teks 22, kolom 0:
+#     y = 22 * 8 = 176      x = 0
+# dan tujuh spasi depan `msgmech` menggeser katanya ke x = 56.
+#
+# ⚠ WARNANYA belum terukur: karakter-karakternya sendiri tidak pernah sampai ke
+# INT 10h AH=0Eh (keluaran teks DOS nol peristiwa), jadi atribut warnanya tak
+# terlihat. Dipakai 2, sama dgn teks gim lain di layar itu.
+PESAN_Y = 22 * 8
+PESAN_X = 0
+PESAN_WARNA = 2
+
+
 def pesan_salah(zany, huruf):
     """Teks gim untuk part yang salah taruh. -> string siap gambar.
 

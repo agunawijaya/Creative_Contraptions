@@ -304,6 +304,22 @@ boxes."* — panjangnya 35. Bahwa baris itu memang baris pesan bisa dibaca dari
 Menariknya syaratnya `sub == 1`: hanya kontraption **pertama** yang mendapat baris
 bersih itu. Bacaan yang paling masuk akal: itu baris instruksi untuk pemain baru.
 
+Tapi baris itu bukan satu-satunya. Pesan **dalam permainan** — *"Mechanism A does
+not work."* — keluar lewat `printf`, yaitu teks DOS di posisi kursor, dan
+kursornya diatur gim sendiri: `animvm` memanggil `f66fd(0x16, 0)` di puncak
+gelung per-slot, dan `f66fd` (`0x66FD`, modul `keyio.asm`) adalah **set posisi
+kursor teks**. `0x16` = baris 22, kolom 0 → **y = 176**.
+
+Jadi ada DUA baris teks yang berbeda, dan mudah tertukar:
+
+| dipakai | baris | ditulis oleh |
+|---|---|---|
+| pesan akhir goal (`GREAT!`, `Press SPACE BAR…`) | y = 192 | `text()` lewat `prompts` |
+| pesan salah taruh | y = 176 | `printf` di posisi kursor |
+
+Dan spasi di depan string itu bagian dari penempatannya: `msgmech` diawali
+**tujuh** spasi, jadi katanya mulai di x = 56 walau kursornya di kolom 0.
+
 **⚠ Pemulihan tanda punya DUA ambang, dan keduanya benar di tempatnya:**
 
 | jalur | ambang | fungsi |
