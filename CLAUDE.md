@@ -509,6 +509,43 @@ Ketiganya bukan "bug yang diketahui", melainkan bagian yang statusnya
    yang DIPOTONG 16 nada — alat ukur yang membatasi temuannya sendiri.
    Daftar frekuensi penuh kini ditulis ke `pit_hz.json`.
 
+### Celah keempat: RENTETAN enam ronde Contraption Mix Up (2026-08-02)
+
+Mode 4 bukan satu layar melainkan enam kontraption berurutan (`sub++`), dan
+hanya ronde PERTAMA yang pernah diadu. Menjangkau sisanya butuh tiga koreksi
+harness, semuanya bukan emulator:
+
+- `hook_58c9` menghentikan emulasi tepat sesudah animasi ronde pertama —
+  kini patuh `CC_NOSTOP=1`;
+- urutan tombol OBSERVE bawaan diakhiri **ESC**, dan ESC MEMBATALKAN ronde,
+  jadi mode 4 dimasuki ulang dan `sub` selalu kembali ke 1. Yang benar:
+  `pickloop()` @0x2E90 — SPACE di dalam `review()` mengembalikan
+  `cur | 0x8000` (nilai NEGATIF, itu yang keluar dari gelung), lalu SPACE
+  KEDUA dibaca `clrbot()` (case 0x20 → jalan). Panah tidak dipakai: mengubah
+  pilihan berarti part benar-benar DITARUH;
+- tanpa `CC_NOWAIT` animasi ronde pertama tak pernah selesai.
+
+⭐ **BUG KETIGA.** `setmark()` mengembalikan DUA daftar tanda; port memakai
+yang zany dan MEMBUANG yang mekanisme. Padahal `fillans.c` baris 46:
+`if (lvl3 == 3 && markf[i] != 0) tt[i] = b[rnd(nmech) * 0xc];` — di Mix Up
+slot mekanisme bertanda mendapat id ACAK. Ronde 4 dan 6 meleset 369 dan 606
+piksel.
+
+⚠ Rantai undiannya justru COCOK 16/16 sejak awal — yang salah PEMAKAIANNYA,
+bukan undiannya. Alat yang membuktikannya baru: **`CC_RNDLOG`**, pencatat
+tiap panggilan `rnd()` berikut alamat pemanggilnya (formatnya persis yang
+sudah lama ditunggu `pick.uji_log()`, tapi belum pernah ada penghasilnya).
+Ia menunjuk tepat ke `rnd(13)` dari 0x14FC di dalam `fillans`.
+
+⚠ Perbaikannya perlu DUA hal sekaligus: memodelkan undian `mkpal` di dalam
+`fillans`, DAN memakai direktori PENUH sebagai `base` di mode 4
+(`loadarc(..., lvl3 == 1 ? 0 : 1, ...)`) — id acaknya diambil dari `base`,
+dan di tabel tersaring id itu sering tidak ada. Memodelkan hanya yang pertama
+justru MEMPERBURUK angkanya; itu petunjuk bagus bahwa penjelasannya belum
+lengkap, dan alasan kenapa "angka membaik" bukan bukti.
+
+→ enam ronde **384.000/384.000 piksel**; `test_play.py` kini 20 kasus.
+
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
 
 - **Sprite di-render OPAQUE, bukan colorkey cyan.** Blitter asli `672f` menulis semua piksel;

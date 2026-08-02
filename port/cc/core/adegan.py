@@ -305,10 +305,11 @@ def susun_lengkap(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
     # rantai RNG-nya; yang membuktikannya mode 4, di mana semuanya tampak.
     n_slot = len(var["zany"]) + len(var["mech"])
     mark_zany = None
+    mark_mech = None
     if mode == 3:
         _mk, mark_zany, _c, _z = pick.setzany(r, n_slot, var["state"])
     elif mode == 4:
-        _mk, mark_zany, _c = pick.setmark(r, n_slot, var["state"], lvl)
+        mark_mech, mark_zany, _c = pick.setmark(r, n_slot, var["state"], lvl)
     # `lvl2`: 2 di Mix Up, dan di mode isian 1 (Apprentice) / 2 (Master).
     lvl2 = 2 if mode == 4 else (1 if lvl == 1 else 2)
 
@@ -316,8 +317,16 @@ def susun_lengkap(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
     tz = pick.tabel(graph, jz)
     selz = pick.pickpart(r, tz, jz, sub=goal, mark=mark_zany, lvl2=lvl2)
     jm = [t for (y, x, t) in var["mech"]]
-    tm = pick.tabel(mechs, jm)
-    selm = pick.fillans(tm, jm)
+    # ⚠ `loadarc(mechfh, base, lvl3 == 1 ? 0 : 1, ...)`: di mode isian `base`
+    # adalah direktori yang DISARING + DIPADATKAN, di Contraption Mix Up
+    # direktori PENUH. Bedanya baru terasa sesudah slot mekanisme BERTANDA
+    # dimodelkan: id acaknya diambil dari `base`, dan kalau `base` tersaring
+    # id itu sering tidak ada di sana sama sekali.
+    tm = mechs.recs if mode == 4 else pick.tabel(mechs, jm)
+    # ⭐ Di Mix Up slot mekanisme BERTANDA mendapat id ACAK (fillans.c baris
+    # 46). Daftar tanda mekanisme dulu dibuang di sini -- lihat pick.fillans().
+    selm = (pick.fillans(tm, jm, rng=r, mark=mark_mech, lvl3=3, base=tm)
+            if mode == 4 else pick.fillans(tm, jm))
 
     # `sub` = nomor goal. Ia menentukan strip cyan di dasar layar:
     #     if (sub == 1 && mode != 0 && mode != 1)

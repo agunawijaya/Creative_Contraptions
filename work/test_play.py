@@ -170,6 +170,72 @@ def uji_mode(folder, nama, obs, mode, off, isi, isiz, ada_strip, arc, goal=GOAL)
     cek("SELURUH LAYAR", 64000 - beda, 64000)
 
 
+# Urutan tombol yang benar-benar MENYELESAIKAN satu ronde Mix Up.
+# `pickloop()` @0x2E90: ENTER memajukan slot tanpa mengubah pilihan, SPACE di
+# dalam `review()` mengembalikan `cur | 0x8000` -- nilai NEGATIF, jadi ia yang
+# keluar dari gelung -- lalu SPACE kedua dibaca `clrbot()` (case 0x20 -> jalan).
+# ⚠ ESC (0x1b) MEMBATALKAN ronde; urutan OBSERVE bawaan diakhiri ESC, dan
+# itulah sebabnya `sub` @0x3b2 dulu tak pernah lewat dari 1: tiap ronde
+# dibatalkan, mode 4 dimasuki lagi, `sub = 0` lalu `sub++`.
+# ⚠ Panah TIDAK dipakai: mengubah pilihan berarti part benar-benar DITARUH,
+# dan layar awal ronde berikutnya jadi tidak lagi keadaan awal.
+TOMBOL_RONDE = ",".join((["0d"] * 3 + ["20", "20"]) * 10)
+
+
+def uji_mixup_rentetan(folder, arc):
+    """KEENAM ronde Contraption Mix Up, bukan hanya yang pertama.
+
+    Mode 4 adalah RENTETAN: `main_.c` case 4 memasang `sub = 0; goal = 6;`
+    lalu `sub++` tiap putaran. Lima kontraption sesudah yang pertama dulu tak
+    pernah bisa diadu -- `hook_58c9` menghentikan emulasi tepat sesudah
+    animasi ronde pertama. `CC_NOSTOP=1` kini membiarkannya jalan terus.
+
+    Dua lari (emulatornya deterministik): satu membaca keadaan RNG di tiap
+    `loadcon()`, satu menangkap layarnya. Dipasangkan lewat `sub` yang
+    dicatat KEDUANYA -- bukan lewat urutan, karena `drawpal()` bisa terpanggil
+    lebih dari sekali per ronde.
+    """
+    g, m, mi, an, cs = arc
+    env = dict(CC_NOSTOP="1", CC_NOWAIT="1", CC_OBSKEYS=TOMBOL_RONDE)
+    seqS = _emu(folder, "mixup_rentetan", "mixup", 4, dict(
+        env, CC_VRAMSEQ="3c4e=%s:8" % os.path.join(folder, "mixup_rentetan"),
+        CC_VSWORD="3ac,51c,738,718,7ee,3b2,730,732",
+        CC_VSMEM="2ea:20", CC_VSPTR="73a:480"))
+    seqL = _emu(folder, "mixup_ronde_rng", "mixup", 4, dict(
+        env, CC_VRAMSEQ="5035=%s:12" % os.path.join(folder, "mixup_ronde_rng"),
+        CC_VSWORD="71a,3b2,1e2e,1e30,718"))
+    S = json.load(open(os.path.join(seqS, "globals.json")))
+    L = json.load(open(os.path.join(seqL, "globals.json")))
+    uniq = []
+    for r in S:                       # drawpal bisa >1x per ronde: ambil yang pertama
+        if not uniq or uniq[-1]["w3b2"] != r["w3b2"]:
+            uniq.append(r)
+    per_off = {r["off"]: r for r in m.recs}
+    for i, r0 in enumerate(uniq[:6]):
+        lc = L[i + 1]
+        sub = r0["w3b2"]
+        if lc["w3b2"] != sub:         # penjajaran DIPERIKSA, bukan diasumsikan
+            gagal.append("ronde %d: sub loadcon %d != layar %d"
+                         % (i, lc["w3b2"], sub))
+            continue
+        skor = r0["w730"] | (r0["w732"] << 16)
+        ref = muat(os.path.join(seqS, "f%04d.png" % r0["frame"]))
+        var, _p, fb, _pil = adegan.susun_lengkap(
+            sub, g, m, mi, an, cs, seed=lc["w71a"], mode=4, sub=sub,
+            isi=True, isi_zany=True, nbola=r0["w718"],
+            lastgoal=lc["w1e2e"], lastvar=lc["w1e30"], lvl=1)
+        k = rend.KanvasFB(fb)
+        idtab = bytes.fromhex(r0["mem2"])
+        base = (base_gim(bytes.fromhex(r0["mem"]), m)
+                if r0["w738"] == 1 else m.recs)
+        palet.drawpal(k, r0["w51c"], lambda j: (m, base[idtab[j]]), r0["w3ac"])
+        hud.timedrw(k, r0["w7ee"], 4, r0["w718"], sub)
+        hud.judul_atau_skor(k, 4, sub, skor)
+        beda = sum(1 for y in range(200) for x in range(320)
+                   if fb[y][x] != ref[y][x])
+        cek("Mix Up ronde sub=%d (skor %d)" % (sub, skor), 64000 - beda, 64000)
+
+
 def uji_interaktif(folder, arc):
     """Jalur PEMAIN SUNGGUHAN: main.Game + key(), bukan hanya modul inti.
 
@@ -227,9 +293,11 @@ def main(folder):
     for nama, obs, mode, off, isi, isiz, strip, goals in KASUS:
         for goal in goals:
             uji_mode(folder, nama, obs, mode, off, isi, isiz, strip, arc, goal)
+    print("  Contraption Mix Up: RENTETAN enam ronde")
+    uji_mixup_rentetan(folder, arc)
     print("  Fill in Mechanisms lewat JALUR PEMAIN")
     uji_interaktif(folder, arc)
-    print("\n%s" % ("LAYAR BERMAIN IDENTIK DENGAN GAME ASLI (6 goal x 2 mode + Mix Up)"
+    print("\n%s" % ("LAYAR BERMAIN IDENTIK DENGAN GAME ASLI (6 goal x 2 mode + 6 ronde Mix Up)"
                     if not gagal else "GAGAL: %s" % ", ".join(gagal)))
     return 1 if gagal else 0
 

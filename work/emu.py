@@ -594,6 +594,41 @@ def hook_5035(uc, addr, size, user):
 # secara deterministik (bukan acak). VARIANT<0 = biarkan acak (perilaku asli).
 VARIANT = int(os.environ.get("VARIANT", "-1"))
 VTAG = "" if VARIANT < 0 else "_v%d" % VARIANT   # suffix output per-varian
+# CC_RNDLOG=<berkas> -- catat SETIAP panggilan `rnd()` @0x5A5B:
+#   "<seed sebelum heks> <n> <hasil> <alamat balik heks>"
+#
+# Format tiga kolom pertamanya persis yang ditunggu `pick.uji_log()`. Ada
+# karena "rantai RNG-nya benar" adalah klaim yang selama ini hanya bisa diuji
+# LEWAT PIKSEL: kalau satu slot meleset, tidak ada cara melihat undian KE
+# BERAPA yang berbeda. Ini melihatnya.
+#
+# Hasilnya dihitung ulang di sini, bukan dibaca dari AX, karena hook menyala
+# saat MASUK: `snd1.asm` melakukan seed = seed*0x3E85 + 0x3619 lalu
+# hasil = kata TINGGI dari n * seed_baru. `n` ada di [BX+2].
+_RNDLOG = os.environ.get("CC_RNDLOG")
+_rndlog_f = [None]
+
+
+def hook_rndlog(uc, addr, size, user):
+    if not _RNDLOG:
+        return
+    if _rndlog_f[0] is None:
+        _rndlog_f[0] = open(_RNDLOG, "w")
+    seed = struct.unpack_from(
+        "<H", bytes(uc.mem_read(DGROUP * 16 + 0x71a, 2)), 0)[0]
+    # ⚠ `n` dibaca lewat SP, BUKAN BX: `rnd:` @0x5A5B dibuka `MOV BX, SP`,
+    # jadi saat hook menyala BX belum berisi apa-apa. [SP] = alamat balik,
+    # [SP+2] = argumen.
+    _ss = uc.reg_read(UC_X86_REG_SS); _sp = uc.reg_read(UC_X86_REG_SP)
+    n = struct.unpack_from("<H", bytes(uc.mem_read(_ss * 16 + _sp + 2, 2)), 0)[0]
+    baru = (seed * 0x3E85 + 0x3619) & 0xFFFF
+    hasil = (n * baru) >> 16
+    ssg = uc.reg_read(UC_X86_REG_SS); spx = uc.reg_read(UC_X86_REG_SP)
+    reta = struct.unpack_from("<H", bytes(uc.mem_read(ssg * 16 + spx, 2)), 0)[0]
+    _rndlog_f[0].write("%04x %d %d %04x" % (seed, n, hasil, reta) + chr(10))
+    _rndlog_f[0].flush()
+
+
 def hook_5a5b(uc, addr, size, user):
     if VARIANT < 0:
         return
@@ -1176,7 +1211,14 @@ def hook_18db_entry(uc, addr, size, user):  # mulai capture pada 18db pertama
 
 def hook_58c9(uc, addr, size, user):        # dipanggil tepat setelah 18db play -> selesai
     if started[0]:
-        # dump & stop
+        # ⚠ Berhenti di sini berarti HANYA RONDE PERTAMA yang pernah terlihat.
+        # Itu tidak terasa di mode 2/3 (satu kontraption per pilihan goal),
+        # tapi Contraption Mix Up adalah RENTETAN enam ronde -- `main_.c`
+        # case 4 memasang `sub = 0; goal = 6;` lalu `sub++` tiap putaran.
+        # Dengan berhenti di ronde pertama, lima kontraption sisanya tak
+        # pernah bisa diadu. `CC_NOSTOP=1` membiarkannya jalan terus.
+        if NOSTOP:
+            return
         _dump_and_stop()
 
 def _dump_and_stop():
@@ -1369,7 +1411,8 @@ def hook_seed(uc, addr, size, user):
 
 _seed_done = [False]
 
-hooks = [(0x5035, hook_seed), (0x5035, hook_5035), (0x5a5b, hook_5a5b), (0x1791, hook_input), (0x1814, hook_input),
+hooks = [(0x5035, hook_seed), (0x5035, hook_5035),
+         (0x5a5b, hook_rndlog), (0x5a5b, hook_5a5b), (0x1791, hook_input), (0x1814, hook_input),
          (0x672f, hook_672f), (0x26ae, hook_ball),
          (0x1b13, hook_mechmatch), (0x1bcd, hook_zanymatch),
          (0x341a, hook_menu_mode), (0x32bb, hook_menu_level),

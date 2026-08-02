@@ -179,8 +179,26 @@ def mkpal(recs):
     return out
 
 
-def fillans(recs, jenis):
-    """`fillans()` @0x4b??: mekanisme TIDAK diundi. -> indeks record per slot.
+def fillans(recs, jenis, rng=None, mark=None, lvl3=1, base=None):
+    """`fillans()` @0x149D. -> indeks record per slot.
+
+    ⭐ "Mekanisme TIDAK diundi" hanya benar di mode 1/2/3. Di Contraption Mix
+    Up slot mekanisme yang BERTANDA justru mendapat id ACAK:
+
+        if (lvl3 == 3 && markf[i] != 0)  tt[i] = b[rnd(nmech) * 0xc];
+        else                             tt[i] = tq[i * 3 + 2];
+
+    dan `b` di situ `base` -- direktori record -- diindeks dgn `rnd(nmech)`,
+    yaitu cacah PALET, bukan cacah record. Ditiru apa adanya.
+
+    `setmark()` memang mengembalikan DUA daftar tanda; port dulu memakai yang
+    zany saja dan MEMBUANG yang mekanisme, jadi cabang ini tak pernah ada.
+    Terukur di Contraption Mix Up ronde 4 dan 6: satu petak slot meleset
+    (369 dan 606 piksel) sementara seluruh rantai undian justru COCOK 16/16 --
+    tanda bahwa yang salah pemakaiannya, bukan undiannya.
+
+    `mkpal()` dipanggil DI DALAM `fillans` dan ikut memakai RNG, jadi undian
+    `rnd(nmech)` di atas hanya benar kalau kocokan itu dimodelkan lebih dulu.
 
         for (j = 0; j < nmech; j++)
             if (b[tr[j] * 0xc] == tt[i]) { ans[i] = tr[j]; break; }
@@ -191,12 +209,22 @@ def fillans(recs, jenis):
     jenis 150 tidak akan pernah ketemu. Salah satu tempat di mana memakai
     ulang "fungsi yang mirip" akan diam-diam meleset.
     """
-    tr = mkpal(recs)
+    b = recs if base is None else base
+    if rng is None:
+        tr = mkpal(recs)                       # jalur lama, tanpa RNG
+        npal = len(tr)
+    else:
+        npal = len(palet_mekanisme(b, jenis, lvl3, rng))
+        tr = mkpal(recs)
     hasil = []
-    for t in jenis:
+    for i, t in enumerate(jenis):
+        cari = t
+        if (lvl3 == 3 and rng is not None and mark
+                and i < len(mark) and mark[i] and npal):
+            cari = b[rng.rnd(npal)]["id"]
         ketemu = None
         for j in tr:
-            if recs[j]["id"] == t:
+            if recs[j]["id"] == cari:
                 ketemu = j
                 break
         hasil.append(ketemu)
