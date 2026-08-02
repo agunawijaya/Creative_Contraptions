@@ -36,6 +36,7 @@ isi arena berasal dari undian.
 """
 import json
 import os
+import struct
 import subprocess
 import sys
 
@@ -57,6 +58,15 @@ GOAL = 1                      # goal untuk uji JALUR PEMAIN (satu saja, mahal)
 # terbukti dua kali bahwa satu jalur yang sama bisa meleset di kasus lain
 # (lihat catatan mode 3 vs mode 4 di kepala berkas). Sekarang keenamnya diadu.
 SEMUA_GOAL = (1, 2, 3, 4, 5, 6)
+# ⚠ SUMBU LEVEL. Selama ini SEMUA kasus di berkas ini berjalan di Apprentice
+# (`lvl=1`), dan itu bukan sekadar beda angka batas -- `lvl` mengubah JALAN
+# KODE:
+#   setmark():  lim = rnd(1) + (easy == 1 ? 1 : 3)   -> Master menandai lebih
+#               banyak slot, dan tiap tanda menggeser rantai undian sesudahnya
+#   pickpart(): lvl2 = 2 di Master, jadi mode 2 dan 3 ikut masuk cabang
+#               `lvl2 == 2 && mark[i]` -- cabang yang sebelumnya HANYA pernah
+#               dieksekusi lewat Contraption Mix Up
+SEMUA_LEVEL = (1, 2)                       # 1 = Apprentice, 2 = Master Builder
 
 # nama, OBSERVE, mode gim, offset tangkap, isi_mekanisme, isi_zany, ada strip,
 # goal yang diuji
@@ -76,19 +86,78 @@ KASUS = [
 gagal = []
 
 
+def tandai_petunjuk(k, var, r0, mode, lvl):
+    """Gambar ulang SATU huruf slot dgn warna `hintmark()` @0x4CD4.
+
+    Penanda ini hanya ada di mode 4 level Master, dan itu sebabnya ia tak
+    pernah terlihat sampai sumbu level disapu: `hintmark()` dibuka
+    `if (mode != 4 || lvl != 2) return;`.
+
+        na = postab[cur2].a ; nb = postab[cur2].b
+        col = 2 ; if (tx >= range) col = 0 ; if (tx == best) col = 0
+        text(&buf, nb, na, 1, 1, col)   ->  X = b, Y = a
+
+    `col` tidak dihitung ulang di sini melainkan DIBACA lewat `mflag` @0x834,
+    yang di gim disetel 1 tepat ketika `col == 0`. Alasannya sama seperti
+    `sub` dan `lvl`: keadaan yang bisa dibaca jangan ditebak.
+    """
+    if mode != 4 or lvl != 2:
+        return
+    pos = var.get("pos") or []
+    cur2 = r0.get("w7f8", -1)
+    if not (0 <= cur2 < len(pos)):
+        return
+    a, b = pos[cur2]
+    k.teks(chr(0x41 + cur2), b, a, 0 if r0.get("w834") else 2)
+
+
+def hapus_penanda_lama(k, r0, prev):
+    """Jejak penghapusan penanda RONDE SEBELUMNYA — artefak gim 1985.
+
+    `hintmark()` memindahkan penanda dgn menghapus huruf LAMA lebih dulu:
+
+        if (prev <= nmax) { buf = prev + 'A'; text(&buf, ob, oa, 1, 1, 3); }
+
+    Dua hal membuat ini terlihat, dan keduanya baru muncul saat sumbu LEVEL
+    dan RENTETAN RONDE disapu bersamaan:
+
+    1. `postab` @0x3b6 adalah array GLOBAL yang `loadcon()` hanya timpa
+       sebanyak entri kontraption yang sedang dimuat. Entri sisanya masih
+       berisi koordinat RONDE SEBELUMNYA.
+    2. Penjaganya `prev <= nmax`, bukan `<`. Jadi `prev == nmax` LOLOS dan
+       membaca entri yang sudah di luar jangkauan.
+
+    Terukur di ronde sub=4 Master: `prev` = 10 (cur2 ronde sebelumnya),
+    `nmax` = 10, dan `postab[10]` masih berisi (142, 90) dari ronde ke-3 --
+    tepat tempat huruf 'K' liar muncul di layar gim. Bukan tebakan: postab
+    hidupnya dibaca dari memori gim, dan `prev` dari tangkapan ronde
+    sebelumnya.
+    """
+    if prev is None:
+        return
+    if prev > r0.get("w3b4", 0):          # `prev <= nmax`, perhatikan <=
+        return
+    d = bytes.fromhex(r0.get("mem3") or "")
+    if len(d) < (prev + 1) * 4:
+        return
+    a, b = struct.unpack_from("<hh", d, prev * 4)
+    k.teks(chr(0x41 + prev), b, a, 3)
+
+
 def muat(p):
     im = Image.open(p).convert("RGB").load()
     return [[PALET[im[x, y]] for x in range(320)] for y in range(200)]
 
 
-def _emu(folder, nama, obs, mode, env_extra, goal=GOAL):
+def _emu(folder, nama, obs, mode, env_extra, goal=GOAL, level=1):
     seq = os.path.join(folder, nama)
     if os.path.isdir(seq) and os.path.exists(os.path.join(seq, "globals.json")):
         return seq
     print("  [emu] menangkap %s ..." % nama)
     env = dict(os.environ)
     env.update(CC_OUT=os.path.join(folder, "out_" + nama), OBSERVE=obs,
-               CC_NOSKIP="1", CC_MAXINSN="300000000", CC_OBSKEYS=TOMBOL)
+               CC_NOSKIP="1", CC_MAXINSN="300000000", CC_OBSKEYS=TOMBOL,
+               CC_LEVEL=str(level))
     env.update(env_extra)
     subprocess.run([sys.executable, os.path.join(AKAR, "work", "emu.py"),
                     str(goal), str(mode)], env=env, cwd=AKAR,
@@ -96,20 +165,24 @@ def _emu(folder, nama, obs, mode, env_extra, goal=GOAL):
     return seq
 
 
-def tangkap_layar(folder, obs, mode, off, goal):
-    nm = "%s_layar_g%d" % (obs, goal)
+def tangkap_layar(folder, obs, mode, off, goal, level=1):
+    nm = "%s_layar_g%d_l%d" % (obs, goal, level)
     seq = _emu(folder, nm, obs, mode, {
         "CC_VRAMSEQ": "%s=%s:2" % (off, os.path.join(folder, nm)),
-        "CC_VSWORD": "3ac,51c,738,718,7ee,3b2",
-        "CC_VSMEM": "2ea:20", "CC_VSPTR": "73a:480"}, goal)
+        # 734 = `lvl`. DIBACA, tidak dianggap sama dgn CC_LEVEL yang diminta --
+        # aturan yang sama seperti `sub` @0x3b2 di Contraption Mix Up.
+        # 7f8 = cur2 (slot yang ditandai hintmark), 834 = mflag (0 -> warna 2,
+        # 1 -> warna 0). Keduanya hanya hidup di mode 4 level Master.
+        "CC_VSWORD": "3ac,51c,738,718,7ee,3b2,734,7f8,834",
+        "CC_VSMEM": "2ea:20", "CC_VSPTR": "73a:480"}, goal, level)
     return json.load(open(os.path.join(seq, "globals.json"))), seq
 
 
-def tangkap_rng(folder, obs, mode, goal):
-    nm = "%s_rng_g%d" % (obs, goal)
+def tangkap_rng(folder, obs, mode, goal, level=1):
+    nm = "%s_rng_g%d_l%d" % (obs, goal, level)
     seq = _emu(folder, nm, obs, mode, {
         "CC_VRAMSEQ": "5035=%s:10" % os.path.join(folder, nm),
-        "CC_VSWORD": "71a,3b2,1e2e,1e30"}, goal)
+        "CC_VSWORD": "71a,3b2,1e2e,1e30,734"}, goal, level)
     G = json.load(open(os.path.join(seq, "globals.json")))
     r = G[-1]
     return r["w71a"], r["w1e2e"], r["w1e30"]
@@ -133,27 +206,32 @@ def cek(nama, dapat, harap):
     print("    %-30s %7s/%-7s %s" % (nama, dapat, harap, "OK" if ok else "GAGAL"))
 
 
-def uji_mode(folder, nama, obs, mode, off, isi, isiz, ada_strip, arc, goal=GOAL):
+def uji_mode(folder, nama, obs, mode, off, isi, isiz, ada_strip, arc, goal=GOAL,
+             level=1):
     g, m, mi, an, cs = arc
-    nama = "%s goal %d" % (nama, goal)
-    G, seq = tangkap_layar(folder, obs, mode, off, goal)
+    nama = "%s g%d %s" % (nama, goal,
+                          "Apprentice" if level == 1 else "Master")
+    G, seq = tangkap_layar(folder, obs, mode, off, goal, level)
     if not G:
         print("  %s: emulator tidak mencapai titik tangkap" % nama)
         gagal.append(nama)
         return
     r0 = G[0]
     ref = muat(os.path.join(seq, "f%04d.png" % r0["frame"]))
-    seed, lastgoal, lastvar = tangkap_rng(folder, obs, mode, goal)
+    seed, lastgoal, lastvar = tangkap_rng(folder, obs, mode, goal, level)
     # `sub` DIBACA dari gim, tidak dianggap sama dengan argumen goal -- di
     # Contraption Mix Up keduanya memang berbeda.
     sub = r0.get("w3b2", goal)
-    print("  %s  (seed=%04x sub=%d lastgoal=%d lastvar=%d)"
-          % (nama, seed, sub, lastgoal, lastvar))
+    lvl = r0.get("w734", level)            # DIBACA dari gim, bukan diasumsikan
+    if lvl != level:
+        gagal.append("%s: gim memakai lvl %d, diminta %d" % (nama, lvl, level))
+    print("  %s  (seed=%04x sub=%d lvl=%d lastgoal=%d lastvar=%d)"
+          % (nama, seed, sub, lvl, lastgoal, lastvar))
 
     var, _p, fb, _pil = adegan.susun_lengkap(
         sub, g, m, mi, an, cs, seed=seed, mode=mode, sub=sub,
         isi=isi, isi_zany=isiz, nbola=r0["w718"],
-        lastgoal=lastgoal, lastvar=lastvar, lvl=1)
+        lastgoal=lastgoal, lastvar=lastvar, lvl=lvl)
     k = rend.KanvasFB(fb)
     if not isi:
         rend.drawslot(k, [(y, x) for (y, x, _t) in var["mech"]])
@@ -165,6 +243,7 @@ def uji_mode(folder, nama, obs, mode, off, isi, isiz, ada_strip, arc, goal=GOAL)
                       lambda i: (m, base[idtab[i]]), r0["w3ac"])
     if mode == 4:
         hud.timedrw(k, r0["w7ee"], 4, r0["w718"], sub)
+    tandai_petunjuk(k, var, r0, mode, lvl)
 
     beda = sum(1 for y in range(200) for x in range(320) if fb[y][x] != ref[y][x])
     cek("SELURUH LAYAR", 64000 - beda, 64000)
@@ -182,7 +261,7 @@ def uji_mode(folder, nama, obs, mode, off, isi, isiz, ada_strip, arc, goal=GOAL)
 TOMBOL_RONDE = ",".join((["0d"] * 3 + ["20", "20"]) * 10)
 
 
-def uji_mixup_rentetan(folder, arc):
+def uji_mixup_rentetan(folder, arc, level=1):
     """KEENAM ronde Contraption Mix Up, bukan hanya yang pertama.
 
     Mode 4 adalah RENTETAN: `main_.c` case 4 memasang `sub = 0; goal = 6;`
@@ -196,14 +275,19 @@ def uji_mixup_rentetan(folder, arc):
     lebih dari sekali per ronde.
     """
     g, m, mi, an, cs = arc
+    tag = "Apprentice" if level == 1 else "Master"
     env = dict(CC_NOSTOP="1", CC_NOWAIT="1", CC_OBSKEYS=TOMBOL_RONDE)
-    seqS = _emu(folder, "mixup_rentetan", "mixup", 4, dict(
-        env, CC_VRAMSEQ="3c4e=%s:8" % os.path.join(folder, "mixup_rentetan"),
-        CC_VSWORD="3ac,51c,738,718,7ee,3b2,730,732",
-        CC_VSMEM="2ea:20", CC_VSPTR="73a:480"))
-    seqL = _emu(folder, "mixup_ronde_rng", "mixup", 4, dict(
-        env, CC_VRAMSEQ="5035=%s:12" % os.path.join(folder, "mixup_ronde_rng"),
-        CC_VSWORD="71a,3b2,1e2e,1e30,718"))
+    nmS = "mixup_rentetan_l%d" % level
+    nmL = "mixup_ronde_rng_l%d" % level
+    seqS = _emu(folder, nmS, "mixup", 4, dict(
+        env, CC_VRAMSEQ="3c4e=%s:8" % os.path.join(folder, nmS),
+        CC_VSWORD="3ac,51c,738,718,7ee,3b2,730,732,734,7f8,834,3b4",
+        # 3b6 = postab HIDUP milik gim, 12 entri -- termasuk entri di LUAR
+        # jangkauan kontraption ini. Lihat `hapus_penanda_lama()`.
+        CC_VSMEM="2ea:20,3b6:48", CC_VSPTR="73a:480"), GOAL, level)
+    seqL = _emu(folder, nmL, "mixup", 4, dict(
+        env, CC_VRAMSEQ="5035=%s:12" % os.path.join(folder, nmL),
+        CC_VSWORD="71a,3b2,1e2e,1e30,718,734"), GOAL, level)
     S = json.load(open(os.path.join(seqS, "globals.json")))
     L = json.load(open(os.path.join(seqL, "globals.json")))
     uniq = []
@@ -223,7 +307,8 @@ def uji_mixup_rentetan(folder, arc):
         var, _p, fb, _pil = adegan.susun_lengkap(
             sub, g, m, mi, an, cs, seed=lc["w71a"], mode=4, sub=sub,
             isi=True, isi_zany=True, nbola=r0["w718"],
-            lastgoal=lc["w1e2e"], lastvar=lc["w1e30"], lvl=1)
+            lastgoal=lc["w1e2e"], lastvar=lc["w1e30"],
+            lvl=r0.get("w734", level))
         k = rend.KanvasFB(fb)
         idtab = bytes.fromhex(r0["mem2"])
         base = (base_gim(bytes.fromhex(r0["mem"]), m)
@@ -231,9 +316,12 @@ def uji_mixup_rentetan(folder, arc):
         palet.drawpal(k, r0["w51c"], lambda j: (m, base[idtab[j]]), r0["w3ac"])
         hud.timedrw(k, r0["w7ee"], 4, r0["w718"], sub)
         hud.judul_atau_skor(k, 4, sub, skor)
+        hapus_penanda_lama(k, r0, uniq[i - 1].get("w7f8") if i else None)
+        tandai_petunjuk(k, var, r0, 4, r0.get("w734", level))
         beda = sum(1 for y in range(200) for x in range(320)
                    if fb[y][x] != ref[y][x])
-        cek("Mix Up ronde sub=%d (skor %d)" % (sub, skor), 64000 - beda, 64000)
+        cek("Mix Up %s ronde sub=%d (skor %d)" % (tag, sub, skor),
+            64000 - beda, 64000)
 
 
 def uji_interaktif(folder, arc):
@@ -291,14 +379,20 @@ def main(folder):
     arc = (Archive(D + "/GRAPH"), Archive(D + "/MECHS"), Archive(D + "/MISC"),
            Archive(D + "/ANIMATE"), contrap.parse(D + "/CONTRAP"))
     for nama, obs, mode, off, isi, isiz, strip, goals in KASUS:
-        for goal in goals:
-            uji_mode(folder, nama, obs, mode, off, isi, isiz, strip, arc, goal)
-    print("  Contraption Mix Up: RENTETAN enam ronde")
-    uji_mixup_rentetan(folder, arc)
+        for level in SEMUA_LEVEL:
+            for goal in goals:
+                uji_mode(folder, nama, obs, mode, off, isi, isiz, strip, arc,
+                         goal, level)
+    for level in SEMUA_LEVEL:
+        print("  Contraption Mix Up: RENTETAN enam ronde (%s)"
+              % ("Apprentice" if level == 1 else "Master Builder"))
+        uji_mixup_rentetan(folder, arc, level)
     print("  Fill in Mechanisms lewat JALUR PEMAIN")
     uji_interaktif(folder, arc)
-    print("\n%s" % ("LAYAR BERMAIN IDENTIK DENGAN GAME ASLI (6 goal x 2 mode + 6 ronde Mix Up)"
-                    if not gagal else "GAGAL: %s" % ", ".join(gagal)))
+    print("")
+    print("%s" % ("LAYAR BERMAIN IDENTIK DENGAN GAME ASLI"
+                  " (6 goal x 2 mode x 2 level + 6 ronde Mix Up x 2 level)"
+                  if not gagal else "GAGAL: %s" % ", ".join(gagal)))
     return 1 if gagal else 0
 
 

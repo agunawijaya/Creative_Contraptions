@@ -1310,12 +1310,16 @@ if _VRAMSEQ:
                     "<H", bytes(uc.mem_read(DGROUP * 16 + _ad, 2)), 0)[0]
         # CC_VSPTR=84a:24 -- baca word @84a sebagai ALAMAT, lalu buang 24 byte
         # dari sana. Untuk memeriksa isi penyangga yang ditunjuk sebuah global.
-        # CC_VSMEM=7fa:12 -- buang byte mentah dari alamat DGROUP tetap.
+        # CC_VSMEM=7fa:12[,3b6:48,...] -- buang byte mentah dari SATU ATAU
+        # LEBIH alamat DGROUP tetap. Dumpnya masuk sebagai mem2, mem3, ...
+        # Dulu hanya satu rentang, dan itu memaksa memilih antara `idtab` dan
+        # `postab` padahal satu perbandingan butuh KEDUANYA.
         _sm = os.environ.get("CC_VSMEM")
         if _sm:
-            _ma, _, _mn = _sm.partition(":")
-            rec["mem2"] = bytes(uc.mem_read(
-                DGROUP * 16 + int(_ma, 16), int(_mn or "16"))).hex()
+            for _i, _bag in enumerate([x for x in _sm.split(",") if x.strip()]):
+                _ma, _, _mn = _bag.strip().partition(":")
+                rec["mem%d" % (_i + 2)] = bytes(uc.mem_read(
+                    DGROUP * 16 + int(_ma, 16), int(_mn or "16"))).hex()
         _sp = os.environ.get("CC_VSPTR")
         if _sp:
             _pa, _, _pn = _sp.partition(":")

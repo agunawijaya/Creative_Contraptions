@@ -305,6 +305,33 @@ sekali di tabel yang disaring.
 > **Pelajaran umum.** Fungsi yang "hasilnya tidak kelihatan" tetap bisa
 > menentukan segalanya kalau ia menyentuh keadaan yang dipakai bersama.
 
+### 3.1c Membaca melewati ujung array — artefak yang benar-benar terlihat
+
+Contoh terbaik di gim ini untuk satu kelas kesalahan yang masih sering terjadi
+hari ini: **array global yang hanya ditimpa sebagian, lalu dibaca melewati
+batas.**
+
+`postab` @0x3B6 adalah array global. `loadcon()` mengisinya sebanyak entri
+kontraption yang sedang dimuat — entri sisanya **masih berisi koordinat
+kontraption SEBELUMNYA**. Lalu `hintmark()` @0x4CD4 menghapus penanda lama:
+
+```c
+if (prev <= nmax) { buf = prev + 'A'; text(&buf, ob, oa, 1, 1, 3); }
+```
+
+Perhatikan `<=`, bukan `<`. Kalau `prev == nmax`, ujinya LOLOS dan `postab[prev]`
+dibaca satu entri di luar jangkauan.
+
+Terukur di Contraption Mix Up ronde ke-4 tingkat Master Builder: `prev` = 10
+(nilai `cur2` ronde sebelumnya, saat kontraption itu punya 11 slot), `nmax` = 10,
+dan `postab[10]` masih berisi `(142, 90)` dari ronde ke-3. Akibatnya huruf **'K'
+liar muncul di tengah arena** di (x=90, y=142) — jauh dari slot mana pun.
+
+Ia tidak terlihat selama bertahun-tahun analisis karena butuh **tiga syarat
+sekaligus**: mode 4, tingkat Master Builder, dan ronde yang didahului ronde
+dgn slot lebih banyak. Menguji satu ronde, atau satu tingkat, tidak akan
+pernah memunculkannya.
+
 ### 3.2 Baris pesan
 
 Di dasar layar ada satu baris teks setinggi 8 piksel yang `setupscr` bersihkan
