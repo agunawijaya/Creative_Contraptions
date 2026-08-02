@@ -6,7 +6,18 @@
 
 ## ⭐ KALAU USER BILANG "LANJUTKAN" — BACA INI DULU
 
-**KEDUA JALUR SUDAH SELESAI (2026-08-02).**
+**TIGA KATEGORI DI REPO INI:**
+
+1. `src_c/` — decompile, byte-identical. **SELESAI, jangan diubah.**
+2. `port/` — porting Python, setia piksel. **SELESAI, jangan diubah.**
+3. `remake/` — gim BARU dgn aset sendiri, berdiri sendiri. ⏳ baru dimulai;
+   titik masuknya `remake/PROMPT_MULAI.md`. Dikerjakan di mesin LAIN.
+
+⚠ Kalau bekerja di `remake/`, JANGAN menyunting `src_c/` atau `port/` —
+salin idenya, jangan sumbernya. Sesudah tiap perubahan pastikan 23 berkas
+`work/test_*.py` masih lulus.
+
+**DUA JALUR PERTAMA SUDAH SELESAI (2026-08-02).**
 
 - `src_c/` — `.EXE` hasil link identik dgn biner asli kecuali satu byte artefak
   kompiler yang terbukti ditentukan lingkungan build, bukan sumber C.
@@ -122,7 +133,9 @@ Dokumen root — ⚠ ketiganya ditulis untuk PEMBACA, bukan sebagai catatan kerj
 
 | berkas | untuk siapa | isinya |
 |---|---|---|
-| `README.md` | pengunjung repo | pintu depan: dua produk, bukti, cara jalan, kebijakan aset |
+| `README.md` | pengunjung repo | pintu depan: TIGA kategori, bukti, cara jalan, kebijakan aset |
+| `ABOUT.md` | pengunjung repo | latar, sikap hak cipta, kredit, cara kerja |
+| `remake/README.md` | yang membangun gim baru | aturan + daftar aset yang harus dibuat |
 | `ARCHITECTURE.md` | orang yang BELAJAR pemrograman | bagaimana program 1985 dirancang, dan kenapa |
 | `CODE_MAP.md` | orang yang BELAJAR membaca kode | peta kode + format data, per alamat |
 | `PORT_ARCHITECTURE.md` | orang yang BELAJAR pemrograman | bagaimana yang lama diterjemahkan jadi Python, dan apa yang SENGAJA tidak diperbaiki |

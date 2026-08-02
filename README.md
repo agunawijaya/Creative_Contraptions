@@ -4,14 +4,18 @@ Sebuah gim DOS tahun 1985 dibongkar sampai ke byte terakhirnya, lalu dibangun ul
 **dua kali** dengan dua cara yang sangat berbeda — dan keduanya diuji terhadap gim
 aslinya, bukan terhadap harapan kami sendiri.
 
-| | apa itu | bukti |
+| | apa itu | bukti / status |
 |---|---|---|
 | **`src_c/`** | source C yang, dikompilasi ulang, menghasilkan `.EXE` **byte-identical** | 46.532 dari 46.532 byte; 83/83 fungsi |
 | **`port/`** | tulis ulang dalam Python — implementasi baru, bukan terjemahan | 1.565/1.565 bingkai animasi, 100,000000% piksel |
+| **`remake/`** | gim baru: **aset sendiri**, tidak butuh berkas gim asli sama sekali | ⏳ baru dimulai — lihat [`remake/README.md`](remake/README.md) |
 
-Keduanya dikerjakan sampai selesai. Yang satu membuktikan **kodenya terbaca benar**;
-yang lain membuktikan **aturannya dipahami** — dua hal yang sering dikira sama, padahal
-tidak.
+Dua yang pertama sudah selesai dan **tidak akan diubah lagi**. Yang satu membuktikan
+**kodenya terbaca benar**; yang lain membuktikan **aturannya dipahami** — dua hal yang
+sering dikira sama, padahal tidak.
+
+Yang ketiga arahnya berbeda: ia memakai *pemahaman* itu untuk membuat gim yang **boleh
+disebarkan bebas**, karena tak satu pun asetnya berasal dari gim 1985.
 
 ![Gim asli, port, dan peta bedanya untuk layar yang sama](work/doc/doc_sisi_sisi.png)
 
@@ -82,6 +86,8 @@ tujuanmu:
 | tahu gimnya sendiri: mode, skenario, sejarah | [`GAME_GUIDE.md`](GAME_GUIDE.md) |
 | melihat bagaimana yang lama **diterjemahkan** ke yang baru | [`PORT_ARCHITECTURE.md`](PORT_ARCHITECTURE.md) |
 | memetakan fungsi asli ↔ modul port, satu per satu | [`PORT_CODE_MAP.md`](PORT_CODE_MAP.md) |
+| tahu latar, kredit, dan sikap proyek ini soal hak cipta | [`ABOUT.md`](ABOUT.md) |
+| ikut membangun gim barunya | [`remake/README.md`](remake/README.md) |
 
 Kalau kamu baru belajar pemrograman, urutan yang kami sarankan:
 **`ARCHITECTURE.md` → `PORT_ARCHITECTURE.md` → `CODE_MAP.md` → `PORT_CODE_MAP.md`.**
