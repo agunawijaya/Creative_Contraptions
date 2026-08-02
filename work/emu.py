@@ -89,6 +89,13 @@ def rdd(p): return struct.unpack_from("<I", bytes(uc.mem_read(p, 4)), 0)[0]
 def wrd(p, v): uc.mem_write(p, struct.pack("<I", v & 0xFFFFFFFF))
 
 state = {"int21": {}, "unhandled": [], "exit": False, "steps": 0}
+
+# CC_TRACEDOS=1 -- rekam keluaran teks DOS/BIOS (INT 21h AH=02/09/40,
+# INT 10h AH=0Eh/02h). Emulator ini TIDAK merender teks: glyph-nya datang dari
+# font ROM BIOS, yang tidak kita punya. Yang bisa diukur adalah ISI dan POSISI
+# KURSOR-nya, dan itu cukup untuk menentukan di mana pesan permainan muncul.
+_TDOS = os.environ.get("CC_TRACEDOS") == "1"
+_tdos_log = []
 keyq = []            # antrian byte keyboard (0x08 read)
 draws = []           # log: (major, minor, w, h, screen_x, screen_y)
 DGROUP = LOAD_SEG + 0x907
@@ -119,6 +126,11 @@ def hook_intr(uc, intno, user):
         state["exit"] = True; uc.emu_stop(); return
     if intno == 0x21:
         state["int21"][ah] = state["int21"].get(ah, 0) + 1
+        if _TDOS and ah == 0x40:            # write ke handle (stdout = 1)
+            _a = uc.reg_read(UC_X86_REG_DS) * 16 + uc.reg_read(UC_X86_REG_DX)
+            _n = uc.reg_read(UC_X86_REG_CX)
+            _tdos_log.append(("tulis_h%d" % uc.reg_read(UC_X86_REG_BX),
+                              bytes(uc.mem_read(_a, min(_n, 200))).decode("latin-1")))
         if ah == 0x4C:
             state["exit"] = True; uc.emu_stop(); return
         if ah == 0x30:  # DOS version
@@ -232,12 +244,35 @@ def hook_intr(uc, intno, user):
             wrd(p + 0x21, blk * 128 + cur)
             return
         if ah in (0x25, 0x35, 0x44, 0x09, 0x02, 0x48, 0x49, 0x4A, 0x19, 0x2C, 0x16):
+            # CC_TRACEDOS=1 -- catat KELUARAN TEKS DOS. Bawaannya dibuang diam-
+            # diam, dan itu membuat pesan dalam permainan (yang keluar lewat
+            # `printf()` MC.LIB) tak pernah terlihat di tangkapan VRAM. Kita
+            # tetap tidak MERENDER-nya (butuh font ROM BIOS yang tidak kita
+            # punya), tapi apa yang dicetak dan ke mana kursornya menunjuk bisa
+            # diukur.
+            if _TDOS and ah in (0x09, 0x02):
+                if ah == 0x02:
+                    _tdos_log.append(("chr", chr(uc.reg_read(UC_X86_REG_DX) & 0xFF)))
+                else:
+                    _a = uc.reg_read(UC_X86_REG_DS) * 16 + uc.reg_read(UC_X86_REG_DX)
+                    _b = bytes(uc.mem_read(_a, 200))
+                    _b = _b[:_b.find(b"$")] if b"$" in _b else _b
+                    _tdos_log.append(("str", _b.decode("latin-1")))
             uc.reg_write(UC_X86_REG_EFLAGS, uc.reg_read(UC_X86_REG_EFLAGS) & ~1)
             if ah == 0x48: uc.reg_write(UC_X86_REG_AX, 0x2000)
             return
         uc.reg_write(UC_X86_REG_EFLAGS, uc.reg_read(UC_X86_REG_EFLAGS) & ~1)
         return
     if intno == 0x10:
+        if _TDOS:
+            if ah == 0x0E:      # teletype: SATU karakter di posisi kursor
+                _tdos_log.append(("tty", chr(ax & 0xFF)))
+            elif ah == 0x02:    # set posisi kursor: DH = baris, DL = kolom
+                _dx = uc.reg_read(UC_X86_REG_DX)
+                _tdos_log.append(("kursor", (_dx >> 8, _dx & 0xFF)))
+            elif ah == 0x09 or ah == 0x0A:
+                _tdos_log.append(("tulis%d" % (uc.reg_read(UC_X86_REG_CX)),
+                                  chr(ax & 0xFF)))
         return
     if intno == 0x16:
         # keyboard: kembalikan ENTER agar maju
@@ -1223,3 +1258,19 @@ for k, pts in sorted(byptr.items(), key=lambda kv: -len(set(kv[1]))):
     uniq = list(dict.fromkeys(pts))
     if len(uniq) >= 4:
         print("  sptr=0x%04x w=%d h=%d  n=%d uniq=%d  %s" % (k[0], k[1], k[2], len(pts), len(uniq), uniq[:12]))
+
+if _TDOS:
+    # Ringkas: karakter tunggal berurutan digabung jadi satu baris supaya
+    # keluarannya terbaca.
+    print("INT 21h per AH:", {"%02x" % k: v for k, v in sorted(state["int21"].items())})
+    print("KELUARAN TEKS DOS/BIOS (%d peristiwa):" % len(_tdos_log))
+    _buf = ""
+    for _k, _v in _tdos_log:
+        if _k in ("chr", "tty"):
+            _buf += _v
+            continue
+        if _buf:
+            print("  teks: %r" % _buf); _buf = ""
+        print("  %-8s %r" % (_k, _v))
+    if _buf:
+        print("  teks: %r" % _buf)

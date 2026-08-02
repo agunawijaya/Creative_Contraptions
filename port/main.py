@@ -658,8 +658,17 @@ class Game:
                         rec = self.graph.first_of_major(s["correct"])
                         idx = rec["idx"] if rec else -1
                     self.palette.append(("Zany Object", (s["correct"],), "GRAPH", idx))
-        # KOCOK palet acak tiap load (spt Fisher-Yates FUN_1000_3909), termasuk pengecoh
-        random.shuffle(self.palette)
+        # ⚠ DIBUANG: dulu di sini ada `random.shuffle(self.palette)` dengan
+        # komentar "spt Fisher-Yates FUN_1000_3909". Kocokannya sekarang
+        # dikerjakan `pick.palet_mekanisme()` DENGAN RNG GIM, jadi kocokan
+        # kedua ini justru MERUSAKNYA -- urutan yang sudah benar diacak lagi.
+        # Terukur: dgn seed gim, mkpal memberi record [26, 2, 17]; sesudah
+        # kocokan Python jadi [17, 26, 2], dan strip meleset 738 piksel.
+        #
+        # Entri ZANY di bawahnya mengikuti urutan slot. Di gim kandidat zany
+        # tidak muncul di strip sama sekali -- ia berputar DI DALAM kotak lewat
+        # `pickvar()` -- jadi urutannya belum pernah diadu; jangan dikocok
+        # sembarangan hanya supaya "terlihat acak".
         self.fixed_archs = () if fill == "both" else \
             (("GRAPH",) if fill == "mech" else ("MECHS",))
         self.part_word = "Object" if fill == "zany" else "Part"
@@ -818,12 +827,22 @@ class Game:
         # yaitu SATU baris 8 piksel selebar 36 karakter. Dan pesan pembuka gim
         # "Pick parts to fill the empty boxes." panjangnya tepat 35 karakter.
         #
-        # ⚠ BELUM TERUKUR. Pesan di gim keluar lewat `printf()` (0x6a48, dari
-        # MC.LIB) dan emulator kami tidak merender keluaran teks DOS, jadi
-        # posisi ini DITURUNKAN dari `setupscr.c`, bukan diadu piksel. Yang
-        # sudah pasti: menaruhnya di pita atas SALAH.
+        # ⭐ DIKONFIRMASI dari sumber byte-exact, bukan diterka: `prompts()`
+        # menulis SELURUH pesannya di baris itu juga --
+        #     text(S_ULANG,  0x10, 0xc0, 2)
+        #     text(S_COBA,   0x28, 0xc0, 2)
+        #     text(S_TERUS4, 0x38, 0xc0, 2)
+        # y = 0xc0 dan x mulai 0x10, WARNA 2. Jadi baris pesan gim memang di
+        # sana, dan warnanya magenta -- bukan 0 seperti tebakan pertama.
+        #
+        # ⚠ Yang masih belum bisa diukur: pesan DALAM permainan ("Part A does
+        # not work.") keluar lewat `printf()` @0x6a48 dari MC.LIB. Emulator
+        # dilengkapi `CC_TRACEDOS=1` untuk merekam keluaran teks DOS/BIOS, dan
+        # hasilnya NOL peristiwa -- `printf` memang tak pernah terpanggil di
+        # jalur yang bisa dijangkau harness. Jadi posisinya diturunkan dari
+        # `prompts()`, yang menulis di baris yang sama.
         if self.message:
-            k.teks(self.message[:36], 0x10, 0xC0, 0)
+            k.teks(self.message[:36], 0x10, 0xC0, 2)
 
     def _palette_strip(self, fb):
         """Strip pemilih part -- `drawpal()` gim asli, lewat cc/core/palet.py.

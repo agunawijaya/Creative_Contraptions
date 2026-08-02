@@ -36,6 +36,7 @@ import os
 import subprocess
 import sys
 
+os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "port"))
 
 from PIL import Image                                          # noqa: E402
@@ -109,6 +110,51 @@ def cek(nama, dapat, harap):
     print("  %-34s %7s/%-7s %s" % (nama, dapat, harap, "OK" if ok else "GAGAL"))
 
 
+def uji_interaktif(ref, seed, lastgoal, lastvar, sel):
+    """Jalur PEMAIN SUNGGUHAN: main.Game + key(), bukan hanya modul inti.
+
+    Aturan kerja proyek ini menuntut uji lewat jalur user, bukan cuma render
+    headless dari pustaka. Di sini `main.Game` dinavigasi dengan tombol persis
+    seperti pemain, lalu hasil `draw()`-nya diadu dgn VRAM gim.
+
+    Tiga keadaan disamakan lebih dulu, dan ketiganya keadaan yang MEMANG
+    berubah menurut waktu / interaksi -- bukan aturan menggambar:
+      * `cur_slot = -1`  -> kotak sorotan `drawbox()` di fase padam (ia XOR,
+        jadi tangkapan gim bisa menangkapnya menyala atau tidak);
+      * `message = ""`   -> tangkapan gim diambil sebelum pesan apa pun;
+      * `cur_part = sel` -> jendela strip berpusat di pilihan yang sama.
+    Penunjuk strip yang berkedip juga dimatikan: pada tangkapan itu ia sedang
+    padam.
+    """
+    import pygame
+    from cc import assets, cga
+    from cc.core import palet as _pal
+    import main as portmain
+
+    pygame.init()
+    asli = _pal.penunjuk
+    _pal.penunjuk = lambda *a, **k: None
+    try:
+        g = portmain.Game(assets.find_data_dir())
+        g.rng_seed, g.lastgoal, g.lastvar = seed, lastgoal, lastvar
+        g.key(pygame.K_RETURN)                 # TITLE -> MENU
+        g.key(pygame.K_DOWN)                   # sel 1 = Fill in Mechanisms
+        g.key(pygame.K_RETURN)                 # -> LEVEL
+        g.key(pygame.K_RETURN)                 # Apprentice -> GOAL
+        g.sel = g.goal_ids.index(GOAL)
+        g.key(pygame.K_RETURN)                 # -> PLAY
+        g.cur_slot, g.message, g.cur_part = -1, "", sel
+        fb = cga.make_framebuffer()
+        g.draw(fb)
+        beda = sum(1 for y in range(200) for x in range(320)
+                   if PALET[fb.get_at((x, y))[:3]] != ref[y][x])
+        pygame.image.save(fb, os.path.join(AKAR, "work", "play_port.png"))
+    finally:
+        _pal.penunjuk = asli
+        pygame.quit()
+    return 64000 - beda, 64000
+
+
 def main(folder):
     g = Archive(D + "/GRAPH")
     m = Archive(D + "/MECHS")
@@ -170,7 +216,10 @@ def main(folder):
         ok += n - d
     cek("kotak slot KOSONG (drawslot)", ok, tot)
     a, b = wilayah(0, 199)
-    cek("SELURUH LAYAR", a, b)
+    cek("SELURUH LAYAR (modul inti)", a, b)
+
+    a, b = uji_interaktif(ref, seed, lastgoal, lastvar, sel)
+    cek("SELURUH LAYAR (jalur pemain)", a, b)
 
     print("\n%s" % ("LAYAR BERMAIN IDENTIK DENGAN GAME ASLI" if not gagal
                     else "GAGAL: %s" % ", ".join(gagal)))
