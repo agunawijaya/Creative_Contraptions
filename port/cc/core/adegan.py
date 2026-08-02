@@ -584,7 +584,7 @@ def jalur_bola(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
                                seed, mode, varian)
     if not parts:
         return [], {}
-    mesin = vm.VM(parts, berhenti_di=berhenti)
+    mesin = vm.VM(parts)
     jalur = []
     jangkauan = {}
     while len(jalur) < maks:
