@@ -616,6 +616,45 @@ dari jalur modul inti — semuanya di `main.py`, jalur yang dilalui pemain:
 SESUDAH `mkpal()`, bukan sebelum. Menaruhnya di tempat yang salah memberi
 himpunan part yang benar tapi URUTAN yang salah.
 
+### ⏳ BELUM SELESAI: animasi JALUR BERMAIN (dibuka 2026-08-02)
+
+Uji animasi (1.565/1.565) menangkap `emu.py <goal> **1**` — yaitu animasi
+**attract/demo**. Animasi yang berjalan sesudah pemain menekan SPACE di mode
+2/3/4 BELUM pernah diadu piksel, dan ia memang berbeda.
+
+**Terukur** (goal 1, Fill in Mechanisms, tangkap di `drawball` @0x26AE):
+
+| keadaan | bingkai |
+|---|---|
+| tanpa satu pun part ditaruh | **41** |
+| beberapa part ditaruh | **62** |
+| port (selalu memakai jawaban benar dari `fillans`) | **105** |
+
+Jadi panjang animasinya **bergantung pada apa yang ditaruh pemain**. Dua
+aturan, keduanya dibaca dari `animvm.c` yang byte-identik:
+
+1. **baris 222** — slot MEKANISME yang jawabannya salah:
+   `failed = -1; ...; zcnt++; printf(msgmech, ...); **break**;`
+   `break` itu keluar dari gelung part: animasinya BERHENTI, bukan sekadar
+   menampilkan pesan.
+2. **baris 433** — lemparan ke part yang jawabannya salah: gim MENGARANG
+   skrip `{00, dx, dy, FF}` supaya bolanya tetap bergerak ke arah yang masuk
+   akal, lalu menunjuk record part itu ke skrip karangan tersebut.
+
+**Sudah dikerjakan:** `vm.VM(berhenti_di=...)` + `adegan.frames(jawaban_mech=)`
+memodelkan aturan 1. Penjaganya di `_pindah()`, bukan di cabang `end` saja —
+perpindahan part terjadi lewat DUA jalan (penutup skrip dan lemparan `op03`).
+Bawaannya `jawaban_mech=None` → perilaku lama persis, dan itu diverifikasi:
+animasi tetap **1.565/1.565**.
+
+**Yang masih kurang, jangan diklaim selesai:**
+- `frames()` menyusun adegannya dgn `isi=True` (semua jawaban benar). Layar
+  jalur bermain punya slot KOSONG — bingkai pertama saja sudah beda 14.716
+  piksel. `frames()` perlu meneruskan `isi`/`isi_zany` + petak abu.
+- Indeks berhenti masih meleset: port 21 bingkai vs gim 41. Pemetaan indeks
+  `state[]` → indeks part di `parts` perlu diperiksa, bukan diasumsikan.
+- Aturan 2 (skrip karangan) belum dimodelkan sama sekali.
+
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
 
 - **Sprite di-render OPAQUE, bukan colorkey cyan.** Blitter asli `672f` menulis semua piksel;

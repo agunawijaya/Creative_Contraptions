@@ -113,7 +113,20 @@ class VM:
     jalur bola padahal sebenarnya kursor skrip yang tergelincir.
     """
 
-    def __init__(self, parts, aktif=0, rng=None):
+    def __init__(self, parts, aktif=0, rng=None, berhenti_di=None):
+        # `berhenti_di` = himpunan indeks part yang, begitu DIMASUKI, langsung
+        # menghentikan animasi. Itulah yang dilakukan gim untuk slot MEKANISME
+        # yang jawabannya salah (`animvm.c` baris 222):
+        #
+        #     if (ord1[c1] != rec1[3 * c1 + 2]) {
+        #         failed = -1; ...; zcnt++; printf(msgmech, ...); break; }
+        #
+        # `break` itu keluar dari gelung part -- animasinya BERHENTI, bukan
+        # sekadar menampilkan pesan. Terukur: goal 1 Fill in Mechanisms tanpa
+        # satu pun part ditaruh berhenti di 41 bingkai; dgn part ditaruh 62;
+        # dgn jawaban benar seluruhnya 105.
+        self.berhenti_di = set(berhenti_di or ())
+        self.berhenti = False
         self.parts = parts               # URUT RANTAI (lihat contrap `state`)
         self.aktif = aktif
         # RNG game. `bounce()` (dipanggil opcode 0x11) mengundi tepi layar
@@ -139,7 +152,14 @@ class VM:
         self.tunggu = False              # mode tunggu tombol (op0e)
 
     def _pindah(self, ke):
-        """Kursor skrip pindah ke part lain. Satu kursor, bukan banyak."""
+        """Kursor skrip pindah ke part lain. Satu kursor, bukan banyak.
+
+        ⚠ Perpindahan terjadi lewat DUA jalan: penutup skrip (`end`) DAN
+        lemparan `op03`/`op0c`. Penjaga "slot mekanisme salah" harus di sini,
+        bukan di salah satu jalannya saja.
+        """
+        if ke in self.berhenti_di:
+            self.berhenti = True
         self.aktif = ke
         self.simpul = list(self.parts[ke].simpul)
         self.n = 0
@@ -333,6 +353,8 @@ class VM:
 
     def langkah(self):
         """Peristiwa berikutnya, atau None kalau skripnya habis."""
+        if self.berhenti:
+            return ("selesai", None)
         if self.antre:                   # sisa peristiwa bounce()
             return self.antre.pop(0)
         if self.terbang:                 # bola sedang melayang

@@ -414,7 +414,7 @@ def susun_lengkap(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
 
 def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
            maks=400, varian=None, sub=None, seed_setball=True, pembuka=False,
-           nbola=1):
+           nbola=1, jawaban_mech=None):
     """-> daftar framebuffer indeks-warna, satu per panggilan drawball.
 
     `pembuka=True` menyisipkan bingkai pembuka `animvm()` (jam pasir + bilah
@@ -424,10 +424,25 @@ def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
     `work/test_intro.py` (tangkapan di `keyhit` @0x1791): 59/59 bingkai,
     151.040/151.040 piksel.
     """
-    var, parts, latar = susun(goal, graph, mechs, misc, animate, kontrap,
-                              seed, mode, varian, sub)
+    var, parts, latar, pil = susun_lengkap(goal, graph, mechs, misc, animate,
+                                           kontrap, seed, mode, varian, sub)
     if not parts:
         return []
+    # ⭐ SLOT MEKANISME YANG SALAH MENGHENTIKAN ANIMASI (`animvm.c` baris 222).
+    # `jawaban_mech` = jenis yang BENAR-BENAR ditaruh pemain per slot mekanisme,
+    # searah `var["mech"]`; None berarti slot kosong. Kalau tidak diberikan,
+    # animasi berjalan seperti seluruh jawaban benar -- itulah demo/attract.
+    berhenti = set()
+    if jawaban_mech is not None:
+        c1 = 0
+        for i, langkah in enumerate(var.get("state") or []):
+            if langkah != -1:
+                continue
+            benar = var["mech"][c1][2] if c1 < len(var["mech"]) else None
+            taruh = jawaban_mech[c1] if c1 < len(jawaban_mech) else None
+            if taruh != benar:
+                berhenti.add(i)
+            c1 += 1
     awal = []
     if pembuka:
         buka = [row[:] for row in latar]
@@ -454,7 +469,7 @@ def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
                     _g = 6 - 2 * _p
                     tampil[_r][_xx] = (page2[2][_r][_cb * 4 + _p] &
                                        ((_mb >> _g) & 3)) | ((_sb >> _g) & 3)
-    mesin = vm.VM(parts)
+    mesin = vm.VM(parts, berhenti_di=berhenti)
     keluar = []
     page2 = None
     while len(keluar) < maks:
@@ -569,7 +584,7 @@ def jalur_bola(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
                                seed, mode, varian)
     if not parts:
         return [], {}
-    mesin = vm.VM(parts)
+    mesin = vm.VM(parts, berhenti_di=berhenti)
     jalur = []
     jangkauan = {}
     while len(jalur) < maks:
