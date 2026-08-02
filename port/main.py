@@ -553,13 +553,37 @@ class Game:
         animasi PENUH sampai habis: **1.210/1.210 frame byte-identik,
         77.440.000/77.440.000 piksel**. Uji: `python work/test_anim_vs_gim.py`.
         """
-        key = ("vm", gid, seed, varian, getattr(self, "nbola", 1))
+        # ⭐ ANIMASI JALUR BERMAIN BUKAN ANIMASI DEMO. Dulu baris ini selalu
+        # membangun animasi attract: seed 0, mode judul, TANPA `lastgoal`/
+        # `lastvar`, dan dgn pembuka jam pasir. Untuk larian sesudah pemain
+        # menekan SPACE itu semuanya salah -- terukur: gim 34 bingkai, port
+        # 195, bingkai pertama beda 24.501 piksel.
+        #
+        # Yang benar, dan ketiganya sudah diukur terpisah:
+        #   - seed/lastgoal/lastvar = keadaan `loadcon()` ronde yang dimainkan
+        #   - isi/isi_zany menurut mode (slot kosong tampil sebagai petak abu)
+        #   - `clrbot()` @0x5911 mengosongkan dasar layar sebelum larian
+        #   - TIDAK ada pembuka jam pasir di jalur bermain
+        main_play = bool(getattr(self, "anim_from_play", False))
+        fill = getattr(self, "fill_mode", "mech")
+        if main_play:
+            seed = getattr(self, "cur_seed", seed)
+        key = ("vm", gid, seed, varian, getattr(self, "nbola", 1), main_play,
+               fill, self.level)
         if key in self.anim_cache:
             return self.anim_cache[key]
+        ekstra = {}
+        if main_play:
+            ekstra = dict(mode=self.mode_asli, sub=gid,
+                          isi=(fill != "mech"), isi_zany=(fill != "zany"),
+                          lastgoal=getattr(self, "cur_lastgoal", None),
+                          lastvar=getattr(self, "cur_lastvar", None),
+                          lvl=self.level + 1,
+                          hias=lambda k: k.fillrect(0, 0xA0, 0x13F, 199, 0))
         fbs = _adg.frames(gid, self.k_graph, self.k_mechs, self.k_misc,
                           self.k_anim, self.k_goals, seed=seed, varian=varian,
-                          maks=self.ANIM_MAKS, pembuka=True,
-                          nbola=getattr(self, "nbola", 1))
+                          maks=self.ANIM_MAKS, pembuka=(not main_play),
+                          nbola=getattr(self, "nbola", 1), **ekstra)
         surf = [_rend.to_surface(fb, pygame) for fb in fbs]
         self.anim_cache[key] = surf
         return surf

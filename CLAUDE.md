@@ -686,11 +686,30 @@ urutan tombol yang SAMA seperti yang diumpankan ke emulator**, supaya
 penempatannya cocok BY CONSTRUCTION. Itulah pekerjaan berikutnya, dan ia
 harness, bukan port.
 
+**Harness-nya SUDAH ADA**: `work/test_anim_main.py` — menangkap animasi jalur
+bermain (`OBSERVE=... CC_VRAMSEQ=26ae`) lalu mengadunya dgn port yang
+dijalankan lewat `main.Game` + `key()`.
+
+⭐ **BUG PORT yang ditemukannya:** `_anim_surfaces()` selalu membangun animasi
+**DEMO** untuk larian bermain — seed 0, mode judul, TANPA `lastgoal`/`lastvar`,
+dan dgn pembuka jam pasir. Untuk larian sesudah pemain menekan SPACE itu
+semuanya salah. Sekarang ia memakai konteks bermain (seed/lastgoal/lastvar
+ronde itu, `isi`/`isi_zany` menurut mode, `clrbot()`, tanpa pembuka).
+Hasil: bingkai pertama **24.501 → 293 piksel**, jumlah bingkai **195 → 46**
+(gim 34).
+
 **Yang masih kurang, jangan diklaim selesai:**
-- pembanding jalur pemain untuk animasi (lihat paragraf di atas) — belum ada.
-- titik berhenti belum diadu (46 vs 41 bingkai) karena penempatannya belum
-  cocok; angka itu TIDAK bermakna sampai harness-nya benar.
-- aturan 2 (skrip karangan, `animvm.c` baris 433) belum dimodelkan.
+- ⭐ **SEMANTIK `SPACE` BERBEDA.** Di gim, `SPACE` di dalam `review()`
+  mengembalikan `cur | 0x8000` — ia **MENEMPATKAN part yang sedang disorot
+  lalu mengakhiri pemilihan**. Di port, `SPACE` langsung MENJALANKAN. Itulah
+  sisa 293 piksel: gim punya satu slot terisi part (yang tak sengaja
+  ditempatkan SPACE) dan dua slot petak abu, sementara port punya keadaan
+  lain. Ini perbedaan PERILAKU MASUKAN, bukan penggambar.
+- larian GAGAL: port memodelkannya dgn lintasan bola pra-hitung (`_jalur()`),
+  gim dgn VM yang BERHENTI (`animvm.c` baris 222) + skrip KARANGAN (baris
+  433). Dua mekanisme berbeda; mengadunya sekarang tidak bermakna.
+- `test_anim_main.py` baru menjalankan mode 2; mode 3 dan 4 belum menghasilkan
+  tangkapan dgn urutan tombol SPACE-saja.
 
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
 
