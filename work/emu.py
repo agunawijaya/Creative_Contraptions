@@ -627,11 +627,26 @@ def hook_input(uc, addr, size, user):
             if not obs_keyq:
                 uc.emu_stop(); return
             ret_ax(obs_keyq.pop(0)); return
+    if NOSTARTSTUB and off == 0x1791:
+        # `credits()` dan `askopts()` menunggu di `while (keyhit() == 0);`.
+        # Di luar OBSERVE+inplay, 0x1791 jatuh ke INT 16h yang selalu bilang
+        # "tak ada tombol", jadi gelungnya TAK PERNAH selesai dan layar
+        # berikutnya tidak pernah digambar. Ini yang membuat kedua layar itu
+        # terlihat "tak bisa ditangkap".
+        ret_ax(0x0D)
+        return
     if off == 0x1814:
         c1814[0] += 1
         if started[0] and CAP_ATTRACT and not NOSTOP:
             print("  [attract] 18db selesai, stop capture")
             uc.emu_stop()
+            return
+        # Di jalur PEMBUKA (sebelum mainmenu) `getkey()` dulu selalu memberi
+        # ENTER. `askopts()` menunggu 'Y'/'N', jadi ia berputar selamanya dan
+        # layarnya tak pernah bisa ditangkap. Salurkan antrean CC_OBSKEYS di
+        # sini juga kalau ada.
+        if NOSTARTSTUB and obs_keyq:
+            ret_ax(obs_keyq.pop(0))
             return
         ret_ax(0x0D)
         return

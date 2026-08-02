@@ -78,10 +78,23 @@ MTAB_SETUP2 = (0x1AF6, 2)
 #     menu    (goal)            credits tahap 0
 #
 # ⚠ BELUM diadu piksel, walau digambar penggambar yang sama dari tabel DGROUP
-# yang sama: `askopts` (MTAB_SETUP1/2) dan ketiga layar instruksi. Untuk
-# menangkapnya perlu `keyhit()` @0x1791 ikut dilepas dari stub emulator --
-# gelung `credits()`/`askopts()` menunggu di situ, jadi eksekusinya tak pernah
-# sampai ke layar berikutnya. Empat percobaan; dicatat, bukan diklaim.
+# yang sama: `askopts` (MTAB_SETUP1/2) dan ketiga layar instruksi.
+#
+# JALAN BUNTU, enam percobaan, disudahi 2026-08-02. Untuk memotretnya
+# `credits()`/`askopts()` harus benar-benar dijalankan, dan keduanya menunggu
+# di `while (keyhit() == 0);`. Tiga penghalang dibuka satu per satu -- stub
+# 0x312A/0x31DA dilepas (CC_NOSTARTSTUB), `keyhit()` @0x1791 dipaksa memberi
+# ENTER, `getkey()` @0x1814 disambungkan ke antrean CC_OBSKEYS supaya 'Y'
+# sampai ke `askopts` -- dan sesudah ketiganya emulator MENGGANTUNG: `credits`
+# tergambar (tangkapannya cocok 64.000/64.000) lalu tidak ada tangkapan kedua,
+# baik lewat OBSERVE maupun ATTRACT.
+#
+# GANTI SUMBU, dan hasilnya justru lebih tajam: memotretnya toh tidak akan
+# menjawab banyak. Penggambarnya SATU dan sudah terbukti pada empat tabel;
+# BYTE tabelnya pasti benar (DATA 9.556/9.556). Yang tersisa sebagai hipotesis
+# cuma ALAMAT dan JUMLAH ENTRI tiap tabel -- dan itu bisa diadu langsung dgn
+# `src_c/src/*.c`, yang `.EXE`-nya byte-identik dgn biner asli.
+# `work/test_tabmenu.py` melakukannya: 12/12 tabel cocok.
 
 # `credits()` @0x312A: empat tabel DITUMPUK berurutan dgn `pause(100)` di
 # antaranya -- jadi teksnya muncul bertahap, bukan sekaligus:
