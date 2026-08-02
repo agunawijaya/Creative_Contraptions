@@ -627,13 +627,54 @@ def hook_input(uc, addr, size, user):
             if not obs_keyq:
                 uc.emu_stop(); return
             ret_ax(obs_keyq.pop(0)); return
+    if NOSTARTSTUB and off == 0x1814 and not inplay[0]:
+        # `getkey()` MEMBLOKIR sampai ada tombol: ambil yang berikutnya.
+        k = obs_keyq.pop(0) if obs_keyq else None
+        if os.environ.get("CC_DBGKEY"):
+            _ss = uc.reg_read(UC_X86_REG_SS); _sp = uc.reg_read(UC_X86_REG_SP)
+            _ra = struct.unpack_from("<H", bytes(uc.mem_read(_ss * 16 + _sp, 2)), 0)[0]
+            print("  [key] getkey -> %s dari ret=0x%04x (sisa %d)"
+                  % (k, _ra, len(obs_keyq)))
+        ret_ax(0x0D if k is None else k)
+        return
     if NOSTARTSTUB and off == 0x1791:
         # `credits()` dan `askopts()` menunggu di `while (keyhit() == 0);`.
         # Di luar OBSERVE+inplay, 0x1791 jatuh ke INT 16h yang selalu bilang
         # "tak ada tombol", jadi gelungnya TAK PERNAH selesai dan layar
-        # berikutnya tidak pernah digambar. Ini yang membuat kedua layar itu
-        # terlihat "tak bisa ditangkap".
-        ret_ax(0x0D)
+        # berikutnya tidak pernah digambar.
+        #
+        # ⚠ MENGEMBALIKAN ENTER TANPA SYARAT JUSTRU MEMBUAT BUNTU YANG LAIN,
+        # dan inilah yang selama enam percobaan terbaca sebagai "emulator
+        # menggantung sesudah layar credits". `kbflush()` @0x36EF berbentuk
+        #
+        #     while (keyhit() != 0) { if (keyhit() == 0x1b) break; getkey(); }
+        #
+        # jadi keyhit() yang selalu bukan-nol membuatnya menguras antrean yang
+        # TAK PERNAH HABIS. `credits()` memanggil kbflush() tepat sebelum
+        # gelung tunggunya -- eksekusi berhenti di situ, sesudah layar credits
+        # tergambar. Persis gejalanya.
+        #
+        # Yang benar: keyhit() = "apakah ADA tombol", jadi ia harus mengikuti
+        # antrean CC_OBSKEYS, bukan mengarangnya.
+        #
+        # ⚠ DAN ANTREAN STATIS PUN TIDAK CUKUP: `kbflush()` @0x36EF justru
+        # bertugas MENGURAS antrean --
+        #
+        #     while (keyhit() != 0) { if (keyhit() == 0x1b) break; getkey(); }
+        #
+        # -- jadi kalau tombol "sudah ditekan" saat ia jalan, ia menelannya.
+        # Terukur: tombol ke-2 hilang di `ret=0x3707` (dalam kbflush), seluruh
+        # urutan bergeser satu, dan `credits()` lalu menolak 'Y' sampai
+        # antrean habis. Itulah yang enam percobaan sebelumnya terbaca sebagai
+        # "emulator menggantung".
+        #
+        # Jawabannya sudah ada di berkas ini, di jalur OBSERVE: LIHAT SIAPA
+        # PEMANGGILNYA. Dari dalam kbflush, keyhit() harus bilang "buffer
+        # kosong" -- persis seperti mesin sungguhan saat tak ada jari di
+        # papan ketik.
+        ssg = uc.reg_read(UC_X86_REG_SS); spx = uc.reg_read(UC_X86_REG_SP)
+        reta = struct.unpack_from("<H", bytes(uc.mem_read(ssg * 16 + spx, 2)), 0)[0]
+        ret_ax(0 if reta in (0x36f8, 0x36ff) else (obs_keyq[0] if obs_keyq else 0))
         return
     if off == 0x1814:
         c1814[0] += 1
@@ -988,7 +1029,13 @@ def hook_menu_goal(uc, addr, size, user):   # 3322 -> pilih goal N
     print("  [nav] 3322 -> goal", GOAL)
     ret_ax(GOAL)
 
-def hook_30bb(uc, addr, size, user):        # konfirmasi mode 2 -> !=-1
+def hook_30bb(uc, addr, size, user):        # 30bb = menu9(), layar INSTRUKSI mode 2
+    # ⚠ Dulu di-stub TANPA SYARAT, dan itulah sebabnya layar instruksi Fill in
+    # Mechanisms tak pernah bisa difoto -- bukan karena "emulator tidak
+    # sampai ke sana". Padanannya menu11() @0x30E0 dan menu12() @0x3105 tidak
+    # pernah di-hook sama sekali, jadi keduanya sudah menggambar sendiri.
+    if NOMENUSTUB:
+        return
     print("  [nav] 30bb")
     ret_ax(0)
 
@@ -1044,6 +1091,12 @@ SALAH = os.environ.get("CC_SALAH") == "1"
 # sebelum sampai ke sana.
 NOWAIT = os.environ.get("CC_NOWAIT") == "1"
 sudah_main = [False]          # True sesudah animvm dipanggil dari jalur BERMAIN
+
+
+def hook_delay_ticks(uc, addr, size, user):
+    """Nol-kan `ticks` @0x2E4 di uji gelung `delay()` -- lihat catatan di atas."""
+    if NOWAIT:
+        uc.mem_write(DGROUP * 16 + 0x2e4, struct.pack("<h", 0))
 
 
 def hook_waitn(uc, addr, size, user):
@@ -1232,6 +1285,23 @@ if _VRAMSEQ:
         _vs_glob.append(rec)
         _vs_n[0] += 1
 
+# CC_DBGSP=<off>[,<off>...] -- cetak SP dan alamat-balik di puncak tumpukan
+# tiap kali IP mencapai offset itu.
+#
+# Ada karena "fungsi X tidak kembali ke pemanggilnya" adalah dugaan yang
+# TIDAK BISA dipastikan dari assembly: yang menentukan isi tumpukan saat RET,
+# dan itu hanya bisa dilihat. Pasang di alamat instruksi RET-nya.
+_DBGSP = [int(x, 16) for x in (os.environ.get("CC_DBGSP") or "").replace(
+    " ", "").split(",") if x]
+
+
+def hook_dbgsp(uc, addr, size, user):
+    off = addr - CODE
+    ssg = uc.reg_read(UC_X86_REG_SS); spx = uc.reg_read(UC_X86_REG_SP)
+    top = struct.unpack_from("<H", bytes(uc.mem_read(ssg * 16 + spx, 2)), 0)[0]
+    print("  [sp] @%04x SP=%04x puncak=0x%04x" % (off, spx, top))
+
+
 # CC_TRACEWR=<off_awal>-<off_akhir>:<n> -- rekam SETIAP penulisan memori yang
 # terjadi saat IP berada di dalam rentang kode itu, pada panggilan ke-n dari
 # alamat awalnya. Ditulis ke CC_TRACEWR_OUT (bawaan: trace_wr.txt di CC_OUT).
@@ -1293,9 +1363,38 @@ hooks = [(0x5035, hook_5035), (0x5a5b, hook_5a5b), (0x1791, hook_input), (0x1814
 hooks.append((0x6869, hook_flip))
 hooks.append((0x18db, hook_18db_salah))
 hooks.append((0x2b11, hook_waitn))
+# ⚠ `delay()` @0x2692 punya penyakit yang SAMA dan lebih ganas: ia gelung
+# sibuk MURNI pada `ticks` -- `while (ticks > 0) ;` -- tanpa memanggil
+# `vbwait()` sama sekali. Jadi CC_SNDISR pun tidak menolong: ISR-nya
+# dipanggil dari vbwait, dan vbwait tidak pernah tercapai.
+#
+# Ini yang menahan `askopts()`: pertanyaan kedua didahului `tone2()`, dan
+# tone2 memanggil `delay(5)`. Selama ini terbaca sebagai "emulator
+# menggantung sesudah layar credits" -- padahal layar credits DAN pertanyaan
+# pertama sudah lewat; yang macet fungsi bunyinya.
+#
+# ⚠⚠ DAN MENSTUBNYA DENGAN `force_ret_near()` DI 0x2692 LEBIH BURUK LAGI --
+# itu percobaan pertama, dan ia GAGAL DIAM-DIAM. Terukur dgn CC_DBGSP: di
+# 0x2692 puncak tumpukan berisi **0x0005**, yaitu ARGUMEN `delay(5)`, bukan
+# alamat balik. force_ret_near memungutnya sebagai alamat dan melompat ke
+# IP=5. Eksekusi lalu mengembara dan muncul lagi di `main_`, sehingga
+# `askopts()` tampak "kembali ke awal" -- gejala yang sangat mudah salah
+# dibaca sebagai bug alur gim.
+#
+# Yang benar tidak menyentuh tumpukan sama sekali: nol-kan `ticks` di UJI
+# GELUNGNYA (0x26A2, `cmp word ptr [2e4],0`), lalu biarkan `delay()` keluar
+# dan `ret` seperti biasa. Menol-kannya di ENTRY tidak bisa -- baris
+# `if (n > 0) ticks = n;` tepat sesudahnya akan mengisinya lagi.
+hooks.append((0x26a2, hook_delay_ticks))
 if SNDISR:
     hooks.append((0x5d98, hook_vbwait_isr))
     hooks.append((0x5da1, hook_isr_selesai))
+# DI DEPAN: hook lain di alamat yang sama (mis. `hook_waitn` @0x2692) sudah
+# memanggil force_ret_near() saat penyelidik ini jalan, jadi SP dan puncak
+# tumpukan yang terbaca sudah BERUBAH. Itu sempat membuat bacaan di 0x2692
+# tampak mustahil (SP 2 byte terlalu tinggi, puncak berisi nilai basi).
+for _d in _DBGSP:
+    hooks.insert(0, (_d, hook_dbgsp))
 if _TW:
     hooks.insert(0, (_TW_A, hook_tw_masuk))
 if _VRAMSEQ:

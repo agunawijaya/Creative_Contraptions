@@ -134,6 +134,7 @@ python work/test_allgoals.py   # regresi: semua goal × varian bisa dimenangkan
 python work/test_nav.py        # regresi navigasi menu
 python work/test_intro.py      # pembuka animvm (jam pasir + bilah bola)
 python work/test_tabmenu.py    # 12 tabel layar vs sumber src_c byte-exact
+python work/test_layarawal.py  # credits/askopts/3 layar instruksi vs VRAM gim
 ```
 Env emulator: `VARIANT=n VCAP=1 python work/emu.py <goal> <mode>` → capture VRAM + jalur bola.
 
@@ -436,16 +437,43 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
    Primitif `render.shftr()` (geser CGA per BYTE, `blitmsk.asm` @0x6600) baru
    ditambahkan: `delta = -1` menggeser isi ke KIRI; namanya menggambarkan arah
    SUMBER, bukan arah isinya.
-10. ~~`askopts` + ketiga layar instruksi belum diadu piksel~~ — **DITUTUP
-   LEWAT SUMBU LAIN (2026-08-02)**. Enam percobaan memotretnya kandas: stub
-   0x312A/0x31DA dilepas, `keyhit()` @0x1791 dipaksa ENTER, `getkey()` @0x1814
-   disambung ke antrean tombol — dan emulator tetap menggantung sesudah layar
-   credits. Memotretnya toh tidak menjawab banyak: penggambarnya SATU fungsi
-   (`setsel()` @0x3769) yang sudah cocok 64.000/64.000 pada empat tabel lain,
-   dan byte tabelnya pasti benar (DATA 9.556/9.556). Yang benar-benar masih
-   hipotesis cuma ALAMAT dan JUMLAH ENTRI tiap tabel — dan itu diadu langsung
-   dgn `src_c/src/*.c` yang `.EXE`-nya byte-identik: **12/12 tabel cocok**
-   (`python work/test_tabmenu.py`).
+10. ~~`askopts` + ketiga layar instruksi belum diadu piksel~~ — **TERFOTO
+   (2026-08-02)**, sesudah tiga penghalang di harness sendiri dibuka.
+   `python work/test_layarawal.py`, masing-masing **64.000/64.000**:
+   credits tahap **0, 1, 2, 3**, `askopts` **pertanyaan 1 DAN 2**, dan ketiga
+   layar instruksi (**menu9** Fill in Mechanisms, **menu11** Fill in Zany,
+   **menu12** Contraption Mix Up). Delapan layar; tidak ada sisa.
+   Keempat penghalangnya:
+   - `menu9()` @0x30BB **di-stub tanpa syarat** di `work/emu.py`, jadi layar
+     instruksi mode 2 memang tidak pernah digambar. `menu11()` @0x30E0 dan
+     `menu12()` @0x3105 tidak pernah di-hook sama sekali — keduanya sudah
+     menggambar sendiri sejak dulu, tinggal ditangkap. 0x30BB kini patuh
+     pada `CC_NOMENUSTUB`.
+   - melepas stub `credits`/`askopts` (`CC_NOSTARTSTUB=1`) saja tidak cukup:
+     memaksa `keyhit()` selalu ENTER membuat `kbflush()` @0x36EF menguras
+     antrean yang TAK PERNAH HABIS. Itulah "menggantung sesudah credits".
+   - dgn antrean berhingga pun `kbflush()` MEMAKAN satu tombol (terukur
+     hilang di `ret=0x3707`), urutannya bergeser satu, dan `credits()` lalu
+     menolak `Y` sampai antrean habis. Jawabannya sudah ada di berkas yang
+     sama, di jalur OBSERVE: **lihat siapa pemanggilnya** — dari dalam
+     `kbflush`, `keyhit()` harus bilang "buffer kosong".
+   - pertanyaan KEDUA `askopts` butuh satu lapis lagi: `tone2()` di depannya
+     memanggil `delay(5)` @0x2692, dan `delay()` gelung sibuk MURNI pada
+     `ticks` — tanpa `vbwait()`, jadi `CC_SNDISR` pun tak menolong.
+     ⚠⚠ Men-stub-nya dgn `force_ret_near()` di alamat MASUK justru **gagal
+     diam-diam**: terukur dgn saklar baru `CC_DBGSP`, puncak tumpukan di
+     0x2692 berisi **0x0005** — ARGUMEN `delay(5)`, bukan alamat balik — jadi
+     ia melompat ke IP=5, mengembara, lalu muncul lagi di `main_`. Gejalanya
+     persis seperti bug ALUR GIM ("askopts kembali ke awal"), padahal
+     harness sendiri. Yang benar tidak menyentuh tumpukan: nol-kan `ticks`
+     di UJI GELUNGNYA (0x26A2) lalu biarkan `delay()` keluar sendiri.
+   ⚠ ALAT UKUR PUN BISA BERBOHONG: `CC_DBGSP` mula-mula didaftarkan SESUDAH
+   `hook_waitn` pada alamat yang sama, jadi yang terbaca keadaan SESUDAH
+   force_ret_near — SP dua byte terlalu tinggi, puncaknya nilai basi. Bacaan
+   itu "mustahil" dan sempat menyesatkan. Ia kini didaftarkan di depan.
+   Alamat + jumlah entri seluruh 12 tabel tetap terverifikasi terpisah lewat
+   `python work/test_tabmenu.py` (diadu dgn `src_c/src/*.c` yang
+   `.EXE`-nya byte-identik).
 
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
 
@@ -456,9 +484,35 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   frame-0) sudah dibuang: adegan dan animasi kini lahir dari data yang sama, oleh undian
   yang sama, jadi tidak ada yang perlu dicocokkan. Bug "layar design ≠ layar run" tidak
   bisa terjadi lagi **secara konstruksi**, bukan karena diperbaiki.
-- **"TERHALANG EMULATOR" LIMA KALI TERNYATA "TERHALANG HARNESS SENDIRI".**
-  Keempat: gelung "jam pasir" `animvm` menunggu `ticks` yang tak pernah turun
-  karena ISR timer tidak berjalan (`CC_NOWAIT=1`). Kelima:
+- **⭐ "TERHALANG EMULATOR" SEBELAS KALI TERNYATA "TERHALANG HARNESS SENDIRI".**
+  Enam yang terbaru (2026-08-02), semuanya menyembunyikan layar/animasi utuh:
+  (6) `ticks` @0x2e4 dihitung mundur ISR timer yang tidak dijalankan emulator,
+  jadi gelung jam pasir `animvm` tak berujung — dan `CC_NOWAIT` "mengatasinya"
+  dengan MELEWATI gelungnya, jadi pembukanya memang tak pernah dijalankan
+  sekali pun. `sndisr` @0x670E ternyata mengurangi `ticks` (`keyio.asm`
+  baris 40), jadi `CC_SNDISR=1` sudah cukup: pewaktu sungguhan, tanpa stub.
+  (7) `CC_SNDISR` itu sendiri cacat — pelepas penjaganya terdaftar di 0x5D98,
+  alamat yang SAMA dengan pemicunya, jadi `IRET` memicu ISR lagi, selamanya;
+  tumpukannya seimbang sehingga buntunya DIAM. Pelepasnya kini di `vbend`
+  @0x5DA1. (8) `menu9()` @0x30BB **di-stub tanpa syarat**, jadi layar
+  instruksi mode 2 memang tak pernah digambar — sementara `menu11()`/
+  `menu12()` tidak pernah di-hook dan sudah menggambar sendiri sejak dulu.
+  (9) memaksa `keyhit()` selalu ENTER membuat `kbflush()` @0x36EF menguras
+  antrean yang tak pernah habis. (10) dgn antrean berhingga pun `kbflush()`
+  MEMAKAN satu tombol, jadi urutannya bergeser dan `credits()` menolak `Y`
+  sampai antrean habis. (11) — paling licik — stub `delay()` @0x2692 dgn
+  `force_ret_near()` memungut **ARGUMEN** `delay(5)` sebagai alamat balik dan
+  melompat ke IP=5; gejalanya menyerupai bug ALUR GIM ("askopts kembali ke
+  awal"), bukan bug harness.
+  ATURAN BACANYA: sebelum menulis "emulator tidak bisa", cari dulu STUB, HOOK,
+  dan URUTAN TOMBOL milik sendiri — **sebelas dari sebelas kali** di situ
+  penyebabnya. Cara mendiagnosisnya selalu sama: catat SIAPA PEMANGGILNYA
+  (alamat balik di tumpukan, `CC_DBGSP`), jangan menyimpulkan dari alur.
+  ⚠ Dan alat ukurnya sendiri bisa berbohong: `CC_DBGSP` mula-mula didaftarkan
+  SESUDAH `hook_waitn` pada alamat yang sama, jadi yang terbaca keadaan
+  SESUDAH `force_ret_near`. Daftarkan penyelidik di DEPAN.
+  Lima yang lebih dulu. Keempat: gelung "jam pasir" `animvm` menunggu `ticks`
+  yang tak pernah turun karena ISR timer tidak berjalan. Kelima:
   `hook_mechmatch`/`hook_zanymatch` MEMAKSA IP ke jalur "cocok", jadi cabang
   ber-`printf` dilewati tanpa syarat (`CC_SALAH=1` mematikannya). Tiga yang
   lebih dulu: Pertama:
