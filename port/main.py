@@ -391,7 +391,10 @@ class Game:
         gid = self.goal_ids[self.sel] if self.state == GOAL else self.chosen_goal
         self._blit_scene(fb, gid, draw_mech=True)
         text.draw(fb, GOAL_NAMES.get(gid, "?"), 4, 2, color=0, size=12)
-        text.draw_center(fb, "Press SPACE to run  -  ESC for menu", 190, color=3, size=10)
+        # Teks GIM (@0x15e3), bukan karangan: "Press SPACE BAR to run the
+        # contraption." Digambar di baris pesan gim, y = 0xc0.
+        k = _rend.KanvasSurface(fb, pygame)
+        k.teks(_hud.teks(_hud.S_JALANKAN), 0x10, 0xC0, 2)
 
     # ---------- Review: putar animasi run yang benar (PER-VARIAN) ----------
     def _jalur(self, gid, vi=0):
@@ -468,14 +471,24 @@ class Game:
         if self.review_demo:                          # DEMO "how it works" (non-interaktif)
             text.draw(fb, "%s - how it works" % MECH_CATEGORIES[self.rev_i][0],
                       4, 2, color=0, size=11)
-            msg = "SPACE=replay  ENTER=pick another  ESC=menu" if done else "Watching..."
-            text.draw_center(fb, msg, 190, color=3, size=9)
+            # Teks GIM: "Press SPACE BAR to see it work." (@0x14b2) dan
+            # "Press ENTER to select / another mechanism." (@0xaab/@0xac1).
+            k = _rend.KanvasSurface(fb, pygame)
+            if done:
+                k.teks(_hud.teks(_hud.S_PILIH_MEK1), 0x40, 0xAC, 2)
+                k.teks(_hud.teks(_hud.S_PILIH_MEK2), 0x40, 0xB6, 2)
+                k.teks(_hud.teks(_hud.S_LIHAT_LAGI), 0x10, 0xC0, 2)
             return
         text.draw(fb, GOAL_NAMES.get(self.chosen_goal, "?"), 4, 2, color=0, size=12)
         if done and self.anim_fail is not None:      # GAGAL di slot tertentu
-            text.draw_center(fb, "Mechanism %c does not work!" % (0x41 + self.anim_fail),
-                             178, color=2, size=12)
-            text.draw_center(fb, "ESC = keep building", 190, color=3, size=10)
+            # Teks GIM: pesan salah dari DGROUP, lalu "Press SPACE BAR to
+            # try again." (@0xa5d) -- yang dipakai `prompts()` untuk kasus
+            # gagal. "ESC = keep building" itu karangan port.
+            k = _rend.KanvasSurface(fb, pygame)
+            k.teks(_hud.pesan_salah(
+                self.slots[self.anim_fail]["arch"] == "GRAPH",
+                0x41 + self.anim_fail), 0x10, 0xB6, 2)
+            k.teks(_hud.teks(_hud.S_COBA), 0x28, 0xC0, 2)
         elif done and self.anim_from_play:           # MENANG
             # Pesan akhir goal memakai `prompts()` gim asli: teks, posisi, dan
             # percabangannya dari DGROUP + prompts.c, bukan karangan port.

@@ -894,6 +894,29 @@ def hook_2e90(uc, addr, size, user):        # skip penempatan part -> 0x2e8=0 (!
         print("  [nav] 2e90 skip")
         ret_ax(0)
 
+# CC_SALAH=1 -- PAKSA satu jawaban salah sebelum `animvm()` berjalan.
+#
+# Pesan dalam permainan ("Mechanism %c does not work.") keluar lewat `printf()`
+# di animvm, dan syaratnya `ord1[c1] != rec1[3*c1+2]`. Di jalur yang bisa
+# dijangkau harness semua jawaban SUDAH benar, jadi `printf` tak pernah
+# terpanggil dan teks itu tak bisa diukur.
+#
+# Saat masuk `animvm(steps, n2, rec1, sel1, ord1, n1, ...)` argumen ada di
+# SS:SP: [SP+0] alamat balik, lalu tiap argumen dua byte. Jadi `ord1` di
+# SP+10. Kita tulis nilai mustahil ke ord1[0] supaya cabang salahnya diambil.
+SALAH = os.environ.get("CC_SALAH") == "1"
+
+
+def hook_18db_salah(uc, addr, size, user):
+    if not SALAH:
+        return
+    ssg = uc.reg_read(UC_X86_REG_SS)
+    spx = uc.reg_read(UC_X86_REG_SP)
+    ord1 = struct.unpack_from("<H", bytes(uc.mem_read(ssg * 16 + spx + 10, 2)), 0)[0]
+    uc.mem_write(DGROUP * 16 + ord1, struct.pack("<H", 0x7FFF))
+    print("  [salah] ord1[0] @%04x dipaksa 0x7fff" % ord1)
+
+
 def hook_18db_entry(uc, addr, size, user):  # mulai capture pada 18db pertama
     balldone[0] = False
     if CAP_ATTRACT:
@@ -1079,6 +1102,7 @@ hooks = [(0x5035, hook_5035), (0x5a5b, hook_5a5b), (0x1791, hook_input), (0x1814
          (0x26ae, hook_ball_dbg_entry), (0x2713, hook_ball_dbg_exit),
          (0x2822, hook_278e_vframe)]
 hooks.append((0x6869, hook_flip))
+hooks.append((0x18db, hook_18db_salah))
 if _TW:
     hooks.insert(0, (_TW_A, hook_tw_masuk))
 if _VRAMSEQ:

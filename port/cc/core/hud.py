@@ -54,6 +54,20 @@ S_SALAH_MEK = 0x9DD      # "       Mechanism %c does not work." + LF
 S_SALAH_ZANY = 0xA01     # "      Zany object %c does not work." + LF
 
 
+# Teks gim lain yang dipakai layar demo / kontraption. Semuanya dari DGROUP;
+# tak satu pun karangan port.
+S_JALANKAN = 0x15E3      # "Press SPACE BAR to run the contraption."
+S_LIHAT_LAGI = 0x14B2    # "Press SPACE BAR to see it work."
+S_PILIH_MEK1 = 0xAAB     # "Press ENTER to select"
+S_PILIH_MEK2 = 0xAC1     # "another mechanism."
+S_KEMBALI = 0xBE2        # "Press ESC to return to main menu."
+
+
+def teks(addr):
+    """Baca satu string DGROUP. Dipakai pemanggil yang butuh teks gim mentah."""
+    return _str(addr)
+
+
 def pesan_salah(zany, huruf):
     """Teks gim untuk part yang salah taruh. -> string siap gambar.
 
