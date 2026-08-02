@@ -69,8 +69,16 @@ def uji_jalur_pemain(folder):
     from cc import assets, cga
     import main as portmain
 
+    from cc.core import adegan as _adg
+
     seq = os.path.join(folder, "seq128")
     n = len([f for f in os.listdir(seq) if f.endswith(".png")])
+    # `main.py` menyisipkan bingkai pembuka `animvm()` (jam pasir + bilah bola)
+    # di depan animasi, sedangkan tangkapan pembanding ini diambil di
+    # `drawball` @0x26ae -- yaitu SESUDAH pembuka. Jadi indeksnya digeser.
+    # Angkanya DIHITUNG, bukan dipatok: kalau `intro()` berubah panjang, uji
+    # ini ikut, dan pembukanya sendiri diadu `work/test_intro.py`.
+    buka = _adg.panjang_pembuka(1)
     pygame.init()
     try:
         g = portmain.Game(assets.find_data_dir())
@@ -78,7 +86,7 @@ def uji_jalur_pemain(folder):
         cocok = 0
         pertama = None
         for k in range(n - 1):
-            g.title_tick = k * 2          # _title(): frame = title_tick // 2
+            g.title_tick = (buka + k) * 2   # _title(): frame = title_tick // 2
             g.draw(fb)
             ref = muat(os.path.join(seq, "f%04d.png" % (k + 1)))
             sama = all(PALET[fb.get_at((x, y))[:3]] == ref[y][x]

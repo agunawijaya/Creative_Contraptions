@@ -303,6 +303,9 @@ class KanvasFB:
         if 0 <= x < W and 0 <= y < H:
             self.fb[y][x] = c
 
+    def ambil(self, x, y):
+        return self.fb[y][x] if 0 <= x < W and 0 <= y < H else 0
+
 
 class KanvasSurface:
     """Kanvas di atas pygame.Surface, untuk menggambar LANGSUNG ke layar.
@@ -346,6 +349,12 @@ class KanvasSurface:
         if 0 <= x < W and 0 <= y < H:
             self.surf.set_at((x, y), self._w(c))
 
+    def ambil(self, x, y):
+        if not (0 <= x < W and 0 <= y < H):
+            return 0
+        rgb = self.surf.get_at((x, y))[:3]
+        return PALETTE.index(rgb) if rgb in PALETTE else 0
+
     def blit(self, arc, rec, x, y):
         self.surf.blit(sprite_surface(arc, rec, self.pygame), (x, y))
 
@@ -357,3 +366,36 @@ class KanvasSurface:
                 idx = PALETTE.index(lama) if lama in PALETTE else 0
                 buf[xx, yy] = self.surf.map_rgb(PALETTE[idx ^ c])
         del buf
+
+
+def shftr(k, y, x, h, w, delta):
+    """`shftr()` @0x6600 (blitmsk.asm) — geser sebidang layar per BYTE.
+
+    Aslinya `rep movsb` di VRAM: DI = alamat byte awal, SI = DI - delta, lalu
+    `w >> 2` byte disalin per baris, sebanyak `h` baris.
+
+        DI = (y >> 1) * 80 + ((x ? x - 1 : 0) >> 2);  if (y & 1) DI ^= 0x2000;
+
+    Dua akibat yang tidak kelihatan dari namanya:
+
+    - Satuannya BYTE, jadi satu langkah = EMPAT piksel di mode 4 (2 bpp).
+      `x` pun dibulatkan ke bawah ke batas byte -- pergeseran sub-byte tidak
+      mungkin, dan itu memang tidak dipakai gim.
+    - `delta = -1` menggeser isi ke KIRI (SI = DI + 1), walau namanya "shift
+      right". Nama itu menggambarkan arah SUMBER, bukan arah isinya.
+
+    Perhitungan bank ganjil/genap di aslinya (XOR 0x2000 tiap baris, +0x50
+    saat menyeberang) hanyalah cara CGA berjalan ke baris berikutnya; di
+    framebuffer lurus [y][x] itu cuma `y + 1`.
+    """
+    b0 = ((x - 1) if x else 0) >> 2          # byte awal dalam baris
+    n = w >> 2                               # jumlah byte per baris
+    src0 = (b0 - delta) * 4
+    dst0 = b0 * 4
+    for r in range(h):
+        yy = y + r
+        # `rep movsb` maju, jadi salinan yang tumpang-tindih memang menyeret
+        # byte yang baru ditulis kalau delta positif. Untuk delta negatif
+        # (satu-satunya yang dipakai gim) arahnya aman.
+        for i in range(n * 4):
+            k.piksel(dst0 + i, yy, k.ambil(src0 + i, yy))

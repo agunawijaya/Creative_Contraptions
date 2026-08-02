@@ -367,12 +367,28 @@ def susun_lengkap(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
 
 
 def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
-           maks=400, varian=None, sub=None, seed_setball=True):
-    """-> daftar framebuffer indeks-warna, satu per panggilan drawball."""
+           maks=400, varian=None, sub=None, seed_setball=True, pembuka=False,
+           nbola=1):
+    """-> daftar framebuffer indeks-warna, satu per panggilan drawball.
+
+    `pembuka=True` menyisipkan bingkai pembuka `animvm()` (jam pasir + bilah
+    bola) DI DEPAN. Bawaannya False supaya perbandingan animasi tetap sejajar
+    dengan tangkapan emulator, yang diambil di `drawball` @0x26ae -- yakni
+    SESUDAH pembuka. Pembukanya sendiri diadu terpisah oleh
+    `work/test_intro.py` (tangkapan di `keyhit` @0x1791): 59/59 bingkai,
+    151.040/151.040 piksel.
+    """
     var, parts, latar = susun(goal, graph, mechs, misc, animate, kontrap,
                               seed, mode, varian, sub)
     if not parts:
         return []
+    awal = []
+    if pembuka:
+        buka = [row[:] for row in latar]
+        kb = rend.KanvasFB(buka)
+        for _ in intro(kb, misc, nbola):
+            awal.append([row[:] for row in buka])
+        latar = buka
     tampil = [row[:] for row in latar]
     # Panggilan `setball(0, i*10)` dari setupscr adalah drawball PERTAMA, dan
     # ia sudah memutar page/page2 sebelum VM mulai. Tanpa menghitungnya,
@@ -488,7 +504,7 @@ def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
                     g = 6 - 2 * pxl
                     baris[xx] = (page[r][cb * 4 + pxl] & ((m_by >> g) & 3)) |                                 ((s_by >> g) & 3)
         page2 = (x0, by, page)
-    return keluar
+    return awal + keluar
 
 
 def jalur_bola(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
@@ -522,3 +538,62 @@ def jalur_bola(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
         jangkauan.setdefault((p.x, p.y), len(jalur))
         jalur.append((e[1], e[2]))
     return jalur, jangkauan
+
+
+# ── Pembuka `animvm()`: jam pasir lalu bilah bola ───────────────────────────
+#
+# Sebelum bola pertama digambar, `animvm()` @0x18db menjalankan dua gelung di
+# PITA ATAS layar. Keduanya terukur dari VRAM emulator (tangkapan pada
+# `keyhit()` @0x1791, yang dipanggil di UJUNG kedua gelung -- jadi tiap
+# tangkapan memperlihatkan keadaan SESUDAH gambarnya, bukan sebelum):
+#
+#   f00, f01   jam pasir: dua sprite 48x8 bergantian di x=0x88
+#   f02..f57   bilah 16x8 meluncur dari x=0x78 ke kiri, 2 piksel per bingkai
+#   sesudahnya `shftr()` dua kali + satu `fillrect`
+#
+# ⚠ Mengukurnya perlu memperbaiki harness sendiri LEBIH DULU: tanpa ISR timer
+# `ticks` tidak pernah berkurang, jadi gelung jam pasir tak berujung dan
+# `CC_NOWAIT` selama ini MELEWATINYA sama sekali. `CC_SNDISR=1` memasang ISR
+# sungguhan -- dan saklar itu sendiri masih cacat (pelepas penjaganya
+# terdaftar di alamat yang sama dgn pemicunya, jadi `IRET` memicunya lagi).
+# Sesudah keduanya beres, intronya langsung terlihat.
+#
+# BERAPA KALI jam pasir berkedip ditentukan `ticks` (0x27, dihitung mundur ISR
+# 18,2 Hz) berbanding `waitn(0x10)` yang menunggu 16 BINGKAI. Jadi jumlahnya
+# bergantung kecepatan bingkai, bukan konstanta -- dan itu tidak mengubah satu
+# piksel pun, sebab tiap putaran BERAKHIR dengan sprite yang sama (hdrspr[0]).
+JAM_X = 0x88                     # blit(hdrspr, 0, 0x88, 8, 0x30)
+BILAH_AWAL = 0x78                # for (i = 0x78; i >= goal * 10; i -= 2)
+JAM_REC = (3, 2)                 # hdrspr[96] = MISC rec 3 ; hdrspr[0] = rec 2
+BILAH_REC = 4                    # hdrspr[192] = MISC rec 4 (16x8)
+
+
+def panjang_pembuka(nbola, kedip=2):
+    """Berapa bingkai yang disisipkan `intro()` -- supaya pemanggil tidak
+    perlu memakai angka tetap. Terukur di gim: nbola=1 -> 59."""
+    return kedip + len(range(BILAH_AWAL, nbola * 10 - 1, -2)) + 1
+
+
+def intro(k, misc, nbola, kedip=2):
+    """Jalankan pembuka `animvm()` di kanvas `k`, satu `yield` per bingkai.
+
+    `nbola` = `goal` @0x718, yang MENGHITUNG BOLA (bukan nomor goal) -- lihat
+    CODE_MAP.md §8b. Posisi akhir bilah = `nbola * 10`.
+    """
+    for _ in range(kedip):
+        k.blit(misc, misc.recs[JAM_REC[0]], JAM_X, 0)
+        k.blit(misc, misc.recs[JAM_REC[1]], JAM_X, 0)
+        yield
+
+    u56 = nbola * 10
+    for i in range(BILAH_AWAL, u56 - 1, -2):
+        if i != BILAH_AWAL:
+            # jejak 2 piksel di belakang sprite, disapu warna 3
+            k.fillrect(i + 0x10, 0, i + 0x11, 7, 3)
+        k.blit(misc, misc.recs[BILAH_REC], i, 0)
+        yield
+
+    for _ in range(2):
+        rend.shftr(k, 0, 4, 8, 0x64, -1)
+    k.fillrect(u56 - 8, 0, u56 + 0x10, 7, 3)
+    yield

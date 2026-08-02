@@ -525,12 +525,13 @@ class Game:
         animasi PENUH sampai habis: **1.210/1.210 frame byte-identik,
         77.440.000/77.440.000 piksel**. Uji: `python work/test_anim_vs_gim.py`.
         """
-        key = ("vm", gid, seed, varian)
+        key = ("vm", gid, seed, varian, getattr(self, "nbola", 1))
         if key in self.anim_cache:
             return self.anim_cache[key]
         fbs = _adg.frames(gid, self.k_graph, self.k_mechs, self.k_misc,
                           self.k_anim, self.k_goals, seed=seed, varian=varian,
-                          maks=self.ANIM_MAKS)
+                          maks=self.ANIM_MAKS, pembuka=True,
+                          nbola=getattr(self, "nbola", 1))
         surf = [_rend.to_surface(fb, pygame) for fb in fbs]
         self.anim_cache[key] = surf
         return surf

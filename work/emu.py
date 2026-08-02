@@ -958,6 +958,21 @@ def hook_vbwait_isr(uc, addr, size, user):
 
 
 def hook_isr_selesai(uc, addr, size, user):
+    """Lepas penjaga ISR -- dipasang di `vbend` @0x5DA1, BUKAN di `vbwait`.
+
+    ⚠ Dulu ia terdaftar di 0x5D98 juga, alamat yang SAMA dengan pemicunya.
+    Akibatnya penjaga dibersihkan pada instruksi yang sama saat dipasang,
+    sehingga `IRET` yang kembali ke 0x5D98 memicu ISR lagi -- dan lagi.
+    Tumpukannya seimbang (push 6 byte, IRET pop 6 byte) jadi tidak ada
+    galat: emulasi hanya berputar di 0x5D98 selamanya. Gejalanya
+    `waitn()` tak pernah selesai walau `ticks` sudah nol.
+
+    Uji suara tidak pernah menyadarinya karena ia cuma perlu penulisan port
+    speaker, dan itu sudah terekam sebelum gelungnya buntu.
+
+    `waitn()` berbentuk `for (...) { vbend(); vbwait(); }`, jadi memasang
+    pelepasnya di `vbend` memberi TEPAT satu ISR per bingkai.
+    """
     _isr["dalam"] = False
 
 
@@ -1280,7 +1295,7 @@ hooks.append((0x18db, hook_18db_salah))
 hooks.append((0x2b11, hook_waitn))
 if SNDISR:
     hooks.append((0x5d98, hook_vbwait_isr))
-    hooks.append((0x5d98, hook_isr_selesai))
+    hooks.append((0x5da1, hook_isr_selesai))
 if _TW:
     hooks.insert(0, (_TW_A, hook_tw_masuk))
 if _VRAMSEQ:
