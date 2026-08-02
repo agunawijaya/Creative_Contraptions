@@ -5,14 +5,13 @@ yaitu animasi ATTRACT. Berkas ini menguji animasi yang berjalan sesudah pemain
 menekan SPACE di mode 2/3/4, dan ia memang BERBEDA: panjangnya bergantung pada
 apa yang ditaruh pemain.
 
-KEDUA SISI DIPAKSA KE KEADAAN YANG SAMA
+KEDUA SISI MENJALANKAN LARIAN YANG SAMA
 ---------------------------------------
-Emulator memasang `hook_mechmatch`/`hook_zanymatch` yang MEMAKSA cabang
-"jawaban cocok" (terukur: `zcnt` @0x7e6 tetap 0 sepanjang 600 bingkai). Jadi
-yang direkamnya adalah larian MENANG. Supaya adil, slot port diisi jawaban
-benar sebelum SPACE ditekan -- bukan untuk "membuat cocok", melainkan supaya
-kedua sisi berada di kasus yang sama. Larian GAGAL sengaja TIDAK diuji di
-sini; lihat §"Yang belum" di bawah.
+Emulator secara bawaan MEMAKSA cabang "jawaban cocok"
+(`hook_mechmatch`/`hook_zanymatch`), jadi gim selalu menang. `CC_SALAH=1`
+mematikannya, sehingga gim menuruti penempatan sungguhan -- sama seperti port.
+Urutan tombolnya identik di kedua sisi, jadi penempatannya lahir dari tombol
+itu sendiri, bukan dipaksakan.
 
 TIGA HAL YANG HARUS BENAR, dan ketiganya mahal didapat
 ------------------------------------------------------
@@ -79,8 +78,12 @@ def _emu(folder, nama, obs, mode, extra):
         return seq
     print("  [emu] menangkap %s ..." % nama)
     env = dict(os.environ)
+    # ⚠ CC_SALAH=1 MEMATIKAN `hook_mechmatch`/`hook_zanymatch`, yang secara
+    # bawaan MEMAKSA cabang "jawaban cocok". Tanpa ini gim selalu menang
+    # sementara port -- yang menuruti penempatan sungguhan -- gagal, jadi yang
+    # diadu dua keadaan yang berbeda.
     env.update(CC_OUT=os.path.join(folder, "out_" + nama), OBSERVE=obs,
-               CC_NOSKIP="1", CC_NOWAIT="1", CC_LEVEL="1",
+               CC_NOSKIP="1", CC_NOWAIT="1", CC_LEVEL="1", CC_SALAH="1",
                CC_MAXINSN="600000000", CC_OBSKEYS=TOMBOL)
     env.update(extra)
     subprocess.run([sys.executable, os.path.join(AKAR, "work", "emu.py"),

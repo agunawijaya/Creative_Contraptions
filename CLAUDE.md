@@ -737,13 +737,39 @@ palet = record `[26, 2, 17]` (id `[141, 110, 132]`). Uji strip yang lulus
 64.000/64.000 TIDAK membuktikan ini — ia menggambar strip dari `idtab` GIM,
 bukan dari palet port. Yang pernah diadu lewat palet port hanya Mix Up.
 
-**Langkah berikutnya, berurutan:**
-1. Adu urutan palet mekanisme mode 2 dan 3 (port vs `idtab` gim), seperti yang
-   sudah dilakukan untuk Mix Up. Perbaiki kalau beda.
-2. Baru sesudah itu penempatan cocok, dan aturan berhenti (butir 2) bisa
-   DIVERIFIKASI — kodenya sudah ada.
-3. Aturan skrip karangan (`animvm.c` baris 433) masih nol baris.
-4. `test_anim_main.py` baru menjalankan mode 2.
+**Sudah diperiksa, dan DUA dugaan TERBANTAH** (2026-08-02) — dicatat supaya
+tidak diulang:
+
+1. ❌ "urutan palet mode 2 berbeda" — **SALAH**. Diadu langsung: gim
+   `idtab`→record `[26, 2, 17]`, port palet `[26, 2, 17]`. **Cocok persis.**
+   (Mode 3 memang berbeda, tapi itu soal lain: strip mode 3 berisi objek
+   GRAPH di port sementara `idtab` gim menunjuk mekanisme — belum diselidiki.)
+2. ❌ "gim hanya menaruh kalau `sel[curz] != v`, dan `sel[]` mulai dari 0,
+   jadi SPACE pertama tidak menaruh apa pun" — **SALAH**. Pengukuran
+   menunjukkan gim JUSTRU menaruh part di slot 0 (terlihat jelas di
+   tangkapan, 284 piksel di petak itu). Jadi `sel[]` TIDAK mulai dari 0;
+   nilai awalnya belum diukur.
+
+**Yang sempat dicoba lalu DIKEMBALIKAN**: mengganti jalur gagal port dari
+`_jalur()` ke VM (+ `_hias_bermain` yang menggambar part yang sudah ditaruh).
+Ia membuat `test_bantuan` gagal — uji itu menunggu `running` dgn lintasan
+bola, sementara jalur baru berakhir di `PLAYANIM`, dan menyesuaikannya tidak
+membuat pencacah gagalnya naik. Karena manfaatnya juga belum terbukti
+(bingkai pertama justru 293 → 369 piksel), perubahan itu dikembalikan.
+Pohon kerja tetap 23/23.
+
+**Keadaan terukur sekarang** (goal 1 mode 2, `CC_SALAH=1`, tombol SPACE,SPACE):
+gim **6 bingkai**, port **46**; bingkai pertama beda **293 piksel**, seluruhnya
+di petak slot 0 — gim menampilkan part yang ditaruh, port menampilkan petak
+abu.
+
+**Langkah berikutnya yang tepat, berurutan:**
+1. Ukur nilai AWAL `sel[]` di gim (mis. `CC_VSMEM` pada alamat larik itu),
+   supaya aturan "menaruh hanya kalau berubah" bisa dimodelkan dgn benar.
+2. Ukur MENGAPA gim berhenti sesudah 6 bola padahal slot 0 terisi benar —
+   apakah `ord1[0]` memang tidak tertulis, atau rantainya berbeda.
+3. Baru sesudah keduanya jelas, ganti jalur gagal port ke VM (kodenya sudah
+   ada di `vm.VM(berhenti_di=)`), lalu aturan skrip karangan.
 
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
 

@@ -81,3 +81,6 @@ work/playseq/
 work/prseq/
 work/dostest/
 work/suaraseq/
+
+# tangkapan harness animasi jalur bermain (bisa dibangkitkan ulang)
+work/animmainseq/
