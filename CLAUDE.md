@@ -20,16 +20,30 @@ Mechanisms). ⚠ Pengalaman 2026-08-02: EMPAT celah cakupan ditutup dan keempatn
 memunculkan kesalahan — jangan menganggap dimensi yang belum diuji "hampir pasti
 benar".
 
-Langkah pertama tiap sesi baru:
-1. Baca **`src_c/README.md`** — 17 aturan kompiler MS C 1.04 yang mahal didapat.
-   Tanpa ini akan mengulang kesalahan yang sudah dibayar.
-2. Baca **`src_c/JOURNAL.md`** — KEPUTUSAN & alasannya, jalan buntu yang sebabnya
-   sudah dipahami, dan pertanyaan yang masih menggantung untuk user.
-3. Jalankan `pwsh src_c/build/buildall.ps1` lalu `python src_c/verify/verifyall.py`
-   untuk status faktual, DAN `python src_c/verify/execmp.py` (satu-satunya alat
-   yang melihat identitas simbol). Jangan percaya angka di dokumen, percaya alatnya.
-4. Untuk jalur port: jalankan seluruh `work/test_*.py` (23 berkas). Sama seperti
-   di atas — angka di dokumen bisa basi, alatnya tidak.
+### Repo & cara kerja git
+
+Remote SUDAH ada: **`github.com/agunawijaya/Creative_Contraptions`**, **private**.
+Kerja terakhir (2026-08-02) ada di commit `62c1282`, dan `main` sinkron dgn
+`origin/main`.
+
+⚠ **Harapan user: tiap kemajuan nyata = commit + push + dokumen root diperbarui,
+dalam satu tarikan.** Jangan menumpuk pekerjaan tanpa commit, dan jangan commit
+tanpa push. Berkas gim TIDAK PERNAH ikut (sudah di-.gitignore) — periksa dgn
+`git ls-files | grep -icE "_ORIGINAL_READONLY|\.exe$|\.zip$"` yang harus 0.
+
+### Langkah pertama tiap sesi baru
+
+Kerja TERAKHIR ada di jalur **port** dan dokumen. Mulai dari situ kecuali user
+menyebut src_c:
+
+1. Jalankan seluruh `work/test_*.py` (**23 berkas**) untuk status faktual jalur
+   port. Angka di dokumen bisa basi; alatnya tidak.
+2. Baca §"Status port" di bawah, lalu `port/README.md` §"Keadaan terukur".
+3. Kalau menyentuh **`src_c`**: WAJIB baca `src_c/README.md` (17 aturan kompiler
+   MS C 1.04) dan `src_c/JOURNAL.md` lebih dulu; sesudah SETIAP link jalankan
+   `python src_c/verify/execmp.py`.
+4. Dokumen untuk PEMBACA (README, ARCHITECTURE, CODE_MAP, PORT_*) — jaga nadanya,
+   dan tiap gambar/diagram wajib punya paragraf "Penjelasan gambar."
 
 Arsip percakapan mentah ada di folder memory Claude Code (`*.jsonl`, 9,3 MB).
 Pakai HANYA kalau perlu menelusuri satu detail spesifik; jangan dibaca utuh dan
