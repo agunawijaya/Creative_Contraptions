@@ -1,5 +1,12 @@
 # Titik Mulai untuk "Persis Sama Seperti Game Asli"
 
+> ⚠ **DOKUMEN SEJARAH (per 2026-08-02).** Tujuannya sudah tercapai: port-nya kini
+> terukur identik dengan gim asli, dan rekonstruksi source C-nya byte-identical.
+> Isi di bawah adalah catatan kerja dari saat hal itu masih terbuka — beberapa
+> bagian "yang MASIH belum diturunkan" sudah lama selesai. Untuk keadaan faktual,
+> percayai alatnya: `work/test_*.py`, `src_c/verify/execmp.py`, dan ringkasan di
+> `CLAUDE.md`.
+
 > **Untuk Bapak / sesi mendatang:** kalau tujuan bergeser dari "port Python modern" ke
 > **reproduksi pixel-exact yang setia pada game asli**, JANGAN mulai dari nol. Sebagian
 > besar fondasinya sudah ada. Dokumen ini adalah peta "mulai dari sini".

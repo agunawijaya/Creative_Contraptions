@@ -315,15 +315,20 @@ yang berbeda: menulis ulang mesin animasinya dalam bahasa lain, memberinya berka
 yang sama, dan membandingkan **setiap bingkai** dengan memori layar gim aslinya.
 
 ```
-tujuh layar (6 kontraption + layar judul), animasi PENUH sampai habis
-  bingkai     : 1.210 / 1.210          byte-identik
-  piksel      : 77.440.000 / 77.440.000   (100,000000 %)
+sebelas layar (10 varian kontraption + layar judul), animasi PENUH sampai habis
+  bingkai     : 1.565 / 1.565            byte-identik
+  piksel      : 100.160.000 / 100.160.000   (100,000000 %)
 ```
 
 Setiap layar cocok **seluruh bingkainya**, dari yang pertama sampai yang terakhir. Yang
 membuat uji ini berbeda: implementasi ulangnya tidak berbagi satu baris kode pun dengan
 aslinya, jadi kecocokan bingkai per bingkai hanya mungkin kalau *aturannya* memang sudah
 dipahami — bukan sekadar byte-nya disalin.
+
+Angka itu semula 1.210 dari **tujuh** layar, karena setiap kontraption diadu hanya pada
+satu varian — yang kebetulan terpilih undian. Empat varian sisanya dibiarkan dengan
+alasan yang terdengar masuk akal: "jalur kodenya sama". Begitu keempatnya benar-benar
+diukur, satu di antaranya salah. Pelajarannya ikut ditulis di bawah.
 
 Perjalanan menuju angka itu justru bagian yang paling banyak mengajarkan, dan sengaja
 tidak kami sembunyikan. Selama sembilan percobaan, sisa bingkai yang tidak cocok kami
@@ -341,6 +346,25 @@ gim ternyata memantulkan bola ke seluruh tepi layar lebih dulu.
 
 Pelajarannya bisa dipakai di mana saja: **angka yang membaik bukan bukti bahwa
 penjelasannya benar**, dan bacaan yang meyakinkan bukan pengganti pengukuran.
+
+Ada pelajaran kedua yang datang belakangan, dan ini yang paling mahal. Sesudah semua
+angka di atas tercapai, empat bagian masih belum pernah diukur — bukan karena sulit,
+melainkan karena pembenarannya terdengar cukup: *"jalur kodenya sama, cuma datanya yang
+berbeda"*. Keempatnya akhirnya diukur juga. **Keempatnya memunculkan kesalahan** — tiga
+di program tiruan, satu di alat ukurnya sendiri. Tak satu pun berada di jalur kode yang
+belum pernah cocok; yang berbeda memang cuma datanya.
+
+Jadi: **"jalur kodenya sama" adalah argumen, bukan pengukuran.** Sebuah bagian yang belum
+diuji tidak berstatus "hampir pasti benar", ia berstatus *tidak diketahui*. Perbedaan
+antara keduanya baru terasa saat Anda memutuskan kapan berhenti.
+
+Satu contohnya enak diceritakan karena hampir menipu. Sebuah slot mekanisme di satu ronde
+tampil dengan gambar yang salah. Yang pertama dicurigai tentu saja generator angka
+acaknya — tapi rekaman menunjukkan **seluruh 16 undiannya identik** dengan gim aslinya.
+Yang salah bukan undiannya melainkan pemakaiannya: gim mencari hasil undian itu di
+direktori part yang **penuh**, sementara tiruannya mencari di direktori yang sudah
+disaring, tempat id itu sering tidak ada sama sekali. Memperbaiki setengahnya justru
+membuat angkanya **lebih buruk** — dan itu, sekali lagi, petunjuk yang berguna.
 
 **Kenapa ini penting untuk dokumen belajar?** Karena tidak ada satu kalimat pun di sini
 yang berasal dari tebakan. Kalau pemahaman kami tentang format record salah, gambarnya

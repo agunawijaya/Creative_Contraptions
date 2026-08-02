@@ -98,15 +98,32 @@ python work/test_nav.py        # regresi navigasi menu
 ✅ **Navigasi sesuai hierarki asli**: selesai/ESC di contraption → kembali ke pilihan GOAL
    (bukan menu depan); hanya GOAL-ESC yang ke menu depan.
 
-## Belum (roadmap)
-- [ ] **21 bingkai animasi** (goal 1, 2, 3) belum byte-identik. Record dan posisinya sudah
-      terbukti benar; yang belum diturunkan adalah `prep`/`blend`/`putmsk`/`draw` —
-      interaksi hapus-bola dengan blit yang datang sesudahnya.
-      ⚠ Enam percobaan di sumbu itu sudah gagal; hipotesis "salinan latar basi" bahkan
-      menurunkan hasil 381/402 → 57/402. Baca catatan di `cc/core/adegan.py` dulu.
-- [x] Suara PC-speaker — `cc/core/bunyi.py`; nada = frekuensi Hz, not 3 byte.
-- [ ] Dua sisa data tangkapan, keduanya ANTARMUKA bukan render kontraption:
-      `cc/anim/review_layout.json` (tata letak Review Mechanisms) dan `cc/anim/icons/`.
+## Keadaan terukur (2026-08-02)
+
+Seluruh butir "belum" yang dulu ada di sini sudah tertutup. Angkanya diadu dengan
+tangkapan VRAM gim asli, bukan dengan keluaran port sendiri:
+
+| bagian | hasil |
+|---|---|
+| Animasi, **10 varian** + layar judul, penuh sampai habis | 1.565/1.565 bingkai · 100.160.000/100.160.000 piksel |
+| Pembuka `animvm()` (jam pasir + bilah bola) | 59/59 bingkai · 151.040/151.040 piksel |
+| Layar bermain: 6 goal × 2 mode + **6 ronde Mix Up** + jalur pemain | 20 kasus, 64.000/64.000 |
+| Menu, level, goal, credits, `askopts`, 3 layar instruksi | 11 layar, 64.000/64.000 |
+| Strip palet, kedua mode | 48.384/48.384 |
+| Teks DOS: baris, kolom, warna, bentuk glyph | 64.000/64.000 |
+| Suara | urutan frekuensi cocok dgn penulisan PIT gim |
+
+Port **tidak membaca satu pun berkas tangkapan** — dibuktikan `work/test_mandiri.py`,
+yang membungkus `open()` sehingga setiap pembacaan di bawah `cc/anim/` atau `cc/draws/`
+melempar, lalu menjalankan port lewat jalur pemain. Kedua folder itu kini hanya
+PEMBANDING.
+
+Jalankan seluruh regresinya: `for f in work/test_*.py; do python $f; done` (23 berkas).
+
+⚠ Yang **tidak** dijamin: bagian yang belum pernah disapu tetap berstatus *tidak
+diketahui*, bukan "hampir pasti benar". Empat celah cakupan ditutup pada 2026-08-02 dan
+keempatnya memunculkan kesalahan — semuanya di jalur kode yang sudah cocok, yang berbeda
+hanya datanya.
 
 > Catatan sejarah: jebakan lama *"indeks varian `draws_*` tidak sejajar dengan `*.dat`"*
 > sudah tidak ada. `_match_anim()` yang mencocokkan animasi ke layar design lewat isi

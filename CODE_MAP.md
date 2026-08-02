@@ -283,6 +283,25 @@ Dan yang menandai slot itu — `setmark` (`0x10FD`) untuk Mix Up, `setzany`
 antara `loadcon` dan `pickpart`, jadi melewatkannya menggeser seluruh
 pemilihan part sesudahnya, walaupun hasil tandanya sendiri tak terlihat.
 
+⭐ **`setmark` mengembalikan DUA daftar tanda, bukan satu.** Ia membagi hasilnya
+menurut isi `state[]`: entri `-1` (mekanisme) masuk daftar pertama, sisanya
+(objek zany) ke daftar kedua. Daftar mekanisme itu dipakai di tempat yang sama
+sekali lain — bukan `pickpart` melainkan `fillans` (`0x149D`):
+
+```c
+if (lvl3 == 3 && markf[i] != 0) tt[i] = b[rnd(nmech) * 0xc];  /* id ACAK */
+else                            tt[i] = tq[i * 3 + 2];        /* jawaban benar */
+```
+
+Jadi di Mix Up sebuah slot **mekanisme** yang bertanda pun tidak menampilkan
+jawaban yang benar: ia menampilkan part yang diundi. Dua hal mudah salah di
+sini. Pertama, `rnd(nmech)` memakai cacah **palet** tetapi mengindeks `base`,
+yaitu direktori record — dua besaran yang berbeda, dan itu memang begitu di
+binernya. Kedua, `base` sendiri berbeda per mode: `loadarc(mechfh, base,
+lvl3 == 1 ? 0 : 1, ...)` memberi direktori **disaring** untuk mode isian dan
+direktori **penuh** untuk Mix Up — jadi id hasil undian sering tidak ada sama
+sekali di tabel yang disaring.
+
 > **Pelajaran umum.** Fungsi yang "hasilnya tidak kelihatan" tetap bisa
 > menentukan segalanya kalau ia menyentuh keadaan yang dipakai bersama.
 
@@ -397,7 +416,17 @@ terpisah:
 
 1. **Varian struktur diundi** — `loadcon` menghitung berapa entri `CONTRAP` yang `id`-nya
    cocok, memilih satu secara acak, dan **menghindari mengulang varian sebelumnya**
-   (disimpan di `0x1E30`).
+   (disimpan di `0x1E30`):
+
+   ```c
+   do { pick = rnd(cnt) + first; }
+   while (lastgoal == sub && cnt >= 2 && pick == lastvar);
+   ```
+
+   ⚠ Perhatikan `+ first`: yang dibandingkan dengan `lastvar` adalah indeks
+   **absolut** di direktori, bukan nomor varian relatif terhadap tujuannya.
+   Keduanya kebetulan sama hanya untuk tujuan pertama, yang `first`-nya nol —
+   dan perbedaannya baru terlihat kalau tujuan lain ikut diperiksa.
 2. **Palet part dikocok** — `mkpal` (`0x3909`) mengocok daftar part yang ditawarkan
    dengan algoritma Fisher–Yates, termasuk part pengecoh.
 
@@ -464,6 +493,31 @@ ini **dihasilkan kompiler** dari sebuah `switch` — jadi tiap "handler" sebenar
 | `0x10` | akhir tujuan: bonus + skor | — |
 | `0x11` | **tulis teks** berparameter dari skrip | 8 byte + string |
 | `0xFF` | akhir skrip **satu part** — lanjut ke part berikutnya | — |
+
+⚠ `0x03` melempar ke part **berikutnya menurut nomor**, dan kalau part itu tidak
+punya satu pun titik jalur, **lemparannya tidak terjadi sama sekali** — opcode-nya
+tetap dijalankan, cuma tanpa satu bingkai pun. Bentuknya persis seperti bug, dan
+mudah tertutup oleh cadangan yang masuk akal ("kalau begitu, arahkan saja ke posisi
+part itu"). Cadangan semacam itu tidak pernah benar; ia hanya jarang terpakai.
+
+### Bunyi: tiga mode aliran
+
+Opcode `0x04` menukar **aliran** yang dibaca penangan interupsi timer (`tone3`,
+`0x5B73`). Angka di aliran itu adalah **frekuensi dalam hertz**, bukan pembagi PIT —
+perangkat kerasnya yang dibagi (`0x1234DE / frekuensi`).
+
+| mode | bentuk aliran | berhenti kalau |
+|---|---|---|
+| 1 | tiga word: `sekarang`, `akhir`, `langkah` — **sapuan** | `sekarang == akhir` |
+| 2 | daftar not 3 byte (`u16` frekuensi + `u8` tik), penutup `FFFF` | penutup tercapai |
+| 3 | sama seperti mode 2, tapi **berulang** | tidak berhenti sendiri |
+
+Dua hal yang mudah salah pada mode 1. Nilai yang **sama dengan `akhir` tidak pernah
+terdengar**: ujinya dilakukan sebelum nada ditulis, jadi deretnya putus satu langkah
+lebih awal. Dan **panjangnya tidak ditentukan data** — satu langkah per tik timer,
+sampai program mematikannya. Pada pembuka animasi, gim hanya sempat membunyikan 25
+nada dari deret yang sebenarnya jauh lebih panjang, karena bilah bola keburu selesai
+meluncur.
 
 Beberapa hal di tabel ini mahal didapat dan mudah salah:
 

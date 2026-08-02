@@ -2,12 +2,23 @@
 
 > **Baca ini dulu sebelum mengerjakan apa pun.** File ini ikut folder proyek ke mana pun ia
 > dipindah/di-rename, jadi konteks tidak hilang meski memory Claude Code (yang terikat path)
-> tidak termuat. Terakhir diperbarui: 2026-07-30.
+> tidak termuat. Terakhir diperbarui: 2026-08-02.
 
 ## ⭐ KALAU USER BILANG "LANJUTKAN" — BACA INI DULU
 
-**Jalur yang sedang aktif: `src_c/` (rekonstruksi source C byte-identical).**
-Jalur port Python sedang JEDA — jangan melanjutkannya kecuali user minta khusus.
+**KEDUA JALUR SUDAH SELESAI (2026-08-02).**
+
+- `src_c/` — `.EXE` hasil link identik dgn biner asli kecuali satu byte artefak
+  kompiler yang terbukti ditentukan lingkungan build, bukan sumber C.
+- `port/` — seluruh bagian yang bisa diadu piksel sudah diadu; tidak ada lagi
+  yang berstatus "argumennya kuat tapi belum diukur". Angkanya di §Status port.
+
+Kalau user minta melanjutkan, TANYAKAN dulu apa sasarannya. Yang tersisa hanya
+perawatan dan perluasan cakupan ke dimensi yang belum pernah disapu (mis. level
+Master Builder di semua mode, atau jalur pemain untuk mode selain Fill in
+Mechanisms). ⚠ Pengalaman 2026-08-02: EMPAT celah cakupan ditutup dan keempatnya
+memunculkan kesalahan — jangan menganggap dimensi yang belum diuji "hampir pasti
+benar".
 
 Langkah pertama tiap sesi baru:
 1. Baca **`src_c/README.md`** — 17 aturan kompiler MS C 1.04 yang mahal didapat.
@@ -17,21 +28,12 @@ Langkah pertama tiap sesi baru:
 3. Jalankan `pwsh src_c/build/buildall.ps1` lalu `python src_c/verify/verifyall.py`
    untuk status faktual, DAN `python src_c/verify/execmp.py` (satu-satunya alat
    yang melihat identitas simbol). Jangan percaya angka di dokumen, percaya alatnya.
+4. Untuk jalur port: jalankan seluruh `work/test_*.py` (23 berkas). Sama seperti
+   di atas — angka di dokumen bisa basi, alatnya tidak.
 
 Arsip percakapan mentah ada di folder memory Claude Code (`*.jsonl`, 9,3 MB).
 Pakai HANYA kalau perlu menelusuri satu detail spesifik; jangan dibaca utuh dan
 jangan dipakai sebagai sumber status. Path lengkapnya ada di `src_c/JOURNAL.md`.
-
-**Jalur `src_c` SUDAH SELESAI (2026-08-01).** Tidak ada pekerjaan tersisa di
-sana: `.EXE` hasil link identik dengan biner asli kecuali satu byte artefak
-kompiler yang terbukti ditentukan lingkungan build, bukan sumber C.
-
-Kalau user bilang "lanjutkan" tanpa konteks lain, TANYAKAN dulu — pilihannya:
-- melanjutkan jalur **port Python** di `port/` yang sedang JEDA (rencana ada di
-  §"Status port" di bawah), atau
-- pekerjaan lain di `src_c` yang sifatnya perawatan (mis. menaikkan cakupan
-  `symcheck`, atau mencoba mencocokkan byte terakhir dengan menyetel lingkungan
-  build — nilainya kecil).
 
 ⚠ Sebelum menyentuh `src_c` lagi, WAJIB baca `src_c/README.md`. Dan sesudah
 SETIAP link jalankan `python src_c/verify/execmp.py` — itu satu-satunya alat
@@ -112,7 +114,8 @@ itu permintaan eksplisit user. Diagramnya dibangkitkan `python work/gendocimg.py
 
 Dokumen kerja (boleh berupa catatan mentah): `DECOMPILE_PLAN.md`,
 `TARGET_LANGUAGE.md`, `RESUME_EXACT.md`, `src_c/README.md`, `src_c/JOURNAL.md`.
-Catatan: bagian "Belum" di `port/README.md` **sudah basi** — percayai `CODE_MAP.md`.
+`port/README.md` sudah disegarkan (§"Keadaan terukur"); `RESUME_EXACT.md` ditandai
+DOKUMEN SEJARAH — isinya catatan kerja dari saat tujuannya masih terbuka.
 
 ## Menjalankan
 
@@ -346,7 +349,7 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   Arenanya belum diadu langsung karena keadaan RNG saat itu bukan seed 0.
 
 **Berikutnya untuk jalur PORT:**
-1. ~~Frame animasi yang belum byte-identik~~ — **SELESAI**: 1.210/1.210 frame,
+1. ~~Frame animasi yang belum byte-identik~~ — **SELESAI**: 1.565/1.565 frame (10 varian),
    100,000000% piksel (`python work/test_anim_vs_gim.py`). Catatan panjang tentang
    sembilan percobaan yang gagal tetap disimpan di `port/cc/core/adegan.py`: yang
    akhirnya membuka semuanya adalah MEREKAM (`CC_TRACEWR`) lalu MENYAPU kombinasi
