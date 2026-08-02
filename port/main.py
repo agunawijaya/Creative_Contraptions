@@ -430,21 +430,45 @@ class Game:
         draw hasil tangkapan emulator.
 
         `archs` = himpunan arsip yang digambar; None -> pakai `draw_mech`.
+
+        ⚠ APA YANG KOSONG DITURUNKAN DARI `fill_mode`, bukan dari `archs`.
+        Aturannya SATU dan sama dengan yang dipakai `start_play()`:
+
+            mech  isi=False, isi_zany=True    slot mekanisme = petak abu
+            zany  isi=True,  isi_zany=False   objek zany TIDAK digambar
+            both  isi=True,  isi_zany=True    keduanya digambar; yang "kosong"
+                                              adalah slot BERTANDA
+
+        Sebelumnya baris ini menurunkan `isi` dari `"MECHS" in archs` dan tidak
+        mengenal `isi_zany` sama sekali -- parameter itu memang ditambahkan
+        belakangan untuk jalur modul inti, dan jalur PEMAIN tidak pernah ikut.
+        Akibatnya mode Fill in Zany menggambar objek yang seharusnya kosong
+        (12.384 piksel), dan Contraption Mix Up menghilangkan mekanismenya
+        (7.528 piksel). Tidak terlihat sampai jalur pemain disapu ke seluruh
+        mode -- uji lama hanya menjalankan Fill in Mechanisms.
         """
         if archs is not None:
             draw_mech = "MECHS" in archs
         vi = getattr(self, "cur_variant", 0)
         main_play = self.state in (PLAY, PLAYANIM)
+        isi_zany = True
+        if main_play:
+            fill = getattr(self, "fill_mode", "mech")
+            draw_mech = (fill != "mech")
+            isi_zany = (fill != "zany")
         surf = self._scene_surface(
             gid, vi, draw_mech, mode=self._mode_layar(),
             seed=(self.cur_seed if main_play else 0),
             lastgoal=(self.cur_lastgoal if main_play else None),
-            lastvar=(self.cur_lastvar if main_play else None))
+            lastvar=(self.cur_lastvar if main_play else None),
+            isi_zany=isi_zany, lvl=(self.level + 1) if main_play else 1,
+            nbola=(getattr(self, "nbola", 1) if main_play else 1))
         if surf is not None:
             fb.blit(surf, (0, 0))
 
     def _scene_surface(self, gid, vi, isi_mekanisme, seed=0, mode=None,
-                       lastgoal=None, lastvar=None):
+                       lastgoal=None, lastvar=None, isi_zany=True, lvl=1,
+                       nbola=1):
         """Layar contraption DIBANGKITKAN dari CONTRAP+GRAPH+MECHS+MISC.
 
         Urutan panggilannya meniru game asli: loadcon() mengundi varian
@@ -457,7 +481,11 @@ class Game:
         (mis. navigasi menu); kalau None, undian yang menentukan.
         """
         mode = self.mode_latar if mode is None else mode
-        key = (gid, vi, bool(isi_mekanisme), seed, mode, lastgoal, lastvar)
+        # ⚠ `isi_zany` dan `lvl` WAJIB ikut kunci cache. Keduanya ditambahkan
+        # belakangan; tanpa masuk kunci, layar mode Zany akan memakai salinan
+        # milik mode Mechanisms yang kebetulan sudah tersimpan.
+        key = (gid, vi, bool(isi_mekanisme), seed, mode, lastgoal, lastvar,
+               bool(isi_zany), lvl, nbola)
         if key in self._scene_cache:
             return self._scene_cache[key]
         # Disusun oleh cc/core/adegan.susun() -- SAMA dengan yang dipakai
@@ -472,8 +500,8 @@ class Game:
             gid, self.k_graph, self.k_mechs, self.k_misc, self.k_anim,
             self.k_goals, seed=seed, mode=mode,
             varian=(None if lastgoal is not None else vi), sub=gid,
-            isi=bool(isi_mekanisme), nbola=1,
-            lastgoal=lastgoal, lastvar=lastvar)
+            isi=bool(isi_mekanisme), isi_zany=bool(isi_zany), nbola=nbola,
+            lastgoal=lastgoal, lastvar=lastvar, lvl=lvl)
         if fb is None:
             self._scene_cache[key] = None
             return None
@@ -636,6 +664,30 @@ class Game:
     # gelungnya TAK BERUJUNG; pada Master (lvl 2) `goal` menghitung mundur 6
     # putaran.
 
+    def _mix_hint_awal(self, rng):
+        """Prolog `runplay()` untuk Mix Up: satu `rnd(200)` sebelum strip.
+
+        Dipanggil dari `start_play()` supaya urutan undiannya sama dgn gim.
+        `Petunjuk` dibuat sekali lalu dipakai ulang lintas ronde -- `count`
+        yang menyusut tiap `pickmax()` memang harus lintas ronde.
+        """
+        nmax = max(1, len(self._postab_var()))
+        if self.petunjuk is None:
+            self.petunjuk = _hud.Petunjuk(rng, nmax)
+        self.petunjuk.rng = rng
+        # `tx` belum tentu ada saat `start_play()` berjalan -- pewaktu baru
+        # dipasang sesudahnya. Nilai awal gim 0x140 (bilah penuh).
+        self.petunjuk.mulai_ronde(nmax, tx=getattr(self, "tx", None) or 0x140,
+                                  tinit=True)
+
+    def _postab_var(self):
+        """postab kontraption yang BARU saja diundi (dipakai sebelum
+        `self.cur_variant` dipakai penggambar)."""
+        vs = self.k_goals.get(self.chosen_goal) or []
+        vi = getattr(self, "cur_variant", 0)
+        var = vs[vi] if vi < len(vs) else (vs[0] if vs else None)
+        return (var or {}).get("pos") or []
+
     def _mix_mulai(self):
         self.mix_sub = 0
         self.mix_sisa = None if self.level == 0 else 6
@@ -650,21 +702,11 @@ class Game:
         skor = self.mix_skor
         self.start_play(self.mix_sub, fill="both")
         self.score = skor                     # skor TERKUMPUL lintas ronde
-        # `pickmax()` dipanggil SEKALI saat mode dimasuki (`main_.c`), dan
-        # `count` yang dikurangi tiap panggilan ikut lintas ronde -- karena itu
-        # objeknya dibuat sekali lalu dipakai ulang.
-        #
-        # Tiap RONDE, `runplay()` menyetel ulang keadaan penandanya:
-        # `timer = -1; lvl6 = nmax; range = tx - (rnd(200)*0x17/199 + 2);`
-        # Dua nilai itu dulu salah di port (lvl6 mulai 0, range dipatok);
-        # sekarang `mulai_ronde()` yang mengerjakannya, memakai RNG gim yang
-        # sama supaya `range` ikut rantai yang benar.
-        nmax = max(1, len(self._postab()))
-        if self.petunjuk is None:
-            self.petunjuk = _hud.Petunjuk(_rng.Rng(self.rng_seed), nmax)
-        self.petunjuk.rng = _rng.Rng(self.rng_seed)
-        self.petunjuk.mulai_ronde(nmax, tx=self.tx or 0x140, tinit=True)
-        self.rng_seed = self.petunjuk.rng.state()
+        # ⚠ Keadaan penanda TIDAK disetel ulang di sini. `runplay()` menyetel
+        # `timer/lvl6/range` dgn satu `rnd(200)`, dan undian itu jatuh SEBELUM
+        # `mkpal()` yang membangun strip -- jadi ia dikerjakan di dalam
+        # `start_play()` lewat `_mix_hint_awal()`. Menjalankannya lagi di sini
+        # memakai `rnd(200)` DUA KALI dan menggeser urutan strip.
 
     def _mix_ronde_selesai(self):
         """SPACE sesudah animasi menang: lanjut ke kontraption berikutnya."""
@@ -681,6 +723,12 @@ class Game:
     def start_play(self, gid, fill="mech"):
         vs = self.k_goals.get(gid) or []
         self.fill_mode = fill                     # "mech" | "zany" | "both" (Mix Up)
+        # ⭐ JUMLAH BOLA, dipasang SEBELUM adegan disusun karena ikon bola di
+        # pita atas digambar `setupscr()`. `main_.c` case 4:
+        #     goal = 6;  while (goal > 0) { ... if (lvl == 1) goal = 1; ... }
+        # jadi Mix Up memberi ENAM bola di Master Builder dan SATU di
+        # Apprentice; mode lain selalu satu. Terukur di `goal` @0x718.
+        self.nbola = 6 if (fill == "both" and self.level == 1) else 1
         self.slots = []
         self.palette = []
 
@@ -737,7 +785,7 @@ class Game:
             #         kelompok kedua (id >= 0x80) -- sprite PENGGANTI, bukan
             #         petak kosong. Karena itu isi/isi_zany dua-duanya True.
             isi=(fill != "mech"), isi_zany=(fill != "zany"),
-            nbola=1, lastgoal=self.lastgoal, lastvar=self.lastvar,
+            nbola=self.nbola, lastgoal=self.lastgoal, lastvar=self.lastvar,
             lvl=self.level + 1)
         vi = pil["vi"]
         rng = pil["rng"]
@@ -788,13 +836,36 @@ class Game:
             #     lvl3 != 1 -> direktori PENUH
             # Terukur lewat CC_VSPTR=73a: goal 1 mode isian `base` = 6 record,
             # mode Mix Up = 30 record (seluruh direktori MECHS).
-            lvl3 = 3 if fill == "both" else 1
+            # ⚠ lvl3 BUKAN sekadar "3 di Mix Up, 1 selainnya" -- di Fill in
+            # Mechanisms tingkat Master ia 2, dan itu yang membuat seluruh
+            # daftar part ditawarkan (nmech 3 -> 13). Aturannya di
+            # `adegan.tingkat()`, satu tempat untuk kedua jalur.
+            _lvl2, lvl3 = _adg.tingkat(mode_asli, self.level + 1)
+            # ⚠ URUTAN. Di gim strip dibangun `mkpal()` dari dalam `pickloop()`,
+            # dan itu terjadi SESUDAH prolog `runplay()` @0x5505 yang memakai
+            # satu `rnd(200)`. Terukur di CC_RNDLOG: undian #29 berasal dari
+            # 0x553d, tepat sebelum blok 15 undian `mkpal` yang kedua.
+            # Membangun strip sebelum undian itu memberi HIMPUNAN part yang
+            # benar tapi URUTAN yang salah -- dan strip memang bergantung
+            # urutan.
             base = tm if lvl3 == 1 else self.k_mechs.recs
-            for r in (base[i] for i in
-                      _pick.palet_mekanisme(base, jm, lvl3, rng)):
+            # ⚠ Di Mix Up palet strip DIPAKAI ULANG dari `fillans()`. Gim
+            # memanggil `mkpal()` sekali saja sebelum strip digambar; memanggil
+            # ulang di sini memakai 15 undian lagi dan menggeser urutannya.
+            _pal_idx = pil.get("palet")
+            if _pal_idx is None:
+                _pal_idx = _pick.palet_mekanisme(base, jm, lvl3, rng)
+            for r in (base[i] for i in _pal_idx):
                 ci = self._cat_index(r["id"])
                 nm = MECH_CATEGORIES[ci][0] if ci is not None else "Mechanism"
                 self.palette.append((nm, (r["id"],), "MECHS", r["idx"]))
+            self.n_strip = len(self.palette)     # entri yang tampil di strip
+            # Prolog `runplay()` @0x5505 (`timer/lvl6/range`, satu `rnd(200)`)
+            # jatuh SESUDAH `mkpal()` -- terukur di CC_RNDLOG: blok 15 undian
+            # dari 0x3a8d lebih dulu, baru undian dari 0x553d. Menjalankannya
+            # lebih awal menggeser seluruh urutan strip.
+            if fill == "both":
+                self._mix_hint_awal(rng)
         if fill in ("zany", "both"):
             add_slots(var["zany"], "GRAPH")
             seen = set()
@@ -829,7 +900,6 @@ class Game:
         #   tx         @0x7ee waktu TERSISA dalam piksel; main_ menyetel 0x140
         #   range/count/cur2  keadaan petunjuk Master (pickmax/hintmark)
         self.mode_asli = self.mode + 1
-        self.nbola = 6 if fill == "both" else 1
         self.zcnt = 0
         self.tx = 0x140 if fill == "both" else 0
         self.range_ = 0x140 - 0x14
@@ -917,6 +987,16 @@ class Game:
         inbox = (self.fill_mode == "zany")   # Zany: kandidat berputar DI DALAM kotak
 
         # --- slot: kosong = petak warna 3, terisi = sprite-nya ---------------
+        #
+        # ⚠ PETAK ABU HANYA UNTUK Fill in Mechanisms. `drawslot()` @0x3F0F
+        # adalah penggambar MEKANISME; objek zany digambar `f498c`, dan slot
+        # zany yang kosong TIDAK menggambar apa pun. Di Contraption Mix Up tak
+        # ada yang benar-benar kosong -- slot bertanda dapat sprite PENGGANTI
+        # dari `pickpart()`, jadi petak abu pun tidak muncul.
+        #
+        # Sebelumnya baris ini memberi SELURUH slot ke `drawslot`, dan itu
+        # menorehkan petak abu di kedelapan slot zany (5.654 piksel). Tidak
+        # terlihat sampai jalur pemain disapu ke seluruh mode.
         def isi(i):
             s = self.slots[i]
             if s["filled"] is None:
@@ -925,7 +1005,16 @@ class Game:
             if s["sprite"] is not None and s["sprite"] >= 0:
                 return arc, arc.recs[s["sprite"]]
             return None
-        _rend.drawslot(k, [(s["y"], s["x"]) for s in self.slots], isi)
+
+        if self.fill_mode == "mech":
+            _rend.drawslot(k, [(s["y"], s["x"]) for s in self.slots], isi)
+        else:
+            # Mode lain: yang kosong tidak digambar; yang sudah diisi pemain
+            # tetap tampil sprite-nya.
+            for i, s in enumerate(self.slots):
+                sp = isi(i)
+                if sp is not None:
+                    k.blit(sp[0], sp[1], s["x"], s["y"])
 
         # Zany: kandidat yang sedang diputar tampil DI DALAM kotaknya
         # (`pickvar()`), bukan di strip.
@@ -1013,7 +1102,13 @@ class Game:
             arc = self.k_mechs if parch == "MECHS" else self.k_graph
             return arc, arc.recs[pidx]
 
-        _pal.drawpal(k, self.cur_part, isi, len(self.palette))
+        # ⚠ Strip menampilkan `nmech` entri MEKANISME saja. Entri zany ada di
+        # `self.palette` untuk keperluan input (di gim ia dipilih lewat
+        # `pickvar()` yang berputar DI DALAM kotak, bukan di strip), tapi
+        # `drawpal()` tidak pernah menggambarnya. Terukur: `nmech` @0x3ac = 13
+        # di Mix Up sementara palet port berisi 21 entri.
+        _pal.drawpal(k, self.cur_part, isi, getattr(self, "n_strip",
+                                                    len(self.palette)))
         _pal.penunjuk(k, self.k_misc, (self.title_tick // _pal.PENUNJUK_TIK) & 1)
 
     def tick(self):

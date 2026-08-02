@@ -14,12 +14,12 @@
   yang berstatus "argumennya kuat tapi belum diukur". Angkanya di §Status port.
 
 Kalau user minta melanjutkan, TANYAKAN dulu apa sasarannya. Yang tersisa hanya
-perawatan dan perluasan cakupan ke dimensi yang belum pernah disapu — dan yang
-tersisa sekarang tinggal **jalur pemain untuk mode selain Fill in Mechanisms**
-(`uji_interaktif` di `test_play.py` baru menguji satu mode, satu goal,
-Apprentice).
+perawatan dan perluasan cakupan ke dimensi yang belum pernah disapu. Semua
+dimensi yang pernah kami sebut sudah disapu; `test_play.py` kini **44 kasus**
+(6 goal x 2 mode x 2 tingkat, 6 ronde Mix Up x 2 tingkat, dan **jalur pemain
+untuk ketiga mode x kedua tingkat**).
 
-⚠ Pengalaman 2026-08-02: **LIMA** celah cakupan ditutup dan **kelimanya**
+⚠ Pengalaman 2026-08-02: **ENAM** celah cakupan ditutup dan **keenamnya**
 memunculkan kesalahan — jangan menganggap dimensi yang belum diuji "hampir
 pasti benar". Yang kelima (tingkat Master Builder) bahkan memunculkan artefak
 gim 1985 yang belum pernah terlihat siapa pun: huruf liar di tengah arena
@@ -584,6 +584,37 @@ justru MEMPERBURUK angkanya; itu petunjuk bagus bahwa penjelasannya belum
 lengkap, dan alasan kenapa "angka membaik" bukan bukti.
 
 → enam ronde **384.000/384.000 piksel**; `test_play.py` kini 20 kasus.
+
+### Celah keenam: JALUR PEMAIN untuk semua mode (2026-08-02)
+
+`uji_interaktif` menjalankan `main.Game` + `key()` sungguhan, tapi hanya untuk
+Fill in Mechanisms, satu tujuan, Apprentice. Diperluas ke **ketiga mode x kedua
+tingkat**, dan memunculkan **enam bug port** yang TIDAK SATU PUN bisa terlihat
+dari jalur modul inti — semuanya di `main.py`, jalur yang dilalui pemain:
+
+1. `_scene_surface()` memanggil `susun()` **tanpa `isi_zany`**. Parameter itu
+   ditambahkan belakangan untuk jalur modul inti; jalur pemain tidak ikut, jadi
+   Fill in Zany menggambar objek yang seharusnya kosong (12.384 piksel).
+2. `isi` diturunkan dari `fixed_archs`, bukan dari `fill_mode` — salah untuk
+   Mix Up. Sekarang aturannya SATU dan sama dengan `start_play()`.
+3. `drawslot()` diberi SELURUH slot, padahal ia penggambar **mekanisme**; slot
+   zany kosong tidak menggambar apa pun dan di Mix Up tak ada yang kosong
+   (5.654 piksel).
+4. ⭐ `lvl2`/`lvl3` per mode-tingkat SALAH. `main_.c` menaikkan besaran yang
+   BERBEDA tiap mode di Master: Fill in Mechanisms menaikkan `lvl3` ke 2 —
+   syarat penyaring `mkpal()` gugur dan SELURUH daftar part ditawarkan
+   (`nmech` 3 -> 13) — sementara Fill in Zany menaikkan `lvl2` dan `lvl3`-nya
+   tetap 1. Aturannya kini di `adegan.tingkat()`.
+5. ⭐ `mkpal()` dipanggil DUA KALI (sekali di `fillans`, sekali untuk strip).
+   Gim hanya sekali — terukur di `CC_RNDLOG`: satu blok 15 undian dari 0x3a8d,
+   tidak ada blok kedua. Lima belas undian ekstra menggeser seluruh urutan
+   strip. Paletnya kini dipakai ulang lewat `pil["palet"]`.
+6. Jumlah bola: `goal = 6` hanya berlaku di Master (`if (lvl == 1) goal = 1;`),
+   dan port memberi 6 untuk keduanya — lima ikon berlebih di pita atas.
+
+⚠ Urutan undian juga berpengaruh: prolog `runplay()` (satu `rnd(200)`) jatuh
+SESUDAH `mkpal()`, bukan sebelum. Menaruhnya di tempat yang salah memberi
+himpunan part yang benar tapi URUTAN yang salah.
 
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
 

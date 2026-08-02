@@ -324,22 +324,43 @@ def uji_mixup_rentetan(folder, arc, level=1):
             64000 - beda, 64000)
 
 
-def uji_interaktif(folder, arc):
+# Jalur PEMAIN, per mode: nama, OBSERVE, mode gim, alamat tangkap,
+# indeks di menu utama, dan apakah mode itu lewat layar pemilih GOAL.
+KASUS_PEMAIN = [
+    ("Fill in Mechanisms", "fillmech", 2, "3c4e", 1, True),
+    ("Fill in Zany",       "zany",     3, "42ca", 2, True),
+    ("Contraption Mix Up", "mixup",    4, "3c4e", 3, False),
+]
+
+
+def uji_interaktif(folder, arc, nama, obs, mode, off, sel_menu, punya_goal,
+                   level=1):
     """Jalur PEMAIN SUNGGUHAN: main.Game + key(), bukan hanya modul inti.
 
-    Aturan kerja proyek ini menuntut uji lewat jalur user. Ini yang dulu
-    menangkap bug palet dikocok DUA KALI -- jalur modul inti tidak lewat
-    main.py sama sekali dan memberi 64.000/64.000 sementara jalur pemain
-    meleset 738 piksel.
+    Aturan kerja proyek ini menuntut uji lewat jalur user, dan berkas ini
+    punya buktinya sendiri: uji modul inti pernah memberi 64.000/64.000
+    sementara jalur pemain meleset 738 piksel -- `start_play()` mengocok palet
+    DUA KALI, kocokan gim yang benar lalu sisa kode lama di atasnya. Bug itu
+    TIDAK BISA terlihat dari jalur modul inti, karena jalur itu tidak lewat
+    `main.py` sama sekali.
+
+    ⚠ Sampai 2026-08-02 fungsi ini hanya menguji SATU mode, satu tujuan,
+    tingkat Apprentice. Sekarang ketiga mode x kedua tingkat.
     """
     import pygame
     from cc import assets, cga
     from cc.core import palet as _pal
     import main as portmain
 
-    G, seq = tangkap_layar(folder, "fillmech", 2, "3c4e", GOAL)
-    ref = muat(os.path.join(seq, "f%04d.png" % G[0]["frame"]))
-    seed, lastgoal, lastvar = tangkap_rng(folder, "fillmech", 2, GOAL)
+    tag = "%s %s" % (nama, "Apprentice" if level == 1 else "Master")
+    G, seq = tangkap_layar(folder, obs, mode, off, GOAL, level)
+    if not G:
+        gagal.append("%s (jalur pemain): emulator tidak mencapai titik tangkap"
+                     % tag)
+        return
+    r0 = G[0]
+    ref = muat(os.path.join(seq, "f%04d.png" % r0["frame"]))
+    seed, lastgoal, lastvar = tangkap_rng(folder, obs, mode, GOAL, level)
 
     pygame.init()
     asli = _pal.penunjuk
@@ -356,23 +377,34 @@ def uji_interaktif(folder, arc):
         # dulu akan tergeser. Nilai yang ditangkap emulator adalah keadaan di
         # `loadcon`, yaitu SESUDAH pemanasan itu.
         g.rng_seed, g.lastgoal, g.lastvar = seed, lastgoal, lastvar
-        g.key(pygame.K_DOWN)                   # sel 1 = Fill in Mechanisms
+        for _ in range(sel_menu):
+            g.key(pygame.K_DOWN)
         g.key(pygame.K_RETURN)                 # -> LEVEL
-        g.key(pygame.K_RETURN)                 # Apprentice -> INSTRUKSI (menu9)
-        g.key(pygame.K_RETURN)                 # ENTER -> GOAL
-        g.sel = g.goal_ids.index(GOAL)
-        g.key(pygame.K_RETURN)                 # -> PLAY
-        # keadaan yang berubah menurut waktu/interaksi, bukan aturan gambar
-        g.cur_slot, g.message, g.cur_part = -1, "", G[0]["w51c"]
+        if level == 2:
+            g.key(pygame.K_DOWN)               # Apprentice -> Master Builder
+        g.key(pygame.K_RETURN)                 # -> INSTRUKSI (menu9/11/12)
+        g.key(pygame.K_RETURN)                 # -> GOAL, atau langsung PLAY
+        if punya_goal:
+            g.sel = g.goal_ids.index(GOAL)
+            g.key(pygame.K_RETURN)             # -> PLAY
+        # Keadaan yang berubah menurut WAKTU/interaksi, bukan aturan gambar --
+        # disamakan dgn tangkapan, sama seperti di jalur modul inti.
+        g.cur_slot, g.message, g.cur_part = -1, "", r0["w51c"]
+        g.tx = r0["w7ee"]
+        if g.petunjuk is not None and mode == 4 and r0.get("w734") == 2:
+            g.petunjuk.cur2 = r0.get("w7f8", g.petunjuk.cur2)
+            g.petunjuk.warna = 0 if r0.get("w834") else 2
         fb = cga.make_framebuffer()
         g.draw(fb)
         beda = sum(1 for y in range(200) for x in range(320)
                    if PALET[fb.get_at((x, y))[:3]] != ref[y][x])
-        pygame.image.save(fb, os.path.join(AKAR, "work", "play_port.png"))
+        if beda:
+            pygame.image.save(fb, os.path.join(
+                AKAR, "work", "play_port_%s_l%d.png" % (obs, level)))
     finally:
         _pal.penunjuk = asli
         pygame.quit()
-    cek("SELURUH LAYAR", 64000 - beda, 64000)
+    cek("JALUR PEMAIN %s" % tag, 64000 - beda, 64000)
 
 
 def main(folder):
@@ -387,8 +419,10 @@ def main(folder):
         print("  Contraption Mix Up: RENTETAN enam ronde (%s)"
               % ("Apprentice" if level == 1 else "Master Builder"))
         uji_mixup_rentetan(folder, arc, level)
-    print("  Fill in Mechanisms lewat JALUR PEMAIN")
-    uji_interaktif(folder, arc)
+    print("  JALUR PEMAIN: main.Game + key(), ketiga mode x kedua tingkat")
+    for nm, obs, mode, off, selm, pg in KASUS_PEMAIN:
+        for level in SEMUA_LEVEL:
+            uji_interaktif(folder, arc, nm, obs, mode, off, selm, pg, level)
     print("")
     print("%s" % ("LAYAR BERMAIN IDENTIK DENGAN GAME ASLI"
                   " (6 goal x 2 mode x 2 level + 6 ronde Mix Up x 2 level)"

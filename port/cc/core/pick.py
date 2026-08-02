@@ -185,7 +185,8 @@ def mkpal(recs):
     return out
 
 
-def fillans(recs, jenis, rng=None, mark=None, lvl3=1, base=None):
+def fillans(recs, jenis, rng=None, mark=None, lvl3=1, base=None,
+            palet_keluar=None):
     """`fillans()` @0x149D. -> indeks record per slot.
 
     ⭐ "Mekanisme TIDAK diundi" hanya benar di mode 1/2/3. Di Contraption Mix
@@ -220,7 +221,15 @@ def fillans(recs, jenis, rng=None, mark=None, lvl3=1, base=None):
         tr = mkpal(recs)                       # jalur lama, tanpa RNG
         npal = len(tr)
     else:
-        npal = len(palet_mekanisme(b, jenis, lvl3, rng))
+        pal = palet_mekanisme(b, jenis, lvl3, rng)
+        npal = len(pal)
+        if palet_keluar is not None:
+            # ⭐ Palet ini DIPAKAI ULANG untuk strip pemilih part. Gim hanya
+            # memanggil `mkpal()` SEKALI sebelum strip digambar -- terukur di
+            # CC_RNDLOG: satu blok 15 undian dari 0x3a8d, tidak ada blok
+            # kedua. Port dulu memanggilnya lagi di `main.py`, dan 15 undian
+            # ekstra itu menggeser seluruh urutan strip.
+            palet_keluar.extend(pal)
         tr = mkpal(recs)
     hasil = []
     for i, t in enumerate(jenis):

@@ -248,6 +248,40 @@ def susun(*a, **k):
     return var, parts, latar
 
 
+def tingkat(mode, lvl):
+    """-> (lvl2, lvl3) untuk sebuah mode dan tingkat, PERSIS seperti `main_.c`.
+
+        case 2: lvl2 = 1;  lvl3 = (lvl == 1) ? 1 : 2;    Fill in Mechanisms
+        case 3: lvl3 = 1;  lvl2 = (lvl == 1) ? 1 : 2;    Fill in Zany
+        case 4: lvl3 = 3;  lvl2 = 2;                     Contraption Mix Up
+
+    ⭐ Perhatikan bahwa TIAP MODE menaikkan besaran yang BERBEDA di tingkat
+    Master Builder, dan itu yang membuatnya lebih sulit dengan cara yang
+    berbeda pula:
+
+      Fill in Mechanisms  `lvl3` naik ke 2, dan syarat penyaring di `mkpal()`
+                          (`lvl3 != 1 || base[i] == tab[j]`) jadi gugur --
+                          seluruh daftar part ditawarkan, bukan hanya yang
+                          dipakai kontraption ini. Terukur: `nmech` @0x3ac
+                          naik dari 3 menjadi 13.
+      Fill in Zany        `lvl2` yang naik; `lvl3` TETAP 1, jadi jumlah
+                          tawarannya tidak berubah.
+      Contraption Mix Up  keduanya sudah maksimal, tidak bergantung tingkat.
+
+    ⚠ Port dulu memakai `lvl3 = 3 if mode == 4 else 1` dan
+    `lvl2 = 2 if mode == 4 else (1 if lvl == 1 else 2)`. Keduanya keliru untuk
+    Fill in Mechanisms di Master: lvl3 seharusnya 2 (bukan 1) dan lvl2
+    seharusnya tetap 1 (bukan 2). Tidak terlihat sampai sumbu tingkat disapu.
+    """
+    if mode == 4:
+        return 2, 3
+    if mode == 3:
+        return (1 if lvl == 1 else 2), 1
+    if mode == 2:
+        return 1, (1 if lvl == 1 else 2)
+    return 1, 1
+
+
 def susun_lengkap(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
                   varian=None, sub=None, isi=True, nbola=0, lastgoal=None,
                   lastvar=None, isi_zany=True, lvl=1):
@@ -311,7 +345,7 @@ def susun_lengkap(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
     elif mode == 4:
         mark_mech, mark_zany, _c = pick.setmark(r, n_slot, var["state"], lvl)
     # `lvl2`: 2 di Mix Up, dan di mode isian 1 (Apprentice) / 2 (Master).
-    lvl2 = 2 if mode == 4 else (1 if lvl == 1 else 2)
+    lvl2, lvl3 = tingkat(mode, lvl)
 
     jz = [t for (y, x, t) in var["zany"]]
     tz = pick.tabel(graph, jz)
@@ -325,7 +359,9 @@ def susun_lengkap(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
     tm = mechs.recs if mode == 4 else pick.tabel(mechs, jm)
     # ⭐ Di Mix Up slot mekanisme BERTANDA mendapat id ACAK (fillans.c baris
     # 46). Daftar tanda mekanisme dulu dibuang di sini -- lihat pick.fillans().
-    selm = (pick.fillans(tm, jm, rng=r, mark=mark_mech, lvl3=3, base=tm)
+    palet_strip = []
+    selm = (pick.fillans(tm, jm, rng=r, mark=mark_mech, lvl3=lvl3, base=tm,
+                         palet_keluar=palet_strip)
             if mode == 4 else pick.fillans(tm, jm))
 
     # `sub` = nomor goal. Ia menentukan strip cyan di dasar layar:
@@ -371,7 +407,7 @@ def susun_lengkap(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
     # perlu MENYALIN ulang seluruh rantai undian. Menyalinnya adalah cara
     # paling mudah membuat "layar design != layar run": dua salinan yang
     # lambat laun berbeda. Satu implementasi, satu hasil.
-    pilihan = dict(vi=vi, selz=selz, selm=selm, tz=tz, tm=tm, jz=jz, jm=jm,
+    pilihan = dict(palet=(palet_strip or None), vi=vi, selz=selz, selm=selm, tz=tz, tm=tm, jz=jz, jm=jm,
                    rng=r, mark_zany=mark_zany, lvl2=lvl2)
     return var, parts, latar, pilihan
 
