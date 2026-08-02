@@ -1,0 +1,134 @@
+{
+  "_about": [
+    "Derived from CODE_MAP.md, not written by hand. Creative Contraptions",
+    "records its reading as prose -- each function named with its address",
+    "and the reasoning beside it -- so this is a second view of one reading.",
+    "**If the two disagree, CODE_MAP.md is right.**",
+    "",
+    "Addresses are offsets from the start of the code segment, as that",
+    "document defines them. Only functions CODE_MAP.md actually names appear",
+    "here; nothing was named from outside, because a second opinion grafted",
+    "on would drift from the first and nobody would know which was which.",
+    "",
+    "`why` is the sentence each name appears in. Where the map marks a claim",
+    "as `dugaan` -- a guess -- the word is carried through rather than",
+    "quietly dropped.",
+    "",
+    "That project's own verification is stronger than a symbol file: its",
+    "reconstructed C compiles to an .EXE identical to the original byte for",
+    "byte, so a wrong reading would fail to match rather than merely read",
+    "oddly."
+  ],
+  "routines": {
+    "0x0082": [
+      "main",
+      "x0082 main 4.219 B loop utama, menu, keempat mode"
+    ],
+    "0x10FD": [
+      "setmark",
+      "Dan yang menandai slot itu \u2014 setmark (0x10FD) untuk Mix Up, setzany"
+    ],
+    "0x1200": [
+      "setzany",
+      "setzany (0x1200) hanya mode 3 kembarannya untuk objek zany"
+    ],
+    "0x131A": [
+      "pickpart",
+      "pickpart (0x131A) mengundi varian untuk tiap slot, lalu memanggil place."
+    ],
+    "0x18DB": [
+      "animvm",
+      "x18DB animvm 3.040 B mesin virtual animasi"
+    ],
+    "0x2504": [
+      "bounce",
+      "x2504 bounce 398 B bola memantul di layar judul"
+    ],
+    "0x2D11": [
+      "runfill",
+      "x2D11 runfill 383 B loop mengisi jawaban per slot"
+    ],
+    "0x34CC": [
+      "runmenu",
+      "x34CC runmenu 547 B loop menu"
+    ],
+    "0x3886": [
+      "drawbox",
+      "Kotak sorotannya sendiri drawbox (0x3886), empat garis warna 3 yang digambar"
+    ],
+    "0x3909": [
+      "mkpal",
+      "Palet part dikocok \u2014 mkpal (0x3909) mengocok daftar part yang ditawarkan"
+    ],
+    "0x3C4F": [
+      "review",
+      "x3C4F review 704 B menjelajah mekanisme (mode 1)"
+    ],
+    "0x3F0F": [
+      "drawslot",
+      "drawslot (0x3F0F) menggambar isi tiap slot."
+    ],
+    "0x4094": [
+      "nvar",
+      "Fungsi nvar (0x4094) menentukan berapa varian yang tersedia untuk satu jenis part:"
+    ],
+    "0x42CA": [
+      "pickvar",
+      "x42CA pickvar 1.730 B pemilih varian untuk pemain"
+    ],
+    "0x4E3E": [
+      "place",
+      "yang digambar sebagai dua sprite. place (0x4E3E) menyusun rantainya: record awal,"
+    ],
+    "0x5035": [
+      "loadcon",
+      "loadcon (0x5035) membaca CONTRAP: cari entri yang id-nya cocok dengan"
+    ],
+    "0x531D": [
+      "loadarc",
+      "Ini bagian yang paling mudah salah, dan aturannya ada di fungsi loadarc (0x531D):"
+    ],
+    "0x53FF": [
+      "load",
+      "x53FF load 262 B muat satu blob sprite"
+    ],
+    "0x6453": [
+      "text",
+      "text() @0x6453 tabel di DGROUP (milik gim) menu, nama tujuan, prompts"
+    ],
+    "0x66FD": [
+      "f66fd",
+      "gelung per-slot, dan f66fd (0x66FD, modul keyio.asm) adalah set posisi"
+    ],
+    "0x6A48": [
+      "printf",
+      "printf() @0x6a48 ROM BIOS lewat DOS \"Mechanism A does not work.\""
+    ]
+  },
+  "globals": {
+    "0x025E": [
+      "bally",
+      "bally @0x25e koordinat X setball(0, i10) menjajarkan ikon mendatar lewat argumen ini; ballrow = y/4 = kolom byte CGA"
+    ],
+    "0x0260": [
+      "ballx",
+      "ballx @0x260 koordinat Y blend() mengulang 8\u00d7 di sini \u2014 itu jumlah baris sprite"
+    ],
+    "0x03AC": [
+      "nmech",
+      "Terukur dari memori gim (nmech @0x3AC): tujuan 1 \u2192 3 pilihan, tujuan 2 \u2192 4, tujuan 4"
+    ],
+    "0x0718": [
+      "goal",
+      "goal @0x718 jumlah bola, bukan nomor kontraption goal = 1 sebelum layar design, goal = 6 di Contraption Mix Up, goal++ saat pemain dapat bola"
+    ],
+    "0x072A": [
+      "seed",
+      "mode_ @0x846, seed @0x72a pegangan berkas dipakai sebagai argumen pertama read()/lseek()"
+    ],
+    "0x0846": [
+      "mode_",
+      "mode_ @0x846, seed @0x72a pegangan berkas dipakai sebagai argumen pertama read()/lseek()"
+    ]
+  }
+}
