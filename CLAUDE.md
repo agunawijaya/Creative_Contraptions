@@ -14,11 +14,17 @@
   yang berstatus "argumennya kuat tapi belum diukur". Angkanya di §Status port.
 
 Kalau user minta melanjutkan, TANYAKAN dulu apa sasarannya. Yang tersisa hanya
-perawatan dan perluasan cakupan ke dimensi yang belum pernah disapu (mis. level
-Master Builder di semua mode, atau jalur pemain untuk mode selain Fill in
-Mechanisms). ⚠ Pengalaman 2026-08-02: EMPAT celah cakupan ditutup dan keempatnya
-memunculkan kesalahan — jangan menganggap dimensi yang belum diuji "hampir pasti
-benar".
+perawatan dan perluasan cakupan ke dimensi yang belum pernah disapu — dan yang
+tersisa sekarang tinggal **jalur pemain untuk mode selain Fill in Mechanisms**
+(`uji_interaktif` di `test_play.py` baru menguji satu mode, satu goal,
+Apprentice).
+
+⚠ Pengalaman 2026-08-02: **LIMA** celah cakupan ditutup dan **kelimanya**
+memunculkan kesalahan — jangan menganggap dimensi yang belum diuji "hampir
+pasti benar". Yang kelima (tingkat Master Builder) bahkan memunculkan artefak
+gim 1985 yang belum pernah terlihat siapa pun: huruf liar di tengah arena
+karena `hintmark()` membaca `postab` satu entri di luar jangkauan. Lihat
+`CODE_MAP.md` §3.1c.
 
 ### Repo & cara kerja git
 
