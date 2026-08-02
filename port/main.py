@@ -755,8 +755,9 @@ class Game:
             dipilih = selm if arch == "MECHS" else selz
             for k, (y, x, typ) in enumerate(parts):
                 idx = dipilih[k] if k < len(dipilih) and dipilih[k] is not None else -1
-                self.slots.append(dict(y=y, x=x, correct=typ, filled=None, tries=0,
-                                       arch=arch, sprite=idx))
+                self.slots.append(dict(y=y, x=x, correct=typ, filled=None,
+                                       tries=0, auto=False, arch=arch,
+                                       sprite=idx))
         # entri palet = (nama, ids, arch, sprite_idx), satu per RECORD yang
         # ditawarkan `mkpal()` -- bukan per kategori tulisan tangan.
         if fill in ("mech", "both"):
@@ -1100,6 +1101,7 @@ class Game:
             if wrong:
                 self.zcnt += 1              # animvm: zcnt++ di cabang salah
                 self.slots[wrong[0]]["tries"] += 1
+                self._autofill()
             if not wrong:
                 # lengkap & benar -> MENANG. Penilaian mengikuti animvm.c case
                 # 0x10: SATU penilaian per kontraption dari `zcnt`, dan HANYA
@@ -1149,6 +1151,26 @@ class Game:
                     self.cur_slot = empties[0]
         elif k in (pygame.K_RETURN, pygame.K_KP_ENTER):
             self._place()
+
+    def _autofill(self):
+        """`autofill()` @0x5954 -- BANTUAN sesudah sebuah slot gagal dua kali.
+
+            for (i = 0; i < n; i++)
+                if (fail[i] >= 2) { ...pasang jawaban benar...; flag[i] = -1; }
+
+        `main_.c` memanggilnya HANYA di level Apprentice (`if (lvl == 1)`),
+        sesudah animasi. Jadi pemain pemula tidak bisa benar-benar tersangkut:
+        kotak yang sudah dua kali salah diisikan sendiri oleh gim.
+
+        Port lama tidak punya ini sama sekali -- pemain bisa terjebak selamanya
+        di satu kotak.
+        """
+        if self.level != 0:              # lvl == 1 -> Apprentice
+            return
+        for s in self.slots:
+            if s["tries"] >= 2 and s["filled"] != s["correct"]:
+                s["filled"] = s["correct"]
+                s["auto"] = True
 
     def _place(self):
         """Taruh part terpilih di kotak sekarang.
@@ -1294,6 +1316,9 @@ class Game:
             self._play_key(k)
 
     def _choose(self):
+        # `runmenu()` memanggil `tone2()` setiap pilihan diterima -- port lama
+        # diam sama sekali di menu.
+        self.bunyi.klik()
         if self.state == MENU:
             self.mode = self.sel     # ingat mode terpilih
             if self.sel == 0:        # Review Mechanisms -> ensiklopedia (tanpa level/goal)

@@ -35,6 +35,25 @@ TIK = 18.2065                    # INT 1Ch per detik (PC/XT)
 AKHIR = 0xFFFF
 
 
+# Dua deskriptor nada pendek di DGROUP, keduanya arpeggio naik tiga not
+# (1048, 1176, 1320 Hz, satu tik masing-masing):
+#
+#   tune1 @0x1DD0  dipakai `tone()`  -- kedipan skor (`showsc` flash >= 2)
+#   tune2 @0x1DDB  dipakai `tone2()` -- BUNYI PILIH MENU (`runmenu`), dan juga
+#                  `askopts()` serta `revdet()`
+#
+# `tone2()` menyimpan lalu memulihkan konteks suara (`sndsave`/`sndrest`)
+# supaya nada latar yang sedang berjalan tidak rusak.
+NADA_TONE = 0x1DD0
+NADA_TONE2 = 0x1DDB
+
+
+def nada_dgroup(addr):
+    """-> daftar (frekuensi, tik) dari deskriptor nada di DGROUP."""
+    from . import dgtab
+    return not_dari(2, bytes(dgtab.dgroup()[addr:addr + 24]))[0]
+
+
 def not_dari(mode, payload):
     """-> (daftar (frekuensi_hz, tik), berulang).
 
@@ -122,6 +141,17 @@ class Pemutar:
         suara, ulang = item
         suara.play(loops=-1 if ulang else 0)
         return True
+
+    def klik(self, addr=NADA_TONE2):
+        """`tone2()` -- bunyi pendek saat memilih di menu.
+
+        Port lama diam sama sekali di menu; gim membunyikan arpeggio tiga not
+        tiap kali pemain menekan ENTER (`runmenu()` memanggil `tone2()`).
+        """
+        if not self.aktif:
+            return False
+        from . import dgtab
+        return self.mainkan(2, bytes(dgtab.dgroup()[addr:addr + 24]))
 
     def diam(self):
         if self.aktif:

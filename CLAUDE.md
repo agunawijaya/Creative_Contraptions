@@ -287,6 +287,14 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   di level 1, jadi selama ini tak terjangkau. Dua nilai awalnya ternyata salah
   di port: `lvl6` mulai dari `nmax` (bukan 0) dan `range` DIACAK tiap
   kontraption (`tx - (rnd(200)*0x17/199 + 2)`), bukan dipatok `0x140 - 0x14`.
+- ⭐ **`autofill()` DAN BUNYI KLIK MENU** (2026-08-02), dua perilaku yang lama
+  tidak ada sama sekali:
+  - `autofill()` @0x5954 mengisikan jawaban benar untuk slot yang pencacah
+    gagalnya `>= 2`, dan `main_.c` memanggilnya HANYA di Apprentice
+    (`if (lvl == 1)`). Tanpa itu pemain pemula bisa tersangkut selamanya.
+  - `tone2()` @0x3734 dipanggil `runmenu()` tiap pilihan diterima — arpeggio
+    tiga not (1048, 1176, 1320 Hz) dari @0x1DDB. Port lama diam total di menu.
+  Diuji `python work/test_bantuan.py`.
 - ⭐ **URUTAN PEMBUKA LENGKAP** (2026-08-02). `main_.c` sesudah animasi judul:
   `getkey()` → `credits()` → `askopts()` → `sndini()` → **20 undian pemanasan
   `rnd(1)`** → gelung utama. Port lama melompat dari judul LANGSUNG ke menu,
