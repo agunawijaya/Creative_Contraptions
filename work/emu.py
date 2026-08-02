@@ -878,11 +878,23 @@ def hook_menu_mode(uc, addr, size, user):   # 341a -> pilih mode
 LEVEL = int(os.environ.get("CC_LEVEL", "1"))
 
 
+# CC_NOMENUSTUB=1 -- biarkan `lvlmenu()` dan `goalmenu()` BENAR-BENAR jalan.
+#
+# Bawaannya keduanya di-stub (langsung mengembalikan pilihan), jadi layarnya
+# TIDAK PERNAH digambar dan tak bisa diadu piksel. Dgn saklar ini keduanya
+# menggambar sungguhan, dan tombol dari CC_OBSKEYS yang memilih.
+NOMENUSTUB = os.environ.get("CC_NOMENUSTUB") == "1"
+
+
 def hook_menu_level(uc, addr, size, user):  # 32bb -> pilih level
+    if NOMENUSTUB:
+        return
     print("  [nav] 32bb -> level %d" % LEVEL)
     ret_ax(LEVEL)
 
 def hook_menu_goal(uc, addr, size, user):   # 3322 -> pilih goal N
+    if NOMENUSTUB:
+        return
     print("  [nav] 3322 -> goal", GOAL)
     ret_ax(GOAL)
 

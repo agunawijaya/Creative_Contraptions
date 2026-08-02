@@ -291,8 +291,12 @@ class Game:
         """Layar judul = kontraption goal 128, animasinya dijalankan VM.
 
         Termasuk judul "CREATIVE CONTRAPTIONS" itu sendiri: ia digambar oleh
-        opcode 0x11 DI DALAM skrip animasi, bukan oleh layar statis. Terukur
-        53/53 frame byte-identik vs tangkapan VRAM emulator.
+        opcode 0x11 DI DALAM skrip animasi, bukan oleh layar statis -- dan
+        penangan opcode itu memanggil `bounce()` lebih dulu, jadi bola memantul
+        enam kali ke tepi layar SEBELUM judulnya muncul.
+
+        Terukur di jalur pemain (bukan lewat modul inti): **675/675 frame**
+        byte-identik vs tangkapan VRAM emulator.
         """
         fr = self._anim_surfaces(128)
         if fr:
@@ -412,19 +416,31 @@ class Game:
                 self.k_anim, self.k_goals)
         return self.ballpath_cache[key]
 
+    # Batas frame. Animasi terpanjang adalah LAYAR JUDUL: 675 frame, karena
+    # opcode 0x11 memanggil `bounce()` -- enam lemparan bola ke tepi layar
+    # sebelum teks judulnya muncul. Goal 1..6 paling banyak 136.
+    #
+    # ⚠ Nilainya dulu 400 (bawaan `adegan.frames`), dan itu MEMOTONG layar
+    # judul tepat di frame 400: sesudah itu port mengulang dari awal sementara
+    # gim masih melanjutkan. Terukur di jalur pemain: 400/420 frame cocok,
+    # beda pertama persis di frame 400. Uji per-modul tidak melihatnya karena
+    # ia memanggil `frames()` dgn batasnya sendiri.
+    ANIM_MAKS = 1200
+
     def _anim_surfaces(self, gid, seed=0, varian=None):
         """Frame animasi DIBANGKITKAN dari berkas aset (VM), bukan diputar dari
         rekaman `port/cc/anim/*.dat`.
 
-        Terukur vs tangkapan VRAM emulator: tujuh layar (goal 1..6 + judul 128)
-        = 381/402 frame byte-identik, 99,9988% piksel; goal 4, 5, 6 dan layar
-        judul 100% frame.
+        Terukur vs tangkapan VRAM emulator, tujuh layar (goal 1..6 + judul 128),
+        animasi PENUH sampai habis: **1.210/1.210 frame byte-identik,
+        77.440.000/77.440.000 piksel**. Uji: `python work/test_anim_vs_gim.py`.
         """
         key = ("vm", gid, seed, varian)
         if key in self.anim_cache:
             return self.anim_cache[key]
         fbs = _adg.frames(gid, self.k_graph, self.k_mechs, self.k_misc,
-                          self.k_anim, self.k_goals, seed=seed, varian=varian)
+                          self.k_anim, self.k_goals, seed=seed, varian=varian,
+                          maks=self.ANIM_MAKS)
         surf = [_rend.to_surface(fb, pygame) for fb in fbs]
         self.anim_cache[key] = surf
         return surf

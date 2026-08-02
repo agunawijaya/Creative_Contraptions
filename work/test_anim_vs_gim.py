@@ -56,6 +56,44 @@ def tangkap(folder, goal):
     return seq
 
 
+def uji_jalur_pemain(folder):
+    """LAYAR JUDUL lewat `main.Game` + `draw()`, bukan lewat modul inti.
+
+    Perlu terpisah karena kedua jalur bisa berbeda: `main.py` memanggil
+    `adegan.frames()` dgn batas frame SENDIRI, dan batas itu pernah dipatok 400
+    -- memotong layar judul (675 frame) tepat di tengah, sementara uji
+    per-modul lolos karena ia memakai batasnya sendiri.
+    """
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    import pygame
+    from cc import assets, cga
+    import main as portmain
+
+    seq = os.path.join(folder, "seq128")
+    n = len([f for f in os.listdir(seq) if f.endswith(".png")])
+    pygame.init()
+    try:
+        g = portmain.Game(assets.find_data_dir())
+        fb = cga.make_framebuffer()
+        cocok = 0
+        pertama = None
+        for k in range(n - 1):
+            g.title_tick = k * 2          # _title(): frame = title_tick // 2
+            g.draw(fb)
+            ref = muat(os.path.join(seq, "f%04d.png" % (k + 1)))
+            sama = all(PALET[fb.get_at((x, y))[:3]] == ref[y][x]
+                       for y in range(200) for x in range(320))
+            if sama:
+                cocok += 1
+            elif pertama is None:
+                pertama = k
+    finally:
+        pygame.quit()
+    print("  layar judul lewat JALUR PEMAIN : %d/%d frame identik%s"
+          % (cocok, n - 1, "" if pertama is None else "   (beda pertama f%d)" % pertama))
+    return cocok == n - 1
+
+
 def main(folder):
     g = Archive(D + "/GRAPH")
     m = Archive(D + "/MECHS")
@@ -94,6 +132,8 @@ def main(folder):
         for k, b in gagal[:5]:
             print("      f%04d beda %d piksel" % (k, b))
         semua = semua and not gagal
+
+    semua = uji_jalur_pemain(folder) and semua
 
     piksel = tot * 320 * 200
     print("\n  TOTAL %d/%d frame  |  %d/%d piksel (%.6f%%)"
