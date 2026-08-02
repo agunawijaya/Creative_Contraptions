@@ -1,24 +1,35 @@
-"""REGRESI LAYAR BERMAIN: chrome-nya diadu piksel dgn VRAM game asli.
+"""REGRESI LAYAR BERMAIN: seluruh layar diadu piksel dgn VRAM game asli.
 
-Yang diuji di sini adalah bagian layar bermain yang selama ini KARANGAN PORT
-dan tidak pernah diukur:
+Yang diuji termasuk bagian yang selama ini KARANGAN PORT dan tidak pernah
+diukur:
 
     pita atas      setupscr(mode=2, sub) + ikon bola + f171f()
     pita bawah     setupscr -> BIRU TUA (bukan cyan), plus strip drawpal()
     kotak slot     drawslot(): slot KOSONG = fillrect(x+1, y, x+0x1e, y+0x17, 3)
                    -- PETAK PENUH warna 3, bukan kotak bergaris berisi huruf
 
-Arena (y 8..159) sengaja TIDAK diadu di sini: isinya bergantung pada undian
-`pickpart()`, dan keadaan RNG emulator pada tangkapan ini bukan seed 0. Jalur
-render arenanya sendiri sudah terbukti di tempat lain -- `work/genscreens.py
---verifikasi` (197/197 blit) dan `work/test_anim_vs_gim.py` (1.210/1.210
-bingkai). Yang belum pernah diukur, dan diukur di sini, adalah chrome-nya.
+⭐ ARENA IKUT DIADU, jadi yang diukur SELURUH 64.000 piksel layar.
 
-Varian struktur TIDAK ditebak: ia dibaca dari tabel `base` milik gim
-(`CC_VSPTR=73a:`), lalu dicocokkan ke varian CONTRAP lewat daftar jenis
-mekanismenya. Memaksa `VARIANT=` lewat emulator TIDAK bisa dipakai -- hook itu
-memaksa SEMUA rnd() di dalam loadcon, dan gelung
-`do { pick = rnd(cnt) } while (... pick == lastvar)` jadi tak berujung.
+Itu baru mungkin sesudah rantai RNG-nya disamakan, dan yang menghalanginya
+BUKAN emulator melainkan model port: `loadcon.c` mengundi varian dengan
+
+    do { pick = rnd(cnt) + first; }
+    while (lastgoal == sub && cnt >= 2 && pick == lastvar);
+
+Memuat goal yang SAMA dua kali berturut memaksa pengulangan, dan pengulangan
+itu MEMAJUKAN seed satu undian lagi sehingga seluruh pemilihan part sesudahnya
+ikut bergeser. `adegan.susun()` dulu tidak memodelkannya.
+
+Uji ini karena itu menjalankan emulator DUA kali dengan urutan tombol yang
+sama (emulatornya deterministik):
+
+    lari A  CC_VRAMSEQ=5035  -> seed @0x71a, lastgoal @0x1e2e, lastvar @0x1e30
+                               pada panggilan `loadcon` terakhir
+    lari B  CC_VRAMSEQ=3c4e  -> layar bermainnya sendiri + nmech/sel/idtab/base
+
+lalu memberi keadaan itu ke `susun()`. Memaksa `VARIANT=` lewat emulator TIDAK
+bisa dipakai sebagai jalan pintas -- hook itu memaksa SEMUA rnd() di dalam
+loadcon, dan gelung do/while di atas jadi tak berujung (gejalanya "0 frame").
 """
 import json
 import os
@@ -62,6 +73,24 @@ def tangkap(folder):
     return seq
 
 
+def tangkap_rng(folder):
+    """Lari KEDUA, urutan tombol sama: keadaan RNG tiap `loadcon`."""
+    seq = os.path.join(folder, "loadcon")
+    if not (os.path.isdir(seq) and os.path.exists(os.path.join(seq, "globals.json"))):
+        print("  [emu] menangkap keadaan RNG ...")
+        env = dict(os.environ)
+        env.update(CC_OUT=os.path.join(folder, "out_rng"), OBSERVE="fillmech",
+                   CC_NOSKIP="1", CC_MAXINSN="300000000", CC_OBSKEYS=TOMBOL,
+                   CC_VRAMSEQ="5035=%s:10" % seq,
+                   CC_VSWORD="71a,3b2,1e2e,1e30")
+        subprocess.run([sys.executable, os.path.join(AKAR, "work", "emu.py"),
+                        str(GOAL), "2"], env=env, cwd=AKAR,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    G = json.load(open(os.path.join(seq, "globals.json")))
+    r = G[-1]                      # loadcon TERAKHIR = yang memuat layar ini
+    return r["w71a"], r["w1e2e"], r["w1e30"]
+
+
 def base_gim(mentah, arc):
     per_off = {r["off"]: r for r in arc.recs}
     out = []
@@ -98,20 +127,20 @@ def main(folder):
     base = base_gim(bytes.fromhex(G[0]["mem"]), m)
     ref = muat(os.path.join(seq, "f%04d.png" % G[0]["frame"]))
 
-    # varian struktur DIBACA dari `base`, bukan ditebak
-    jenis_gim = sorted({r["id"] for r in base})
-    vi = None
-    for i, v in enumerate(cs.get(GOAL) or []):
-        if sorted({t for (_y, _x, t) in v["mech"]}) == jenis_gim:
-            vi = i
-            break
-    if vi is None:
-        print("  varian gim (jenis %s) tak ditemukan di CONTRAP" % jenis_gim)
-        return 1
-    print("  varian gim = %d (jenis mekanisme %s)" % (vi, jenis_gim))
+    # Keadaan RNG gim, dibaca dari memorinya -- BUKAN varian yang dipaksakan.
+    # Dgn seed + lastgoal + lastvar yang sama, `susun()` harus mengundi varian
+    # DAN part yang sama seperti gim, jadi arenanya ikut bisa diadu.
+    seed, lastgoal, lastvar = tangkap_rng(folder)
+    print("  keadaan RNG gim: seed=%04x lastgoal=%d lastvar=%d"
+          % (seed, lastgoal, lastvar))
 
-    var, _parts, fb = adegan.susun(GOAL, g, m, mi, an, cs, mode=2, sub=GOAL,
-                                   isi=False, varian=vi, nbola=1)
+    var, _parts, fb = adegan.susun(GOAL, g, m, mi, an, cs, seed=seed, mode=2,
+                                   sub=GOAL, isi=False, nbola=1,
+                                   lastgoal=lastgoal, lastvar=lastvar)
+    # silang-periksa: varian yang diundi port harus sama dgn `base` milik gim
+    jenis_gim = sorted({r["id"] for r in base})
+    cek("varian hasil undian port = varian gim",
+        sorted({t for (_y, _x, t) in var["mech"]}), jenis_gim)
     k = rend.KanvasFB(fb)
     rend.drawslot(k, [(y, x) for (y, x, _t) in var["mech"]])
     palet.drawpal(k, sel, lambda i: (m, base[idtab[i]]), nmech)
@@ -124,6 +153,8 @@ def main(folder):
 
     a, b = wilayah(0, 7)
     cek("pita atas (setupscr + ikon bola)", a, b)
+    a, b = wilayah(8, 159)
+    cek("ARENA (kontraption + slot)", a, b)
     a, b = wilayah(160, 199)
     cek("pita bawah (setupscr + strip)", a, b)
 
@@ -138,8 +169,10 @@ def main(folder):
         tot += n
         ok += n - d
     cek("kotak slot KOSONG (drawslot)", ok, tot)
+    a, b = wilayah(0, 199)
+    cek("SELURUH LAYAR", a, b)
 
-    print("\n%s" % ("CHROME LAYAR BERMAIN COCOK" if not gagal
+    print("\n%s" % ("LAYAR BERMAIN IDENTIK DENGAN GAME ASLI" if not gagal
                     else "GAGAL: %s" % ", ".join(gagal)))
     return 1 if gagal else 0
 

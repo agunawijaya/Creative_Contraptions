@@ -242,18 +242,35 @@ def _fase():
 
 
 def susun(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0, varian=None,
-          sub=None, isi=True, nbola=0):
+          sub=None, isi=True, nbola=0, lastgoal=None, lastvar=None):
     """-> (var, parts, latar) untuk satu goal.
 
     `parts` sudah URUT RANTAI sesuai `state` di CONTRAP; `latar` adalah layar
     TANPA bola -- ikon bola di pita atas ITU bolanya, dan ia dihapus begitu
     animasi mulai.
+
+    `lastgoal`/`lastvar` = keadaan @0x1e2e/@0x1e30 dari pemanggilan `loadcon()`
+    SEBELUMNYA. `loadcon.c` mengundi varian dengan gelung
+
+        do { pick = rnd(cnt) + first; }
+        while (lastgoal == sub && cnt >= 2 && pick == lastvar);
+
+    jadi memuat goal yang SAMA dua kali berturut TIDAK PERNAH memberi varian
+    yang sama -- dan pengulangan itu MEMAJUKAN seed satu undian lagi, sehingga
+    seluruh pemilihan part sesudahnya ikut bergeser. Mengabaikannya membuat
+    rantai RNG port melenceng dari gim persis di kasus itu.
+
+    Terukur: pada tangkapan `OBSERVE=fillmech`, `loadcon` kedua punya
+    seed 0xc002 dgn lastgoal=1, lastvar=0. Tanpa aturan ulang port memilih
+    varian 0; dengan aturan ulang ia memilih varian 1 -- dan varian 1 itulah
+    yang terbaca di tabel `base` milik gim.
     """
     vs = kontrap.get(goal)
     if not vs:
         return None, None, None
     r = Rng(seed)
-    vi = pick.loadcon_pick(r, len(vs))
+    vi = pick.loadcon_pick(r, len(vs), lastgoal=lastgoal, sub=sub if sub is not None else goal,
+                           lastvar=lastvar)
     # `varian` memaksa varian struktur tertentu (mode Review memilih demo
     # mekanisme ke-n). Undiannya TETAP dijalankan lebih dulu supaya seed maju
     # sama seperti di game -- pilihan part sesudahnya bergantung pada itu.

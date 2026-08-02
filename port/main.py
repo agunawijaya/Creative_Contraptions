@@ -135,6 +135,17 @@ class Game:
         self.mode_latar = 0
         self.last_variant = {}    # gid -> varian terakhir (agar tak berulang, spt 0x1e30)
         self.cur_variant = 0
+        # ⭐ SATU rantai RNG yang hidup terus, seperti `seed` @0x71a di gim
+        # (gim mengisinya dari jam BIOS saat mulai -- lihat `sndini`).
+        # `lastgoal` @0x1e2e dan `lastvar` @0x1e30 adalah SEPASANG, bukan satu
+        # per goal: aturan anti-ulang `loadcon` hanya berlaku kalau goal
+        # sebelumnya SAMA. Lihat catatan panjang di start_play().
+        self.rng_seed = random.randrange(0x10000)
+        self.lastgoal = None
+        self.lastvar = None
+        self.cur_seed = 0
+        self.cur_lastgoal = None      # keadaan SEBELUM undian kontraption ini
+        self.cur_lastvar = None
         # LAYAR JUDUL. Dulu ini rakitan tangan: jalur bola karangan, reaksi
         # objek tebakan, dan judul "CREATIVE CONTRAPTIONS" berhuruf TrueType.
         # Sekarang TIDAK ADA yang dikarang -- layar judul memakai JALUR KODE YANG
@@ -329,11 +340,17 @@ class Game:
         if archs is not None:
             draw_mech = "MECHS" in archs
         vi = getattr(self, "cur_variant", 0)
-        surf = self._scene_surface(gid, vi, draw_mech, mode=self._mode_layar())
+        main_play = self.state in (PLAY, PLAYANIM)
+        surf = self._scene_surface(
+            gid, vi, draw_mech, mode=self._mode_layar(),
+            seed=(self.cur_seed if main_play else 0),
+            lastgoal=(self.cur_lastgoal if main_play else None),
+            lastvar=(self.cur_lastvar if main_play else None))
         if surf is not None:
             fb.blit(surf, (0, 0))
 
-    def _scene_surface(self, gid, vi, isi_mekanisme, seed=0, mode=None):
+    def _scene_surface(self, gid, vi, isi_mekanisme, seed=0, mode=None,
+                       lastgoal=None, lastvar=None):
         """Layar contraption DIBANGKITKAN dari CONTRAP+GRAPH+MECHS+MISC.
 
         Urutan panggilannya meniru game asli: loadcon() mengundi varian
@@ -346,17 +363,23 @@ class Game:
         (mis. navigasi menu); kalau None, undian yang menentukan.
         """
         mode = self.mode_latar if mode is None else mode
-        key = (gid, vi, bool(isi_mekanisme), seed, mode)
+        key = (gid, vi, bool(isi_mekanisme), seed, mode, lastgoal, lastvar)
         if key in self._scene_cache:
             return self._scene_cache[key]
         # Disusun oleh cc/core/adegan.susun() -- SAMA dengan yang dipakai
         # penggenerasi animasi. Dulu blok ini menyalin logikanya sendiri, dan
         # itu langsung menggigit: nama goal di pita atas ditambahkan di
         # adegan.susun() tapi layar ini tidak ikut berubah karena jalurnya beda.
+        # `lastgoal`/`lastvar` diberikan hanya oleh layar BERMAIN, supaya
+        # rantai undiannya sama persis dengan yang dipakai `start_play()` untuk
+        # menyusun slot. Kalau keduanya None, `varian` yang dipaksakan --
+        # itulah jalur pratinjau menu, yang memang ingin varian tertentu.
         _var, _parts, fb = _adg.susun(
             gid, self.k_graph, self.k_mechs, self.k_misc, self.k_anim,
-            self.k_goals, seed=seed, mode=mode, varian=vi, sub=gid,
-            isi=bool(isi_mekanisme), nbola=1)
+            self.k_goals, seed=seed, mode=mode,
+            varian=(None if lastgoal is not None else vi), sub=gid,
+            isi=bool(isi_mekanisme), nbola=1,
+            lastgoal=lastgoal, lastvar=lastvar)
         if fb is None:
             self._scene_cache[key] = None
             return None
@@ -466,21 +489,19 @@ class Game:
             msg = "SPACE = replay  -  ESC = menu" if done else "Running..."
             text.draw_center(fb, msg, 190, color=3, size=10)
 
-    # ---------- pemilihan varian (spt loader FUN_1000_5035: acak, hindari ulang) ----------
-    def _pick_variant(self, gid):
-        # Jumlah varian datang dari CONTRAP, bukan dari berapa banyak berkas
-        # tangkapan yang kebetulan ada. Dulu `len(self.draws_var[gid])`, dan
-        # itu berarti sebuah varian yang belum sempat ditangkap emulator
-        # TIDAK PERNAH terpilih -- data game dibatasi oleh alat ukur kita.
-        n = len(self.k_goals.get(gid) or ()) or 1
-        if n <= 1:
-            self.last_variant[gid] = 0
-            return 0
-        last = self.last_variant.get(gid)
-        choices = [v for v in range(n) if v != last] or list(range(n))
-        vi = random.choice(choices)
-        self.last_variant[gid] = vi
-        return vi
+    # ---------- pemilihan varian ----------
+    #
+    # ⚠ DIBUANG (2026-08-02): `_pick_variant()` memilih varian dengan
+    # `random.choice` atas daftar "semua kecuali yang terakhir untuk goal ini",
+    # memakai satu entri per goal. Gim tidak begitu:
+    #
+    #     do { pick = rnd(cnt) + first; }
+    #     while (lastgoal == sub && cnt >= 2 && pick == lastvar);
+    #
+    # `lastgoal`/`lastvar` adalah SEPASANG global, bukan satu per goal -- jadi
+    # goal 1, lalu 2, lalu 1 lagi BOLEH mengulang varian. Dan undiannya memakai
+    # RNG gim yang sama dengan pemilihan part, sehingga pengulangan menggeser
+    # seluruh rantai sesudahnya. Sekarang `start_play()` yang mengerjakannya.
 
     # ---------- Contraption Mix Up: RENTETAN kontraption, bukan satu ----------
     #
@@ -531,20 +552,47 @@ class Game:
 
     # ---------- mode PLAY: Fill Mechanisms / Fill Zany / Mix Up (both) ----------
     def start_play(self, gid, fill="mech"):
-        vi = self._pick_variant(gid)
-        self.cur_variant = vi
         vs = self.k_goals.get(gid) or []
-        var = vs[vi] if vi < len(vs) else vs[0]
         self.fill_mode = fill                     # "mech" | "zany" | "both" (Mix Up)
         self.slots = []
         self.palette = []
 
         # Record sprite per slot datang dari UNDIAN yang sama dengan game
-        # (pickpart untuk objek zany, fillans untuk mekanisme) -- bukan dari
-        # rekaman `draws_goal*.json`. Dulu posisi slot dicocokkan ke daftar
-        # blit hasil tangkapan; sekarang tidak ada yang perlu dicocokkan.
-        rng = _rng.Rng(0)
-        _pick.loadcon_pick(rng, max(1, len(vs)))
+        # (loadcon untuk varian struktur, pickpart untuk objek zany, fillans
+        # untuk mekanisme) -- bukan dari rekaman `draws_goal*.json`.
+        #
+        # ⭐ SATU rantai RNG yang HIDUP TERUS, persis seperti gim. Dulu tiap
+        # `start_play` memulai `Rng(0)` baru, jadi kontraption yang sama selalu
+        # memberi part yang sama; dan variannya dipilih `random.choice`, bukan
+        # aturan gim. `loadcon.c` mengundinya begini:
+        #
+        #     do { pick = rnd(cnt) + first; }
+        #     while (lastgoal == sub && cnt >= 2 && pick == lastvar);
+        #
+        # Perhatikan `lastgoal == sub`: yang dihindari hanya pengulangan
+        # BERUNTUN pada goal yang SAMA -- memuat goal 1, lalu 2, lalu 1 lagi
+        # BOLEH memberi varian yang sama, karena `lastgoal` sudah jadi 2.
+        # Pengulangan itu juga MEMAJUKAN seed satu undian lagi, sehingga
+        # pemilihan part sesudahnya ikut bergeser.
+        #
+        # Terukur: dgn seed/lastgoal/lastvar yang dibaca dari memori gim,
+        # `susun()` menghasilkan layar bermain yang IDENTIK 64.000/64.000
+        # piksel -- termasuk arenanya (`python work/test_play.py`).
+        # ⚠ Keadaan SEBELUM undian disimpan terpisah (`cur_*`). Layar
+        # dibangkitkan ulang belakangan lewat `_scene_surface()`, dan ia harus
+        # MENGULANG undian yang sama -- kalau diberi keadaan SESUDAHNYA,
+        # aturan anti-ulang justru memaksa varian yang BERBEDA dari slot yang
+        # sudah disusun di sini. Bug "layar design != layar run" persis lahir
+        # dari ketidakcocokan semacam ini.
+        seed = self.rng_seed
+        self.cur_seed = seed
+        self.cur_lastgoal, self.cur_lastvar = self.lastgoal, self.lastvar
+        rng = _rng.Rng(seed)
+        vi = _pick.loadcon_pick(rng, max(1, len(vs)), lastgoal=self.lastgoal,
+                                sub=gid, lastvar=self.lastvar)
+        self.lastgoal, self.lastvar = gid, vi
+        self.cur_variant = vi
+        var = vs[vi] if vi < len(vs) else vs[0]
         jz = [t for (y, x, t) in var["zany"]]
         tz = _pick.tabel(self.k_graph, jz)
         selz = [None if i is None else tz[i]["idx"]
@@ -553,6 +601,9 @@ class Game:
         tm = _pick.tabel(self.k_mechs, jm)
         selm = [None if i is None else tm[i]["idx"]
                 for i in _pick.fillans(tm, jm)]
+        # Rantainya MAJU untuk kontraption berikutnya -- di gim `seed` @0x71a
+        # memang satu nilai yang terus berjalan, tidak pernah di-reset.
+        self.rng_seed = rng.state()
 
         def add_slots(parts, arch):
             dipilih = selm if arch == "MECHS" else selz
