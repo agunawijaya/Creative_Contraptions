@@ -277,8 +277,9 @@ def susun_lengkap(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
     if not vs:
         return None, None, None, None
     r = Rng(seed)
-    vi = pick.loadcon_pick(r, len(vs), lastgoal=lastgoal, sub=sub if sub is not None else goal,
-                           lastvar=lastvar)
+    vi = pick.loadcon_pick(r, len(vs), lastgoal=lastgoal,
+                           sub=sub if sub is not None else goal,
+                           lastvar=lastvar, first=vs[0].get("idx", 0))
     # `varian` memaksa varian struktur tertentu (mode Review memilih demo
     # mekanisme ke-n). Undiannya TETAP dijalankan lebih dulu supaya seed maju
     # sama seperti di game -- pilihan part sesudahnya bergantung pada itu.

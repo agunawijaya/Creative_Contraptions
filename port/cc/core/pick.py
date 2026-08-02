@@ -358,18 +358,29 @@ def pickmax_undi(rng, count, jangkauan):
     return best, count
 
 
-def loadcon_pick(rng, jumlah_varian, lastgoal=None, sub=None, lastvar=None):
+def loadcon_pick(rng, jumlah_varian, lastgoal=None, sub=None, lastvar=None,
+                 first=0):
     """loadcon(): undi varian STRUKTUR, hindari mengulang varian sebelumnya.
 
-        do { pick = rnd(cnt) } while (lastgoal == sub && cnt >= 2 && pick == lastvar)
+        do { pick = rnd(cnt) + first; }
+        while (lastgoal == sub && cnt >= 2 && pick == lastvar);
 
-    `pick` di sumber aslinya indeks ABSOLUT di direktori (`+ first`); di sini
-    dikembalikan relatif terhadap goal-nya, karena `parse()` sudah mengelompokkan.
+    `pick` di sumber aslinya indeks ABSOLUT di direktori; di sini dikembalikan
+    relatif terhadap goal-nya, karena `parse()` sudah mengelompokkan.
+
+    ⚠⚠ TAPI PERBANDINGANNYA HARUS ABSOLUT. `lastvar` @0x1e30 menyimpan `pick`
+    yang absolut, jadi membandingkannya dgn indeks relatif hanya kebetulan
+    benar untuk goal yang `first`-nya 0 -- yaitu goal 1, satu-satunya goal
+    yang dulu diuji. Terukur di goal 4 (first = 5, lastvar = 5): gim mengulang
+    undian dan mendapat varian relatif 1, port tidak mengulang dan mengambil
+    relatif 0 -- 13.370 piksel berbeda, seluruh arena.
+
+    `first` = indeks record PERTAMA goal ini di direktori CONTRAP.
     """
     while True:
         pick = rng.rnd(jumlah_varian)
         if not (lastgoal == sub and sub is not None
-                and jumlah_varian >= 2 and pick == lastvar):
+                and jumlah_varian >= 2 and pick + first == lastvar):
             return pick
 
 

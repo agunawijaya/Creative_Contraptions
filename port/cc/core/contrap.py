@@ -75,8 +75,12 @@ def parse(path):
         # emulator untuk goal 1 -- zany, mech, zany, mech, zany, zany, zany,
         # mech, zany, zany -- yang persis sama dengan [1,-1,1,-1,1,1,1,-1,1,1].
         state = [struct.unpack_from("<h", b, p + k * 2)[0] for k in range(cB + cC)]
+        # `idx` = indeks ABSOLUT record ini di direktori CONTRAP. Dibutuhkan
+        # karena `loadcon()` mengundi `pick = rnd(cnt) + first` lalu
+        # MEMBANDINGKAN pick ABSOLUT itu dgn `lastvar` @0x1e30. Tanpa `idx`,
+        # perbandingan itu hanya benar untuk goal yang first-nya 0.
         goals.setdefault(goal, []).append(
-            dict(mech=mech, zany=zany, pos=pos, state=state))
+            dict(mech=mech, zany=zany, pos=pos, state=state, idx=i))
     return goals
 
 

@@ -58,11 +58,19 @@ GOAL = 1                      # goal untuk uji JALUR PEMAIN (satu saja, mahal)
 # (lihat catatan mode 3 vs mode 4 di kepala berkas). Sekarang keenamnya diadu.
 SEMUA_GOAL = (1, 2, 3, 4, 5, 6)
 
-# nama, OBSERVE, mode gim, offset tangkap, isi_mekanisme, isi_zany, ada strip
+# nama, OBSERVE, mode gim, offset tangkap, isi_mekanisme, isi_zany, ada strip,
+# goal yang diuji
+#
+# ⚠ Contraption Mix Up hanya goal 1, dan itu BUKAN kemalasan: mode itu memang
+# tidak memakai pemilih goal sama sekali (`main_.c` case 4 memasang
+# `sub = 0; goal = 6;` lalu `sub++` tiap ronde). Terukur: `sub` @0x3b2
+# tercatat **1** untuk argumen goal 1, 2, 3, dan 4 -- argumen itu tidak
+# berpengaruh. Menjalankannya untuk enam goal hanya akan mengulang layar yang
+# SAMA enam kali dan terlihat seperti cakupan yang tidak ada.
 KASUS = [
-    ("Fill in Mechanisms", "fillmech", 2, "3c4e", False, True, True),
-    ("Fill in Zany",       "zany",     3, "42ca", True, False, False),
-    ("Contraption Mix Up", "mixup",    4, "3c4e", True, True, True),
+    ("Fill in Mechanisms", "fillmech", 2, "3c4e", False, True, True, SEMUA_GOAL),
+    ("Fill in Zany",       "zany",     3, "42ca", True, False, False, SEMUA_GOAL),
+    ("Contraption Mix Up", "mixup",    4, "3c4e", True, True, True, (1,)),
 ]
 
 gagal = []
@@ -92,7 +100,7 @@ def tangkap_layar(folder, obs, mode, off, goal):
     nm = "%s_layar_g%d" % (obs, goal)
     seq = _emu(folder, nm, obs, mode, {
         "CC_VRAMSEQ": "%s=%s:2" % (off, os.path.join(folder, nm)),
-        "CC_VSWORD": "3ac,51c,738,718,7ee",
+        "CC_VSWORD": "3ac,51c,738,718,7ee,3b2",
         "CC_VSMEM": "2ea:20", "CC_VSPTR": "73a:480"}, goal)
     return json.load(open(os.path.join(seq, "globals.json"))), seq
 
@@ -136,10 +144,14 @@ def uji_mode(folder, nama, obs, mode, off, isi, isiz, ada_strip, arc, goal=GOAL)
     r0 = G[0]
     ref = muat(os.path.join(seq, "f%04d.png" % r0["frame"]))
     seed, lastgoal, lastvar = tangkap_rng(folder, obs, mode, goal)
-    print("  %s  (seed=%04x lastgoal=%d lastvar=%d)" % (nama, seed, lastgoal, lastvar))
+    # `sub` DIBACA dari gim, tidak dianggap sama dengan argumen goal -- di
+    # Contraption Mix Up keduanya memang berbeda.
+    sub = r0.get("w3b2", goal)
+    print("  %s  (seed=%04x sub=%d lastgoal=%d lastvar=%d)"
+          % (nama, seed, sub, lastgoal, lastvar))
 
     var, _p, fb, _pil = adegan.susun_lengkap(
-        goal, g, m, mi, an, cs, seed=seed, mode=mode, sub=goal,
+        sub, g, m, mi, an, cs, seed=seed, mode=mode, sub=sub,
         isi=isi, isi_zany=isiz, nbola=r0["w718"],
         lastgoal=lastgoal, lastvar=lastvar, lvl=1)
     k = rend.KanvasFB(fb)
@@ -152,7 +164,7 @@ def uji_mode(folder, nama, obs, mode, off, isi, isiz, ada_strip, arc, goal=GOAL)
         palet.drawpal(k, r0["w51c"],
                       lambda i: (m, base[idtab[i]]), r0["w3ac"])
     if mode == 4:
-        hud.timedrw(k, r0["w7ee"], 4, r0["w718"], goal)
+        hud.timedrw(k, r0["w7ee"], 4, r0["w718"], sub)
 
     beda = sum(1 for y in range(200) for x in range(320) if fb[y][x] != ref[y][x])
     cek("SELURUH LAYAR", 64000 - beda, 64000)
@@ -212,12 +224,12 @@ def uji_interaktif(folder, arc):
 def main(folder):
     arc = (Archive(D + "/GRAPH"), Archive(D + "/MECHS"), Archive(D + "/MISC"),
            Archive(D + "/ANIMATE"), contrap.parse(D + "/CONTRAP"))
-    for nama, obs, mode, off, isi, isiz, strip in KASUS:
-        for goal in SEMUA_GOAL:
+    for nama, obs, mode, off, isi, isiz, strip, goals in KASUS:
+        for goal in goals:
             uji_mode(folder, nama, obs, mode, off, isi, isiz, strip, arc, goal)
     print("  Fill in Mechanisms lewat JALUR PEMAIN")
     uji_interaktif(folder, arc)
-    print("\n%s" % ("LAYAR BERMAIN IDENTIK DENGAN GAME ASLI (3 mode)"
+    print("\n%s" % ("LAYAR BERMAIN IDENTIK DENGAN GAME ASLI (6 goal x 2 mode + Mix Up)"
                     if not gagal else "GAGAL: %s" % ", ".join(gagal)))
     return 1 if gagal else 0
 

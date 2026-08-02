@@ -26,6 +26,7 @@ itulah yang diadu dgn hasil dekode port.
 """
 import os
 import re
+import struct
 import subprocess
 import sys
 
@@ -35,7 +36,29 @@ sys.path.insert(0, os.path.join(AKAR, "port"))
 from cc.core import dgtab, bunyi                               # noqa: E402
 
 ALIRAN = 0x978              # `sndptr = 0x978; sndmode = 2;` di animvm()
+
+# Sapuan MODE 1. `animvm()` memasangnya tepat sesudah gelung jam pasir:
+#     snd[0] = 0x1f4; snd[1] = 0x5b4; snd[2] = 0x10; sndmode = 1;
+# yaitu bunyi bilah bola yang meluncur.
+#
+# Penguraian mode 1 di `bunyi.py` selama ini bertanda "Ditafsirkan (awal,
+# akhir, langkah)" -- tafsiran, bukan pengukuran. Uji ini mengukurnya.
+SAPUAN = (0x1f4, 0x5b4, 0x10)
 gagal = []
+
+
+def deret_sapuan(freqs, langkah):
+    """-> deret terpanjang di `freqs` yang naik tepat `langkah` tiap nada."""
+    terbaik = []
+    i = 0
+    while i < len(freqs):
+        j = i
+        while j + 1 < len(freqs) and freqs[j + 1] - freqs[j] == langkah:
+            j += 1
+        if j - i + 1 > len(terbaik):
+            terbaik = freqs[i:j + 1]
+        i = max(j, i) + 1
+    return terbaik
 
 
 def cek(nama, dapat, harap):
@@ -76,6 +99,16 @@ def main():
     cek("angka skrip = FREKUENSI, bukan pembagi",
         all(f == 0 or 30 < f < 5000 for f in port), True)
     cek("aliran mode 2 tidak berulang", ulang, False)
+
+    # ── Sapuan MODE 1 ───────────────────────────────────────────────────
+    sap_port = [f for f, _t in bunyi.not_dari(1, struct.pack("<HHH", *SAPUAN))[0]]
+    sap_gim = deret_sapuan(gim, SAPUAN[2])
+    print("  sapuan: port %d nada %s..%s | gim %d nada %s..%s"
+          % (len(sap_port), sap_port[0] if sap_port else "-",
+             sap_port[-1] if sap_port else "-",
+             len(sap_gim), sap_gim[0] if sap_gim else "-",
+             sap_gim[-1] if sap_gim else "-"))
+    cek("sapuan mode 1 cocok dgn PIT gim", sap_port, sap_gim)
 
     print("\n%s" % ("SUARA COCOK DENGAN GIM" if not gagal
                     else "GAGAL: %s" % ", ".join(gagal)))
