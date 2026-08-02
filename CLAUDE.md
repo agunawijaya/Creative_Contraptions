@@ -720,13 +720,30 @@ sama (SPACE, SPACE), gim dan port sama-sama berakhir dgn slot 0 terisi part
 menekan SPACE dua kali; `test_bantuan` menyatakan `pilih_selesai = True`
 karena skenarionya sengaja menyisakan slot salah).
 
-**Yang masih kurang — dan sekarang TIDAK terhalang lagi:**
-- larian GAGAL: port memodelkannya dgn lintasan bola pra-hitung (`_jalur()`),
-  gim dgn VM yang BERHENTI (`animvm.c` baris 222) + skrip KARANGAN (baris
-  433). Untuk mengadunya: matikan paksaan cocok emulator (`CC_SALAH=1`) supaya
-  gim benar-benar gagal, lalu ganti jalur gagal port dari `_jalur()` ke VM.
-- `test_anim_main.py` baru menjalankan mode 2; mode 3 dan 4 belum menghasilkan
-  tangkapan dgn urutan tombol SPACE-saja.
+**Larian GAGAL sudah bisa ditangkap** (`CC_SALAH=1` mematikan paksaan cocok):
+goal 1 mode 2 dgn tombol SPACE,SPACE → **8 bingkai** (2 di antaranya redraw),
+`zcnt` 0→1. Aturan berhenti di VM juga TERBUKTI bekerja: dgn
+`berhenti_di={7,8}` part 8 dan 9 tidak lagi dikunjungi.
+
+⚠ **TAPI PENEMPATANNYA MASIH BEDA, dan sebabnya sudah terlokalisasi.** Gim
+berhenti sesudah ~6 bola, port sesudah 46 — artinya gim berhenti di mekanisme
+PERTAMA (indeks rantai 2), bukan di indeks 7. Jadi part yang ditaruh gim di
+slot 0 BUKAN jawaban benarnya.
+
+Sebabnya bukan `cur_part` (keduanya 0), melainkan **URUTAN PALET**: masing-
+masing menaruh part di posisi 0 paletnya sendiri, dan isi palet mode 2 belum
+pernah diadu. Terukur: gim `idtab` = `[4, 0, 2]` (indeks ke `base`), port
+palet = record `[26, 2, 17]` (id `[141, 110, 132]`). Uji strip yang lulus
+64.000/64.000 TIDAK membuktikan ini — ia menggambar strip dari `idtab` GIM,
+bukan dari palet port. Yang pernah diadu lewat palet port hanya Mix Up.
+
+**Langkah berikutnya, berurutan:**
+1. Adu urutan palet mekanisme mode 2 dan 3 (port vs `idtab` gim), seperti yang
+   sudah dilakukan untuk Mix Up. Perbaiki kalau beda.
+2. Baru sesudah itu penempatan cocok, dan aturan berhenti (butir 2) bisa
+   DIVERIFIKASI — kodenya sudah ada.
+3. Aturan skrip karangan (`animvm.c` baris 433) masih nol baris.
+4. `test_anim_main.py` baru menjalankan mode 2.
 
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
 
