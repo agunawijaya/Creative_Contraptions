@@ -292,6 +292,93 @@ def anatomi():
     im.save(os.path.join(OUT, "doc_anatomi.png"))
 
 
+def sisi_sisi():
+    """ASLI vs PORT untuk SATU layar yang sama, plus peta bedanya.
+
+    Ini gambar yang paling langsung menjawab "apa bedanya tiruan dengan
+    aslinya": kiri tangkapan VRAM gim di emulator, tengah render port, kanan
+    peta piksel yang berbeda. Angka di bawahnya dihitung SAAT gambar dibuat,
+    jadi ia tidak bisa basi diam-diam -- kalau port berubah dan tidak lagi
+    cocok, peta kanannya akan menyala.
+
+    Butuh tangkapan `work/playseq/` (dibuat `work/test_play.py`, di-.gitignore
+    karena bisa dibangkitkan ulang). Kalau belum ada, langkah ini dilewati dan
+    PNG yang sudah ter-commit dibiarkan apa adanya.
+    """
+    import json
+    seq = os.path.join(ROOT, "work", "playseq", "fillmech_layar_g1")
+    rng_dir = os.path.join(ROOT, "work", "playseq", "fillmech_rng_g1")
+    if not (os.path.isdir(seq) and os.path.isdir(rng_dir)):
+        print("   (lewati sisi_sisi: jalankan `python work/test_play.py` dulu)")
+        return
+    sys.path.insert(0, os.path.join(ROOT, "port"))
+    from cc.core import contrap, adegan, render as rend, palet
+    from cc.core.archive import Archive
+
+    PAL = {(0, 0, 170): 0, (0, 170, 170): 1, (170, 0, 170): 2, (170, 170, 170): 3}
+    r0 = json.load(open(os.path.join(seq, "globals.json")))[0]
+    lc = json.load(open(os.path.join(rng_dir, "globals.json")))[-1]
+    src = Image.open(os.path.join(seq, "f%04d.png" % r0["frame"])).convert("RGB")
+    px = src.load()
+    asli = [[PAL[px[x, y]] for x in range(320)] for y in range(200)]
+
+    D = DATA
+    var, _p, fb, _pil = adegan.susun_lengkap(
+        1, Archive(D + "/GRAPH"), Archive(D + "/MECHS"), Archive(D + "/MISC"),
+        Archive(D + "/ANIMATE"), contrap.parse(D + "/CONTRAP"),
+        seed=lc["w71a"], mode=2, sub=1, isi=False, isi_zany=True,
+        nbola=r0["w718"], lastgoal=lc["w1e2e"], lastvar=lc["w1e30"], lvl=1)
+    k = rend.KanvasFB(fb)
+    rend.drawslot(k, [(y, x) for (y, x, _t) in var["mech"]])
+    # Strip pemilih part di dasar layar ikut digambar -- tanpa ini bedanya
+    # 2.153 piksel dan gambarnya akan salah menuduh port.
+    mech = Archive(D + "/MECHS")
+    per_off = {r["off"]: r for r in mech.recs}
+    mentah = bytes.fromhex(r0["mem"])
+    base = []
+    if r0["w738"] == 1:
+        for i in range(len(mentah) // 12):
+            q = mentah[i * 12:i * 12 + 12]
+            if q[0] == 0:
+                break
+            base.append(per_off[int.from_bytes(q[8:12], "little")])
+    else:
+        base = mech.recs
+    idtab = bytes.fromhex(r0["mem2"])
+    palet.drawpal(k, r0["w51c"], lambda j: (mech, base[idtab[j]]), r0["w3ac"])
+
+    WARNA = [(0, 0, 170), (0, 170, 170), (170, 0, 170), (170, 170, 170)]
+    port = Image.new("RGB", (320, 200))
+    pp = port.load()
+    beda = Image.new("RGB", (320, 200), (24, 26, 32))
+    bp = beda.load()
+    n = 0
+    for y in range(200):
+        for x in range(320):
+            pp[x, y] = WARNA[fb[y][x]]
+            if fb[y][x] != asli[y][x]:
+                bp[x, y] = (255, 80, 80)
+                n += 1
+
+    SK = 2
+    im, d = canvas(320 * 3 * SK // 2 + 80, 200 * SK // 2 + 130,
+                   "Layar yang sama: gim asli, port, dan peta bedanya")
+    for i, (img, judul) in enumerate(((src, "ASLI  (VRAM emulator)"),
+                                      (port, "PORT  (dari berkas aset)"),
+                                      (beda, "BEDA  (merah = tidak sama)"))):
+        x0 = 20 + i * (320 * SK // 2 + 10)
+        im.paste(img.resize((320 * SK // 2, 200 * SK // 2), Image.NEAREST), (x0, 60))
+        d.text((x0, 42), judul, font=font(13, True),
+               fill=OK if i < 2 else (WARN if n else OK))
+    ket = ("%d piksel berbeda dari 64.000" % n) if n else           "0 piksel berbeda dari 64.000 - identik"
+    d.text((20, 60 + 200 * SK // 2 + 14), ket, font=font(15, True),
+           fill=WARN if n else OK)
+    d.text((20, 60 + 200 * SK // 2 + 38),
+           "Port TIDAK menyalin tangkapan: ia membaca GRAPH/MECHS/CONTRAP dan "
+           "menyusun ulang layarnya sendiri.", font=font(12), fill=DIM)
+    im.save(os.path.join(OUT, "doc_sisi_sisi.png"))
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     mem_layout()
@@ -300,6 +387,7 @@ if __name__ == "__main__":
     pipeline()
     record()
     anatomi()
+    sisi_sisi()
     print("diagram -> %s" % OUT)
     for f in sorted(os.listdir(OUT)):
         print("   " + f)

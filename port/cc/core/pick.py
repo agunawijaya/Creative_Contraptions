@@ -1,4 +1,10 @@
-"""Pemilihan varian — `nvar()` @0x4147, `pickpart()` @0x4a2c, `loadcon()` @0x5035.
+"""Pemilihan varian — `nvar()` @0x4094, `pickpart()` @0x131A, `loadcon()` @0x5035.
+
+⚠ Dua alamat di baris atas sempat tertulis 0x4147 dan 0x4a2c. Itu tebakan lama
+dari sebelum rekonstruksi mengunci letak fungsinya; sumber yang `.EXE`-nya
+byte-identik menyebut `FUN_1000_4094` (nvar, 566 byte) dan `FUN_1000_131a`
+(pickpart, 387 byte). Kalau ragu, percayai `src_c/src/*.c`, bukan catatan di
+sini.
 
 Kenapa modul ini ada. Sampai sekarang port memakai `pilih=0` (varian pertama)
 supaya keluarannya bisa diulang. Itu membuat port TIDAK PERNAH bisa dibandingkan

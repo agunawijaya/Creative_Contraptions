@@ -102,14 +102,22 @@ Dokumen root — ⚠ ketiganya ditulis untuk PEMBACA, bukan sebagai catatan kerj
 
 | berkas | untuk siapa | isinya |
 |---|---|---|
+| `README.md` | pengunjung repo | pintu depan: dua produk, bukti, cara jalan, kebijakan aset |
 | `ARCHITECTURE.md` | orang yang BELAJAR pemrograman | bagaimana program 1985 dirancang, dan kenapa |
 | `CODE_MAP.md` | orang yang BELAJAR membaca kode | peta kode + format data, per alamat |
+| `PORT_ARCHITECTURE.md` | orang yang BELAJAR pemrograman | bagaimana yang lama diterjemahkan jadi Python, dan apa yang SENGAJA tidak diperbaiki |
+| `PORT_CODE_MAP.md` | orang yang BELAJAR membaca kode | fungsi 1985 ↔ modul port, per alamat |
 | `GAME_GUIDE.md` | pemain / pembaca umum | brosur: mode, skenario, sejarah |
+
+Urutan baca yang disarankan untuk pemula: `ARCHITECTURE` → `PORT_ARCHITECTURE` →
+`CODE_MAP` → `PORT_CODE_MAP`.
 
 ⚠ **Tiap gambar WAJIB punya paragraf "Penjelasan gambar."** tepat di bawahnya —
 itu permintaan eksplisit user. Diagramnya dibangkitkan `python work/gendocimg.py`
 (angkanya dibaca dari data nyata, jadi tidak bisa basi diam-diam) dan disimpan di
-`work/doc/`. Periksa dengan:
+`work/doc/`. ⚠ `doc_sisi_sisi.png` (asli vs port vs peta beda) butuh tangkapan
+`work/playseq/` — jalankan `python work/test_play.py` dulu, kalau tidak langkahnya
+dilewati dan PNG lama dibiarkan. Periksa dengan:
 `python -c "import re,os;[print(p,os.path.exists(p)) for _,p in re.findall(r'!\[([^\]]*)\]\(([^)]+)\)',open('CODE_MAP.md',encoding='utf-8').read())]"`
 
 Dokumen kerja (boleh berupa catatan mentah): `DECOMPILE_PLAN.md`,

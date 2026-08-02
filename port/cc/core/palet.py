@@ -1,4 +1,4 @@
-"""Strip pemilih part di dasar layar — `drawpal()` @0x5xxx.
+"""Strip pemilih part di dasar layar — `drawpal()` @0x3B83 (RET di 0x3C4E).
 
 Bukan sekadar deretan ikon. Tiga hal yang mudah salah, dan port lama salah
 di ketiganya:
