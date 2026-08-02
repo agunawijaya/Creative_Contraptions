@@ -96,6 +96,7 @@ state = {"int21": {}, "unhandled": [], "exit": False, "steps": 0}
 # KURSOR-nya, dan itu cukup untuk menentukan di mana pesan permainan muncul.
 _TDOS = os.environ.get("CC_TRACEDOS") == "1"
 _tdos_log = []
+_tdos_bl = []                 # BL (warna) tiap INT 10h AH=0Eh
 keyq = []            # antrian byte keyboard (0x08 read)
 draws = []           # log: (major, minor, w, h, screen_x, screen_y)
 DGROUP = LOAD_SEG + 0x907
@@ -265,8 +266,12 @@ def hook_intr(uc, intno, user):
         return
     if intno == 0x10:
         if _TDOS:
-            if ah == 0x0E:      # teletype: SATU karakter di posisi kursor
+            if ah == 0x0E:      # teletype: SATU karakter di posisi kursor.
+                # BL = warna latar depan di mode GRAFIS -- inilah atribut yang
+                # dipakai teks DOS, dan satu-satunya cara mengukurnya.
+                _bl = uc.reg_read(UC_X86_REG_BX) & 0xFF
                 _tdos_log.append(("tty", chr(ax & 0xFF)))
+                _tdos_bl.append(_bl)
             elif ah == 0x02:    # set posisi kursor: DH = baris, DL = kolom
                 _dx = uc.reg_read(UC_X86_REG_DX)
                 _tdos_log.append(("kursor", (_dx >> 8, _dx & 0xFF)))
@@ -838,11 +843,21 @@ def hook_278e_stop(uc, addr, size, user):
 slotpass = [0, 0]
 def hook_mechmatch(uc, addr, size, user):
     # 0x1b13: mekanisme salah -> gagal & abort. Paksa ke 0x1b51 (path "cocok").
+    #
+    # ⚠ CC_SALAH=1 MEMATIKAN paksaan ini. Selama ia menyala, cabang "salah"
+    # -- yang memuat `printf(msgmech, ...)` -- DILOMPATI tanpa syarat, jadi
+    # pesan dalam permainan tidak akan pernah keluar berapa kali pun datanya
+    # dipoke. Itu sebab sebenarnya "printf tak pernah terpanggil", dan
+    # penghalangnya harness ini, bukan gimnya.
+    if SALAH:
+        return
     slotpass[0] += 1
     uc.reg_write(UC_X86_REG_IP, 0x1b51)
 
 def hook_zanymatch(uc, addr, size, user):
     # 0x1bcd: zany salah -> set 0x842 (abort di iterasi berikut). Paksa ke 0x1c0b (cocok).
+    if SALAH:
+        return
     slotpass[1] += 1
     uc.reg_write(UC_X86_REG_IP, 0x1c0b)
 
@@ -969,11 +984,15 @@ def hook_18db_salah(uc, addr, size, user):
                                                     for i, v in enumerate(arg)))
     print("          global: state=04f2 recB=041e recC=04b6")
     # ord1 = argumen ke-5 -> slot 5 kalau slot 0 alamat balik
-    tgt = int(os.environ.get("CC_SALAH_SLOT", "5"))
-    ptr = arg[tgt]
-    lama = struct.unpack_from("<H", bytes(uc.mem_read(DGROUP * 16 + ptr, 2)), 0)[0]
-    uc.mem_write(DGROUP * 16 + ptr, struct.pack("<H", 0x7FFF))
-    print("  [salah] slot %d -> @%04x : %d -> 0x7fff" % (tgt, ptr, lama))
+    # Poke SELURUH ord1 dan ord2 (20 kata masing-masing), bukan hanya elemen
+    # ke-0: kalau slot mekanisme pertama bukan i == 0, `c1` sudah maju saat
+    # cabang itu tercapai dan poke tunggal luput.
+    for nm, tgt in (("ord1", 5), ("ord2", 9)):
+        ptr = arg[tgt]
+        lama = struct.unpack_from("<H", bytes(uc.mem_read(DGROUP * 16 + ptr, 2)), 0)[0]
+        for k in range(20):
+            uc.mem_write(DGROUP * 16 + ptr + 2 * k, struct.pack("<H", 0x7FFF))
+        print("  [salah] %s @%04x [0..19] : %d -> 0x7fff" % (nm, ptr, lama))
 
 
 def hook_18db_entry(uc, addr, size, user):  # mulai capture pada 18db pertama
@@ -1366,3 +1385,7 @@ if _TDOS:
         print("  %-8s %r" % (_k, _v))
     if _buf:
         print("  teks: %r" % _buf)
+    if _tdos_bl:
+        from collections import Counter as _C
+        print("  WARNA teletype (BL) yang terpakai: %s"
+              % dict(_C(_tdos_bl)))

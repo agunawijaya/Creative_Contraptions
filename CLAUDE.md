@@ -347,8 +347,21 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
    terpanggil tepat 11 kali (= 11 slot). Jadi baris pesannya **y = 176, x = 0**,
    dan tujuh spasi depan `msgmech` menggeser katanya ke x = 56.
    Port dibetulkan dari y = 192 ke y = 176.
-   ⚠ Yang MASIH belum terukur tinggal WARNA-nya: karakternya sendiri tak pernah
-   sampai ke INT 10h AH=0Eh, jadi atributnya tak terlihat. Dipakai 2.
+   ⭐ WARNANYA JUGA TERUKUR, dan ternyata **3** (dugaan pertama 2 salah).
+   Penghalang kelima juga harness sendiri: `hook_mechmatch`/`hook_zanymatch`
+   MEMAKSA IP melompat ke jalur "cocok", jadi cabang yang memuat `printf`
+   dilewati tanpa syarat — berapa kali pun datanya dipoke. `CC_SALAH=1`
+   sekarang mematikan paksaan itu, dan printf langsung mengeluarkan
+   `'      Zany object A does not work.'` lewat **INT 21h AH=02h**, 36
+   panggilan untuk 36 karakter.
+   Karena keluar lewat AH=02h, ATRIBUTNYA dipilih driver konsol DOS — bukan
+   oleh gim — jadi tidak ada apa pun di biner yang bisa dibaca. Diukur di DOS
+   sungguhan lewat `work/test_dosteks.py`: program 69 byte dirakit tangan
+   (mode 4 → kursor (22,0) → cetak lewat AH=02h → buang 16 KB VRAM ke berkas),
+   dijalankan headless di DOSBox-X. Hasil: 28 piksel, semuanya **warna 3**, di
+   **x 0..5, y 176..182** — sekaligus KONFIRMASI INDEPENDEN atas barisnya.
+   ⚠ Bentuk GLYPH-nya tetap berbeda: DOS memakai font ROM BIOS, port memakai
+   font gim. Font ROM bukan bagian dari gim dan tidak ikut didistribusikan.
 8. ~~Sisa pemakaian tangkapan (`review_layout.json`, `icons/`)~~ — **SELESAI**,
    dan catatan lama itu memang sudah basi. Dibuktikan `work/test_mandiri.py`:
    `builtins.open` dan `pygame.image.load` dibungkus supaya SETIAP pembacaan
@@ -364,7 +377,12 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   frame-0) sudah dibuang: adegan dan animasi kini lahir dari data yang sama, oleh undian
   yang sama, jadi tidak ada yang perlu dicocokkan. Bug "layar design ≠ layar run" tidak
   bisa terjadi lagi **secara konstruksi**, bukan karena diperbaiki.
-- **"TERHALANG EMULATOR" TIGA KALI TERNYATA "TERHALANG HARNESS SENDIRI".** Pertama:
+- **"TERHALANG EMULATOR" LIMA KALI TERNYATA "TERHALANG HARNESS SENDIRI".**
+  Keempat: gelung "jam pasir" `animvm` menunggu `ticks` yang tak pernah turun
+  karena ISR timer tidak berjalan (`CC_NOWAIT=1`). Kelima:
+  `hook_mechmatch`/`hook_zanymatch` MEMAKSA IP ke jalur "cocok", jadi cabang
+  ber-`printf` dilewati tanpa syarat (`CC_SALAH=1` mematikannya). Tiga yang
+  lebih dulu: Pertama:
   tangkapan `drawpal` diambil di alamat MASUK, bukan RET. Kedua: `work/emu.py` sengaja
   mem-bypass gelung penempatan part (`hook_2e90`) dan `drawpal` hidup di dalamnya —
   saklar `CC_NOSKIP=1` menyelesaikannya. Ketiga: di mode Mix Up penghalangnya urutan

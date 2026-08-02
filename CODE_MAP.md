@@ -320,6 +320,18 @@ Jadi ada DUA baris teks yang berbeda, dan mudah tertukar:
 Dan spasi di depan string itu bagian dari penempatannya: `msgmech` diawali
 **tujuh** spasi, jadi katanya mulai di x = 56 walau kursornya di kolom 0.
 
+Warnanya tidak bisa dibaca dari gim sama sekali, dan itu bukan kekurangan
+pengukuran melainkan sifat jalurnya: `printf` mengeluarkan teksnya lewat
+`INT 21h AH=02h`, satu panggilan per karakter (terukur 36 panggilan untuk 36
+karakter), sehingga **atributnya dipilih driver konsol DOS**. Jawabannya harus
+diambil dari DOS sungguhan — sebuah program 69 byte yang menyetel mode 4,
+menaruh kursor di (22, 0), mencetak satu huruf lewat jalur yang sama, lalu
+membuang seluruh memori layar ke berkas. Hasilnya: **warna 3**, di x 0..5,
+y 176..182 — yang sekaligus mengonfirmasi barisnya dari arah yang berbeda.
+
+> **Pelajaran umum.** Kalau sebuah nilai ditentukan oleh SISTEM dan bukan oleh
+> program, membaca programnya lebih teliti tidak akan pernah menjawabnya.
+
 **⚠ Pemulihan tanda punya DUA ambang, dan keduanya benar di tempatnya:**
 
 | jalur | ambang | fungsi |

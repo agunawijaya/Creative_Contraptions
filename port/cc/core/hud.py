@@ -79,12 +79,28 @@ def teks(addr):
 #     y = 22 * 8 = 176      x = 0
 # dan tujuh spasi depan `msgmech` menggeser katanya ke x = 56.
 #
-# ⚠ WARNANYA belum terukur: karakter-karakternya sendiri tidak pernah sampai ke
-# INT 10h AH=0Eh (keluaran teks DOS nol peristiwa), jadi atribut warnanya tak
-# terlihat. Dipakai 2, sama dgn teks gim lain di layar itu.
+# ⭐ WARNANYA JUGA TERUKUR, dan ternyata 3 -- bukan 2 seperti dugaan pertama.
+#
+# Karakternya keluar lewat `INT 21h AH=02h` (36 panggilan untuk 36 karakter
+# `'      Zany object A does not work.' + CRLF`), jadi ATRIBUTNYA dipilih
+# driver konsol DOS -- bukan oleh gim. Artinya tidak ada yang bisa dibaca dari
+# biner gim; ia harus diukur di DOS sungguhan.
+#
+# Diukur dgn program uji 69 byte (`work/dostest/PROBE.COM`, dirakit tangan)
+# yang dijalankan di DOSBox-X: set mode 4, set kursor (22, 0), cetak 'A' lewat
+# INT 21h AH=02h, lalu BUANG seluruh VRAM ke berkas -- jadi tak perlu tangkapan
+# layar. Hasil dekodenya: 28 piksel, SEMUANYA warna 3, di x 0..5 y 176..182.
+#
+# Itu sekaligus KONFIRMASI INDEPENDEN atas barisnya: DOS menaruh glyph-nya
+# tepat di baris teks 22 kolom 0, sama dgn yang dihitung dari panggilan kursor
+# gim sendiri.
+#
+# ⚠ Bentuk GLYPH-nya berbeda: DOS memakai font ROM BIOS 8x8, sedangkan port
+# menggambar dgn font gim (dari DGROUP). Font ROM itu bukan bagian dari gim dan
+# tidak ikut didistribusikan, jadi perbedaan itu disengaja dan dicatat.
 PESAN_Y = 22 * 8
 PESAN_X = 0
-PESAN_WARNA = 2
+PESAN_WARNA = 3
 
 
 def pesan_salah(zany, huruf):
