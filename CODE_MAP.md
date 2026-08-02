@@ -250,6 +250,24 @@ Kotak sorotannya sendiri `drawbox` (`0x3886`), empat garis warna 3 yang digambar
 petak yang sudah berwarna 3, XOR menghasilkan garis gelap **di dalam** kotak — bukan
 bingkai terang di luarnya.
 
+### 3.2 Baris pesan
+
+Di dasar layar ada satu baris teks setinggi 8 piksel yang `setupscr` bersihkan
+sendiri:
+
+```c
+if (sub == 1 && mode != 0 && mode != 1)
+    fillrect(0x10, 0xc0, 0x12f, 199, 1);   /* y 192..199, x 16..303 */
+```
+
+Lebarnya tepat 36 karakter, dan kalimat pembuka gim — *"Pick parts to fill the empty
+boxes."* — panjangnya 35. Bahwa baris itu memang baris pesan bisa dibaca dari
+`prompts`, yang menulis semua kalimat penutupnya di sana: `text(s, 0x10, 0xc0, 2)`,
+`text(s, 0x28, 0xc0, 2)`, `text(s, 0x38, 0xc0, 2)` — selalu `y = 0xc0`, warna 2.
+
+Menariknya syaratnya `sub == 1`: hanya kontraption **pertama** yang mendapat baris
+bersih itu. Bacaan yang paling masuk akal: itu baris instruksi untuk pemain baru.
+
 **⚠ Pemulihan tanda punya DUA ambang, dan keduanya benar di tempatnya:**
 
 | jalur | ambang | fungsi |

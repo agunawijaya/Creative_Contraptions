@@ -274,9 +274,9 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   vs tangkapan VRAM emulator. Strip pemilih part: `palet.py` (`drawpal()`).
 - ⚠ **Angka 448.000/448.000 itu layar ATTRACT**, bukan layar permainan — emulator
   menambal nomor goal pada `loadcon` PERTAMA, yang terjadi saat layar judul.
-- ⭐ **LAYAR BERMAIN sungguhan kini terukur** (2026-08-01): pita atas 2.560/2.560,
-  pita bawah 12.800/12.800 (termasuk strip `drawpal`), kotak slot kosong
-  2.160/2.160 = **17.520/17.520 piksel** (`python work/test_play.py`). Empat hal
+- ⭐ **LAYAR BERMAIN sungguhan: 64.000/64.000 piksel** (2026-08-02) — SELURUH
+  layar termasuk arena, dan diukur dua kali: lewat modul inti DAN lewat jalur
+  pemain (`main.Game` + `key()`). `python work/test_play.py`. Empat hal
   yang ternyata karangan port dan sekarang dari gim:
   `drawslot()` (slot kosong = PETAK PENUH warna 3, bukan kotak bergaris berisi
   huruf), `drawbox()` (sorotan EMPAT garis XOR warna 3), baris pesan (di baris
@@ -301,20 +301,28 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
 4. ~~Strip palet di mode Mix Up~~ — **SELESAI**: `python work/test_palet.py`,
    **48.384/48.384 piksel** di KEDUA mode. Yang menghalanginya bukan `pickvar`
    melainkan urutan tombol OBSERVE bawaan yang diakhiri ESC.
-5. ~~Antarmuka bermain port karangan sendiri~~ — **SELESAI untuk chrome-nya**:
-   `python work/test_play.py`, **17.520/17.520 piksel** (pita atas + pita bawah
-   berikut strip + kotak slot kosong). `drawslot()`/`drawbox()` kini di
+5. ~~Antarmuka bermain port karangan sendiri~~ — **SELESAI**:
+   `python work/test_play.py`, **64.000/64.000 piksel SELURUH LAYAR**, dan
+   diukur DUA kali: lewat modul inti DAN lewat jalur pemain sungguhan
+   (`main.Game` + `key()`). `drawslot()`/`drawbox()` kini di
    `port/cc/core/render.py`.
-   ⚠ Yang MASIH belum terukur di layar itu: **baris pesan**. Posisinya
-   diturunkan dari `setupscr.c` (`fillrect(0x10, 0xc0, 0x12f, 199, 1)` = satu
-   baris teks cyan 36 karakter), bukan diadu piksel — pesan gim keluar lewat
-   `printf()` dari MC.LIB dan emulator tidak merender teks DOS.
-6. **Arena layar bermain belum diadu langsung.** Bukan karena ada yang meragukan:
-   jalur render-nya sudah terbukti lewat genscreens 197/197 dan animasi
-   1.210/1.210. Yang menghalangi adu langsung adalah keadaan RNG emulator pada
-   tangkapan itu bukan seed 0, dan `VARIANT=` tidak bisa dipakai (hook-nya
-   memaksa SEMUA `rnd()` di dalam `loadcon`, membuat gelung do/while pemilih
-   varian tak berujung).
+6. ~~Arena layar bermain belum diadu langsung~~ — **SELESAI**, termasuk arena
+   (48.640/48.640). Penghalangnya bukan emulator melainkan model port:
+   `loadcon.c` mengundi varian dgn `do { pick = rnd(cnt)+first; } while
+   (lastgoal == sub && cnt >= 2 && pick == lastvar)`, dan `susun()` tidak
+   memodelkan gelung itu — pengulangan MEMAJUKAN seed satu undian lagi
+   sehingga seluruh pemilihan part sesudahnya bergeser.
+   ⚠ `VARIANT=` TIDAK bisa dipakai sebagai jalan pintas: hook-nya memaksa
+   SEMUA `rnd()` di dalam `loadcon` sehingga gelung do/while itu tak berujung
+   (gejalanya "0 frame"). Yang benar: BACA seed @0x71a, lastgoal @0x1e2e, dan
+   lastvar @0x1e30 dari memori gim.
+7. **Pesan DALAM permainan belum diadu piksel.** Barisnya sudah pasti — 
+   `prompts()` menulis di `y = 0xc0, x mulai 0x10, warna 2`, yaitu baris cyan
+   yang dibersihkan `setupscr()`. Yang belum terukur teks in-play-nya sendiri:
+   ia keluar lewat `printf()` @0x6a48 dari MC.LIB, dan dgn `CC_TRACEDOS=1`
+   terukur **NOL** peristiwa keluaran teks DOS/BIOS — `printf` tak pernah
+   terpanggil di jalur yang bisa dijangkau harness (histogram INT 21h hanya
+   berisi FCB I/O).
 
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
 
@@ -336,7 +344,18 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   `rnd()` yang dipanggil dari dalam `loadcon`, dan gelung
   `do { pick = rnd(cnt) } while (... pick == lastvar)` jadi tak berujung — gejalanya
   "0 frame", yang mudah salah dibaca sebagai "emulator tak mencapai titik itu".
-  Cara yang benar: BACA tabel `base` gim (`CC_VSPTR=73a:`) lalu cocokkan ke CONTRAP.
+  Cara yang benar: BACA keadaan RNG gim (seed @0x71a, lastgoal @0x1e2e,
+  lastvar @0x1e30) lalu berikan ke `susun()`.
+- **UJI LEWAT MODUL INTI TIDAK MELIHAT BUG DI `main.py`.** Layar bermain cocok
+  64.000/64.000 lewat modul inti sementara jalur pemain masih meleset 738 piksel:
+  `start_play()` mengocok palet DUA KALI — kocokan gim yang benar, lalu
+  `random.shuffle` peninggalan lama di atasnya. Uji jalur user itu aturan kerja
+  no. 7, dan inilah contoh kenapa.
+- **`open(p, "w")` MEMOTONG BERKAS SEBELUM `write()` DIJALANKAN.** Satu koma
+  nyasar di akhir ekspresi membuat `write()` menerima tuple, gagal, dan
+  `port/main.py` tinggal 0 baris. Diselamatkan `git checkout --`. Untuk sunting
+  berpola, pakai Edit; kalau memang harus lewat skrip, tulis ke berkas baru lalu
+  ganti nama.
 - **UJI YANG BASI GAGAL DIAM-DIAM, ATAU LEBIH BURUK: TETAP LULUS.** `test_fill`,
   `test_zany`, `test_review` sudah lama gagal karena melewatkan layar LEVEL yang
   ditambahkan belakangan. `test_mixup` lebih licin: ia menavigasi lewat layar GOAL, dan
