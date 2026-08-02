@@ -28,6 +28,67 @@ Aturan yang dipegang: **satu implementasi per aturan gim.** Kalau sebuah perilak
 ditulis dua kali, uji akan menguji salinan yang salah — dan itu pernah benar-benar
 terjadi (lihat `PORT_ARCHITECTURE.md` §5).
 
+```mermaid
+flowchart TD
+    subgraph L1["lapis 1 — pembaca berkas"]
+        archive["archive.py"]
+        contrap["contrap.py"]
+        skrip["skrip.py"]
+        dgtab["dgtab.py"]
+    end
+    subgraph L2["lapis 2 — aturan gim"]
+        rng["rng.py"]
+        pick["pick.py"]
+        vm["vm.py"]
+        bunyi["bunyi.py"]
+    end
+    subgraph L3["lapis 3 — penggambar"]
+        render["render.py"]
+        font["font.py"]
+        dosfont["dosfont.py"]
+        menu["menu.py"]
+        palet["palet.py"]
+        hud["hud.py"]
+        resensi["resensi.py"]
+    end
+    subgraph L4["lapis 4 — perakit"]
+        adegan["adegan.py"]
+    end
+    subgraph L5["lapis 5 — aplikasi"]
+        mainpy["main.py"]
+    end
+
+    pick --> archive
+    pick --> contrap
+    pick --> rng
+    vm --> skrip
+    vm --> rng
+    menu --> dgtab
+    hud --> dgtab
+    resensi --> dgtab
+    font --> dgtab
+    menu --> render
+    palet --> render
+    hud --> render
+    adegan --> pick
+    adegan --> vm
+    adegan --> render
+    mainpy --> adegan
+    mainpy --> menu
+    mainpy --> hud
+    mainpy --> palet
+    mainpy --> bunyi
+```
+
+**Penjelasan gambar.** Panah berarti **"bergantung pada"**, jadi ia selalu menunjuk ke
+bawah — dan akibatnya lapisan paling dasar (pembaca berkas) berada di bagian bawah
+gambar, dengan aplikasinya di puncak. Yang penting dari bentuknya: **tidak ada satu pun
+panah yang menunjuk ke atas**. Tidak ada ketergantungan melingkar. `render.py` tidak tahu apa-apa tentang aturan gim; `pick.py`
+tidak tahu apa-apa tentang cara menggambar. Itu yang membuat uji piksel mungkin —
+`adegan.py` bisa dijalankan tanpa jendela sama sekali, dan hasilnya angka, bukan gambar.
+Perhatikan juga `dgtab.py` di lapis satu: ia membaca tabel dari **segmen data gim asli**,
+jadi teks menu dan koordinatnya pun tidak diketik ulang melainkan dibaca.
+
 ## 2. Modul inti, dan apa padanannya
 
 | modul | baris | padanan di gim asli | isi |
@@ -57,6 +118,32 @@ kenapa sesuatu ditulis begitu, dan itu memang disengaja.
 
 Bagian ini yang paling berguna kalau kamu sedang membangun ulang program lain. Semuanya
 pernah salah di sini, dan semuanya ditemukan lewat pengukuran, bukan pembacaan.
+
+### 3.0 Bagaimana satu kesalahan ditemukan
+
+Empat kali di proyek ini urutannya persis sama, dan bentuknya layak dihafal:
+
+```mermaid
+flowchart LR
+    A["piksel meleset<br/>di satu tempat"] --> B{"undian yang salah,<br/>atau pemakaiannya?"}
+    B -->|"rekam tiap rnd()<br/>+ alamat pemanggilnya"| C["bandingkan rantai<br/>gim vs port"]
+    C -->|"rantai BEDA"| D["perbaiki urutan/jumlah undian"]
+    C -->|"rantai SAMA"| E["berarti pemakaiannya —<br/>cari tabel/indeks yang keliru"]
+    D --> F["ukur lagi"]
+    E --> F
+    F -->|"membaik tapi belum nol"| G["⚠ penjelasan belum lengkap<br/>JANGAN berhenti"]
+    G --> B
+    F -->|"nol"| H["tulis ujinya<br/>supaya tidak kembali"]
+```
+
+**Penjelasan gambar.** Pertanyaan pertama selalu sama: apakah **undiannya** yang berbeda,
+atau **pemakaian** hasil undian itu. Keduanya menghasilkan gejala yang mirip di layar,
+tapi perbaikannya di tempat yang sama sekali berbeda — dan menebak akan salah separuh
+waktu. Yang memisahkannya adalah merekam setiap panggilan generator acak berikut alamat
+pemanggilnya, lalu membandingkan rantainya. Perhatikan cabang kanan-bawah: kalau angkanya
+**membaik tetapi belum nol**, itu bukan kemajuan yang boleh disimpan — itu tanda
+penjelasannya baru benar sebagian. Sekali di proyek ini, perbaikan setengah bahkan
+membuat angkanya lebih **buruk**, dan justru itu yang menunjukkan arah yang benar.
 
 ### 3.1 Urutan gambar, bukan lapisan
 

@@ -113,7 +113,15 @@ Urutan baca yang disarankan untuk pemula: `ARCHITECTURE` → `PORT_ARCHITECTURE`
 `CODE_MAP` → `PORT_CODE_MAP`.
 
 ⚠ **Tiap gambar WAJIB punya paragraf "Penjelasan gambar."** tepat di bawahnya —
-itu permintaan eksplisit user. Diagramnya dibangkitkan `python work/gendocimg.py`
+itu permintaan eksplisit user. Berlaku juga untuk **diagram Mermaid** (blok
+```` ```mermaid ````), yang dirender GitHub secara bawaan dan dipakai di
+`README.md`, `PORT_ARCHITECTURE.md`, dan `PORT_CODE_MAP.md`.
+⚠ Tidak ada perender Mermaid di mesin ini, jadi sintaksnya TIDAK bisa diuji
+lokal — periksa dengan mata, dan hati-hati pada dua hal yang pernah salah:
+`end` sebagai id node (memutus `subgraph`), dan ARAH `flowchart`
+(dgn panah "bergantung pada", `TD` menaruh lapis dasar di BAWAH; `BT`
+membalikkannya dan pernah membuat keterangan gambar bertentangan dgn
+gambarnya). Diagramnya dibangkitkan `python work/gendocimg.py`
 (angkanya dibaca dari data nyata, jadi tidak bisa basi diam-diam) dan disimpan di
 `work/doc/`. ⚠ `doc_sisi_sisi.png` (asli vs port vs peta beda) butuh tangkapan
 `work/playseq/` — jalankan `python work/test_play.py` dulu, kalau tidak langkahnya

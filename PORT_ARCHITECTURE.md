@@ -33,6 +33,45 @@ src_c/   "byte-nya benar"    -> membuktikan pembacaan
 port/    "layarnya sama"     -> membuktikan pemahaman
 ```
 
+### Dari berkas aset ke layar
+
+```mermaid
+flowchart TD
+    subgraph BERKAS["berkas gim asli — dibaca apa adanya, tidak diubah"]
+        CONTRAP[("CONTRAP<br/>susunan slot")]
+        GRAPH[("GRAPH<br/>objek zany")]
+        MECHS[("MECHS<br/>mekanisme")]
+        ANIMATE[("ANIMATE<br/>skrip animasi")]
+    end
+
+    CONTRAP --> CT["contrap.py<br/>urai susunan"]
+    GRAPH --> AR["archive.py<br/>direktori + dekode RLE"]
+    MECHS --> AR
+    ANIMATE --> SK["skrip.py<br/>cari skrip tiap part"]
+
+    RNG(["rng.py — seed gim"]) --> PICK
+    CT --> PICK["pick.py<br/>undi varian, part, slot bertanda"]
+    AR --> PICK
+
+    PICK --> ADG["adegan.py<br/>susun layar diam"]
+    SK --> VM["vm.py<br/>mesin animasi 17 opcode"]
+    ADG --> VM
+    VM --> FB["render.py<br/>framebuffer indeks 0-3"]
+    ADG --> FB
+    HUD["hud.py / menu.py / palet.py"] --> FB
+    FB --> LAYAR["cga.py<br/>warna + penskalaan jendela"]
+    FB -.-> UJI{{"uji piksel<br/>vs VRAM gim"}}
+```
+
+**Penjelasan gambar.** Baca dari atas ke bawah. Empat berkas gim asli masuk tanpa diubah;
+tiga pengurai mengubahnya jadi struktur Python. Yang perlu diperhatikan: kotak `rng.py`
+di kiri **ikut menentukan isi layar** — varian mana yang dipakai dan part mana yang
+ditawarkan diundi, tidak disimpan, jadi generator acaknya sama pentingnya dengan
+berkas asetnya. Semua penggambar bermuara ke satu framebuffer berisi angka 0–3, dan dari
+situ jalurnya bercabang: ke kiri-bawah untuk ditampilkan ke pemain, dan ke kanan-bawah
+(garis putus-putus) untuk diadu dengan memori layar gim asli. Cabang uji itu membaca
+framebuffer yang **sama persis** dengan yang dilihat pemain — bukan salinannya.
+
 ---
 
 ## 2. Keputusan besar, dan alasannya
@@ -140,6 +179,38 @@ dijalankan di emulator. Warnanya ternyata 3, dan baris teksnya 22.
 
 Bentuk programnya sengaja dibuat sejajar dengan aslinya, supaya keduanya bisa dibaca
 berdampingan.
+
+### Alur layar
+
+```mermaid
+stateDiagram-v2
+    [*] --> TITLE
+    TITLE --> CREDITS: ENTER
+    CREDITS --> SETUP: ENTER
+    SETUP --> MENU: Y/N dua kali, lalu 20 undian pemanasan
+    MENU --> REVIEW: Review Mechanisms
+    MENU --> LEVEL: tiga mode lainnya
+    REVIEW --> REVIEW_DETAIL: ENTER
+    REVIEW_DETAIL --> REVIEW: ENTER
+    LEVEL --> INSTRUKSI: sekali per mode
+    INSTRUKSI --> GOAL: Fill in Mech / Zany
+    INSTRUKSI --> PLAY: Contraption Mix Up (tanpa pemilih tujuan)
+    LEVEL --> GOAL: kalau instruksi sudah pernah tampil
+    GOAL --> PLAY: pilih tujuan
+    PLAY --> PLAYANIM: jalankan bolanya
+    PLAYANIM --> PLAY: ronde berikutnya (Mix Up)
+    PLAYANIM --> GOAL: selesai
+```
+
+**Penjelasan gambar.** Mesin keadaan `port/main.py`, dan bentuknya mengikuti gim aslinya
+termasuk hal-hal yang terlihat janggal. Tiga di antaranya sering salah ditebak. Pertama,
+**`SETUP` bukan sekadar layar tanya-jawab**: sesudah pertanyaan kedua ada 20 undian
+pemanasan yang hasilnya dibuang — tapi seed-nya maju, jadi seluruh pemilihan part di
+permainan bergantung padanya. Kedua, **Contraption Mix Up melompati `GOAL`**: mode itu
+tidak memakai pemilih tujuan sama sekali, ia memainkan keenam kontraption berurutan.
+Ketiga, panah `LEVEL → GOAL` yang langsung ada karena layar instruksi hanya muncul
+**sekali** per mode. Perhatikan juga `PLAYANIM` kembali ke `GOAL`, bukan ke `MENU` —
+selesai bermain mengembalikanmu ke pemilih tujuan.
 
 | konsep di gim 1985 | di port | catatan |
 |---|---|---|

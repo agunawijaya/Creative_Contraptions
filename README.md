@@ -25,6 +25,39 @@ ini dibangkitkan, jadi kalau suatu saat port meleset, panel kanan akan menyala s
 
 ---
 
+## Satu biner, dua pembangunan ulang
+
+```mermaid
+flowchart LR
+    EXE["CONTRAP.EXE 1985<br/>dimampatkan PKLITE"] --> UNP["dibuka kemasannya"]
+    UNP --> ANA["analisis:<br/>disassembly + format aset"]
+
+    ANA --> SRC["src_c/<br/>source C ditulis ulang"]
+    SRC --> CC["dikompilasi MS C 1.04"]
+    CC --> BYTE{"byte-per-byte<br/>sama?"}
+    BYTE -->|"46.532 / 46.532"| OK1["kodenya terbaca benar"]
+
+    ANA --> PORT["port/<br/>ditulis ulang dalam Python"]
+    ASET[("berkas aset gim<br/>GRAPH MECHS ANIMATE<br/>MISC CONTRAP")] --> PORT
+    UNP --> EMU["work/emu.py<br/>emulator + perekam VRAM"]
+    ASET --> EMU
+    PORT --> PIX{"piksel per piksel<br/>sama?"}
+    EMU --> PIX
+    PIX -->|"1.565 / 1.565 bingkai"| OK2["aturannya dipahami"]
+```
+
+**Penjelasan gambar.** Alurnya bercabang dua dari titik yang sama. Cabang atas menulis
+ulang **kodenya** sebagai source C, mengompilasinya dengan kompiler asli, lalu
+membandingkan hasilnya byte-per-byte dengan biner 1985 — itu membuktikan disassembly-nya
+terbaca benar. Cabang bawah menulis ulang **perilakunya** dalam Python: ia membaca berkas
+aset yang sama seperti gim, menyusun layarnya sendiri, lalu diadu dengan memori layar gim
+asli yang direkam emulator. Perhatikan bahwa berkas aset masuk ke **dua** tempat — ke port
+dan ke emulator — dan keduanya tidak pernah bertukar hasil. Itu yang membuat perbandingan
+di kanan bawah bermakna: kalau port menyalin keluaran emulator, kotak itu akan selalu
+hijau dan tidak membuktikan apa pun.
+
+---
+
 ## Gimnya apa
 
 **Creative Contraptions** (1985, Looking Glass Software untuk Bantam Electronic
@@ -39,7 +72,7 @@ Ceritanya, mode permainannya, dan sejarahnya ada di **[`GAME_GUIDE.md`](GAME_GUI
 
 ## Mulai dari mana
 
-Tiga dokumen ditulis untuk **dibaca**, bukan sebagai catatan kerja. Pilih sesuai
+Lima dokumen ditulis untuk **dibaca**, bukan sebagai catatan kerja. Pilih sesuai
 tujuanmu:
 
 | kalau kamu ingin… | baca |
