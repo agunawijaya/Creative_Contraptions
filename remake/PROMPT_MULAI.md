@@ -53,6 +53,43 @@ yang keenam paling sering terlupakan:
 BOLEH DIWARISI dari port/ (aturan main, BUKAN aset): rng.py, pick.py, vm.py,
 hud.py. Semuanya sudah terukur benar terhadap gim asli.
 
+⭐ TITIK SAMBUNG ADALAH DATA, BUKAN GAMBAR. Gim ini menyambungkan komponen
+(tali-katrol, tuas-bola) dan rantai aksi-reaksinya harus tepat. Tapi titik
+sambungnya BUKAN properti piksel: ia waypoint di skrip ANIMATE, dalam
+koordinat LOKAL terhadap slot part. Terukur, goal 1:
+
+    part0 slot(11,8)   masuk(10,20) keluar(14,49) lempar(A=10,N=10)
+    part1 slot(67,48)  masuk(0,21)  keluar(15,0)  lempar(A=4,N=4)
+    part2 slot(97,28)  masuk(0,14)  keluar(23,34) lempar(A=5,N=6)
+
+dan lemparan `op03` MENDARAT TEPAT DI WAYPOINT PERTAMA part tujuan. Jadi tali
+menyambung karena ANGKANYA bertemu, bukan pikselnya. Sprite cuma perlu
+TERLIHAT benar di titik itu.
+
+MAKA: jangkar sebagai KONTRAK, bukan warisan. Tiap aset punya berkas
+pendamping berisi titik jangkar dalam piksel lokal:
+
+    { "id": "katrol-01", "sprite": "katrol-01.png", "ukuran": [60,46],
+      "jangkar": { "masuk": [20,10], "keluar": [49,14],
+                   "tali": [[30,4],[30,40]] },
+      "lempar": { "lengkung": 10, "langkah": 10 } }
+
+Pelukis menggambar MEMENUHI kontrak, bukan meniru gambar lama. Kontrak ikut
+terskala saat resolusi naik, mengizinkan bentuk baru, dan BISA DIUJI.
+
+UJI PENGGANTI PEMBANDING PIKSEL -- kontinuitas rantai:
+  untuk tiap kontraption, jalankan VM dan pastikan titik KELUAR part N
+  berimpit dgn titik MASUK part N+1 sesudah lemparan, dalam toleransi.
+Itu memeriksa aksi-reaksinya langsung, tanpa gim asli. TULIS UJI INI SEBELUM
+ASET PERTAMA DIGAMBAR.
+
+⚠ TABRAKAN YANG SUDAH DIPUTUSKAN: angka waypoint di atas adalah DATA GIM
+ASLI, sementara aturan folder ini "nol byte dari gim asli". Keputusannya:
+GEOMETRINYA DIKARANG ULANG. Angka asli boleh jadi rujukan rasa saat
+mengembangkan, TIDAK ikut disebarkan. Yang diwarisi hanya aturan (opcode VM,
+urutan rantai, cara RNG dipakai) -- itu ide, bukan data. Arahnya terbalik dan
+lebih bebas: GAMBAR DULU, JANGKARNYA MENENTUKAN SKRIPNYA.
+
 TANYAKAN KE SAYA DULU sebelum menulis kode, empat hal ini menentukan
 segalanya dan saya belum memutuskannya:
   1. Resolusi target. Saran: kelipatan BULAT dari 320x200 (640x400 atau
