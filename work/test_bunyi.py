@@ -27,7 +27,11 @@ cek("mode 0 tanpa not", bunyi.not_dari(0, b"")[0], [])
 print("\nmode 1 = sapuan (timedrw menyetel 500, 1140, 16)")
 sw = bunyi.not_dari(1, struct.pack("<HHH", 500, 0x474, 0x10))[0]
 cek("mulai 500 Hz", sw[0][0], 500)
-cek("berakhir 1140 Hz", sw[-1][0], 1140)
+# ⚠ BERAKHIR DI 1124, BUKAN 1140. Nilai yang SAMA DENGAN `akhir` tidak pernah
+# dibunyikan: `tone3` @0x5B73 (snd2.asm, L5C50) menguji `CMP AX,CX / JE stop`
+# SEBELUM menulis nada, jadi deretnya putus satu langkah lebih awal. Harapan
+# 1140 di sini peninggalan tafsiran lama yang belum pernah diukur.
+cek("berakhir satu langkah SEBELUM nilai akhir", sw[-1][0], 1140 - 16)
 cek("langkah 16 Hz", sw[1][0] - sw[0][0], 16)
 
 print("\nPIT: 1.193.182 / frekuensi = pembagi")

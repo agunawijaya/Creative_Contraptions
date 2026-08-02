@@ -72,14 +72,37 @@ def not_dari(mode, payload):
             i += 3
         return out, mode == 3
     if mode == 1 and len(payload) >= 6:
-        # Tiga word tetap. `timedrw()` mengisinya {500, 0x474, 0x10} tepat
-        # sebelum bilah timer diisi sepotong demi sepotong, jadi ini sapuan
-        # dan bukan not tunggal. Ditafsirkan (awal, akhir, langkah).
+        # SAPUAN. Tiga word: (sekarang, akhir, langkah).
+        #
+        # ⭐ Ini bukan daftar not, dan dulu memang cuma "ditafsirkan". Sekarang
+        # terbaca dari `tone3` @0x5B73 (snd2.asm, byte-identik dgn biner),
+        # cabang mode 1 di L5C50:
+        #
+        #     BX = sndptr
+        #     CX = [BX]          ; frekuensi SEKARANG
+        #     AX = [BX+2]        ; frekuensi AKHIR
+        #     CMP AX, CX / JE  -> sndd (diam), sndptr = 0, sndmode = 0
+        #     L5B57(CX)          ; PIT <- 0x1234DE / CX
+        #     sndb               ; speaker nyala
+        #     AX = [BX+4]        ; langkah
+        #     [BX] += AX
+        #
+        # Dua akibat yang penting:
+        #
+        # 1. Nilai yang SAMA DENGAN `akhir` TIDAK PERNAH dibunyikan -- ujinya
+        #    dilakukan SEBELUM nada ditulis. Jadi deretnya berhenti di
+        #    `akhir - langkah`.
+        # 2. Panjangnya TIDAK ditentukan data. Satu langkah per tik ISR, dan
+        #    yang menghentikannya biasanya program yang memanggil `sndoff()`.
+        #    Terukur di pembuka `animvm`: gim hanya sempat membunyikan 25 nada
+        #    (500..884) sebelum luncuran bilah selesai -- padahal deret
+        #    penuhnya sampai 1444. Jadi daftar ini adalah deret PENUH yang
+        #    MUNGKIN, dan pemutar boleh dihentikan di tengah.
         a, z, s = struct.unpack_from("<HHH", bytes(payload), 0)
         if s == 0:
             return [(a, 1)], False
         arah = 1 if z >= a else -1
-        return [(f, 1) for f in range(a, z + arah, arah * max(1, s))], False
+        return [(f, 1) for f in range(a, z, arah * max(1, s))], False
     return [], False
 
 

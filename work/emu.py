@@ -1620,9 +1620,20 @@ if _TIO:
         else:
             _div.append(_lo | (_v << 8))
             _lo = None
+    _hz = [round(1193182 / d) if d else 0 for d in _div]
     print("  pembagi PIT (%d): %s" % (len(_div), _div[:16]))
-    print("  -> frekuensi Hz: %s"
-          % [round(1193182 / d) if d else 0 for d in _div[:16]])
+    print("  -> frekuensi Hz: %s" % _hz[:16])
+    # ⚠ Cetakannya DIPOTONG 16 nada supaya terbaca manusia, dan itu sempat
+    # menyesatkan: `test_suara.py` mengurai baris cetakan itu, jadi ia
+    # "mengukur" 16 nada pertama saja dan sapuan mode 1 (yang datang jauh di
+    # belakang) tak pernah terlihat. Daftar PENUH ditulis ke berkas.
+    _hz_out = os.path.join(OUT, "pit_hz.json")
+    try:
+        with open(_hz_out, "w") as _f:
+            json.dump(_hz, _f)
+        print("  daftar frekuensi PENUH (%d) -> %s" % (len(_hz), _hz_out))
+    except Exception as _e:
+        print("  gagal menulis daftar frekuensi: %s" % _e)
     _gate = [v for p, v in _tio_log if p == 0x61]
     print("  gerbang 0x61 (%d): %s" % (len(_gate), _gate[:16]))
 

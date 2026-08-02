@@ -24,6 +24,7 @@ itulah yang diadu dgn hasil dekode port.
 ⭐ Kalau angka skrip ternyata PEMBAGI dan bukan frekuensi, uji ini gagal keras:
 500 Hz akan muncul sebagai 2.386 Hz.
 """
+import json
 import os
 import re
 import struct
@@ -70,13 +71,25 @@ def cek(nama, dapat, harap):
 
 
 def dari_gim():
+    """-> daftar PENUH frekuensi yang gim tulis ke PIT.
+
+    ⚠ Dibaca dari berkas `pit_hz.json`, BUKAN dari cetakan emulator. Cetakan
+    itu dipotong 16 nada supaya terbaca manusia, dan uji ini dulu mengurainya
+    -- jadi ia "mengukur" 16 nada pertama saja dan sapuan mode 1, yang datang
+    jauh di belakang, tak pernah terlihat sama sekali. Alat ukur yang
+    membatasi temuannya sendiri.
+    """
+    keluaran = os.path.join(AKAR, "work", "suaraseq")
     env = dict(os.environ)
-    env.update(CC_OUT=os.path.join(AKAR, "work", "suaraseq"),
-               CC_TRACEIO="1", CC_SNDISR="1", CC_MAXINSN="400000000")
+    env.update(CC_OUT=keluaran,
+               CC_TRACEIO="1", CC_SNDISR="1", CC_MAXINSN="900000000")
     r = subprocess.run([sys.executable, os.path.join(AKAR, "work", "emu.py"),
                         "1", "1"], env=env, cwd=AKAR,
                        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                       timeout=600)
+                       timeout=900)
+    penuh = os.path.join(keluaran, "pit_hz.json")
+    if os.path.exists(penuh):
+        return json.load(open(penuh))
     keluar = r.stdout.decode("latin-1", "replace")
     m = re.search(r"-> frekuensi Hz: \[([^\]]*)\]", keluar)
     if not m:
@@ -108,7 +121,16 @@ def main():
              sap_port[-1] if sap_port else "-",
              len(sap_gim), sap_gim[0] if sap_gim else "-",
              sap_gim[-1] if sap_gim else "-"))
-    cek("sapuan mode 1 cocok dgn PIT gim", sap_port, sap_gim)
+    # ⚠ PANJANGNYA tidak dibandingkan, dan itu bukan kelonggaran: mode 1 maju
+    # satu langkah per tik ISR sampai program memanggil `sndoff()`, jadi
+    # jumlah nada ditentukan LAMA BUNYINYA MENYALA, bukan datanya. Yang
+    # ditentukan data -- dan itulah yang diuji -- adalah nada AWAL, LANGKAH,
+    # dan seluruh nilai yang benar-benar terdengar.
+    cek("sapuan gim = awalan deret port (%d nada)" % len(sap_gim),
+        sap_port[:len(sap_gim)], sap_gim)
+    cek("sapuan mode 1 dimulai dari nilai skrip", sap_gim[:1], [SAPUAN[0]])
+    cek("langkah sapuan sesuai skrip",
+        sorted({b - a for a, b in zip(sap_gim, sap_gim[1:])}), [SAPUAN[2]])
 
     print("\n%s" % ("SUARA COCOK DENGAN GIM" if not gagal
                     else "GAGAL: %s" % ", ".join(gagal)))

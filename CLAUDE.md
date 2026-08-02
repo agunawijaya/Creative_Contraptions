@@ -135,6 +135,7 @@ python work/test_nav.py        # regresi navigasi menu
 python work/test_intro.py      # pembuka animvm (jam pasir + bilah bola)
 python work/test_tabmenu.py    # 12 tabel layar vs sumber src_c byte-exact
 python work/test_layarawal.py  # credits/askopts/3 layar instruksi vs VRAM gim
+python work/test_suara.py      # frekuensi PIT + sapuan mode 1
 ```
 Env emulator: `VARIANT=n VCAP=1 python work/emu.py <goal> <mode>` → capture VRAM + jalur bola.
 
@@ -206,7 +207,8 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
 - ⭐ **ANIMASI 100% IDENTIK** (2026-08-01): mesin `animvm()` di `port/cc/core/vm.py`
   menjalankan skrip dari berkas aset. Terukur vs tangkapan VRAM emulator, animasi
   PENUH ketujuh layar dari frame pertama sampai habis:
-  **1.210/1.210 frame byte-identik, 77.440.000/77.440.000 piksel (100,000000%)**.
+  **1.565/1.565 frame byte-identik, 100.160.000/100.160.000 piksel (100,000000%)** —
+  KESEPULUH varian CONTRAP, bukan satu per goal.
   Uji mandiri (membuat tangkapannya sendiri): `python work/test_anim_vs_gim.py`.
   Rinciannya: goal 1 136, goal 2 71, goal 3 88, goal 4 79, goal 5 66, goal 6 95,
   layar judul 675 frame.
@@ -475,6 +477,38 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
    `python work/test_tabmenu.py` (diadu dgn `src_c/src/*.c` yang
    `.EXE`-nya byte-identik).
 
+## Tiga celah cakupan yang ditutup 2026-08-02 — dan tiga bug yang ditemukannya
+
+Ketiganya bukan "bug yang diketahui", melainkan bagian yang statusnya
+"argumennya kuat, tapi belum diukur". Begitu diukur, dua di antaranya salah.
+
+1. **Varian animasi.** Uji hanya mengadu SATU varian per goal. Digeser lewat
+   keadaan RNG (saklar baru `CC_SEED`, BUKAN `VARIANT=`), seed 0x7 memunculkan
+   varian kedua goal 1/3/4/6. Hasil **1.565/1.565 bingkai**.
+   ⭐ BUG: goal 6 varian 2, `op03` yang melempar ke part TANPA titik jalur.
+   `_tujuan()` punya cadangan "pakai posisi part itu sendiri" — keliru; gim
+   tidak melempar sama sekali. Terbukti dari jejak `scrptr` @0x3AE: gim
+   memakan 9 byte (`03 0a 03 | 09 00 | ff | 08 09 0c`) tanpa satu pun
+   `drawball`. Falsifikasi lolos: itu satu-satunya kasus dari sepuluh varian.
+2. **Layar bermain goal 2..6.** Hasil **14 kasus 64.000/64.000**.
+   ⭐ BUG: `loadcon_pick()` membandingkan indeks varian RELATIF dgn `lastvar`
+   @0x1e30 yang ABSOLUT — hanya kebetulan benar untuk goal 1 (`first = 0`),
+   satu-satunya goal yang pernah diuji. Goal 4 meleset 13.370 piksel.
+   `contrap.parse()` kini menyimpan `idx` absolut tiap record.
+   ⚠ Uji sendiri juga salah: Contraption Mix Up TIDAK memakai pemilih goal
+   (`sub` @0x3b2 terukur selalu 1), jadi menjalankannya enam kali hanya
+   mengulang layar yang sama.
+3. **Sapuan suara mode 1.** Penguraiannya bertanda "Ditafsirkan" dan memang
+   belum pernah diukur. `tone3` @0x5B73 (L5C50): tiap tik ISR memainkan
+   `[BX]` lalu `[BX] += [BX+4]`, dan berhenti saat `[BX] == [BX+2]` **sebelum
+   memainkannya** — jadi nilai akhir TIDAK PERNAH terdengar. Port dulu
+   memasukkannya.
+   ⭐ Dan panjangnya TIDAK ditentukan data: gim hanya sempat membunyikan 25
+   nada (500..884) sebelum `sndoff()`, padahal deret penuhnya sampai 1444.
+   ⚠ Selama ini tak terlihat karena `test_suara.py` mengurai CETAKAN emulator
+   yang DIPOTONG 16 nada — alat ukur yang membatasi temuannya sendiri.
+   Daftar frekuensi penuh kini ditulis ke `pit_hz.json`.
+
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
 
 - **Sprite di-render OPAQUE, bukan colorkey cyan.** Blitter asli `672f` menulis semua piksel;
@@ -528,6 +562,12 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   "0 frame", yang mudah salah dibaca sebagai "emulator tak mencapai titik itu".
   Cara yang benar: BACA keadaan RNG gim (seed @0x71a, lastgoal @0x1e2e,
   lastvar @0x1e30) lalu berikan ke `susun()`.
+- **⭐ SEKALI SATU KASUS DIUKUR, JANGAN ANGGAP SISANYA IKUT TERBUKTI.** Dan
+  ini terbukti LAGI pada 2026-08-02: menutup tiga celah cakupan (varian
+  animasi, goal 2..6, sapuan suara) langsung memunculkan tiga kesalahan, dua
+  di antaranya di kode port. Semuanya di jalur kode yang "sudah cocok" —
+  yang berbeda hanya DATA-nya. Aturan turunannya: kalau sebuah pembenaran
+  berbunyi "jalur kodenya sama", itu ARGUMEN, bukan pengukuran.
 - **SEKALI SATU MODE DIUKUR, JANGAN ANGGAP MODE LAIN IKUT TERBUKTI.** Fill in
   Mechanisms cocok 64.000/64.000 sementara Fill in Zany masih meleset 12.194
   piksel dan Mix Up 10.784 — dan yang membongkarnya LIMA bug berbeda, termasuk
