@@ -414,7 +414,8 @@ def susun_lengkap(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
 
 def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
            maks=400, varian=None, sub=None, seed_setball=True, pembuka=False,
-           nbola=1, jawaban_mech=None):
+           nbola=1, jawaban_mech=None, isi=True, isi_zany=True,
+           lastgoal=None, lastvar=None, lvl=1, hias=None):
     """-> daftar framebuffer indeks-warna, satu per panggilan drawball.
 
     `pembuka=True` menyisipkan bingkai pembuka `animvm()` (jam pasir + bilah
@@ -424,25 +425,58 @@ def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
     `work/test_intro.py` (tangkapan di `keyhit` @0x1791): 59/59 bingkai,
     151.040/151.040 piksel.
     """
+    # ⚠ `lastgoal`/`lastvar` HARUS diteruskan. Tanpa keduanya gelung penghindar
+    # varian di `loadcon()` tidak berjalan, dan port bisa menganimasikan varian
+    # yang SAMA SEKALI LAIN dari yang dimainkan gim -- terukur 13.481 piksel
+    # berbeda di bingkai pertama, bukan sekadar bergeser. Jalur attract tidak
+    # memerlukannya (lastgoal masih 0), jadi kekurangan ini tak pernah terlihat
+    # sampai jalur BERMAIN diadu.
     var, parts, latar, pil = susun_lengkap(goal, graph, mechs, misc, animate,
-                                           kontrap, seed, mode, varian, sub)
+                                           kontrap, seed, mode, varian, sub,
+                                           isi=isi, isi_zany=isi_zany,
+                                           lastgoal=lastgoal, lastvar=lastvar,
+                                           lvl=lvl)
     if not parts:
         return []
+    if not isi:
+        # Layar JALUR BERMAIN mode 2: slot mekanisme yang belum diisi tampil
+        # sebagai petak abu (`drawslot()` @0x3F0F), bukan sebagai part.
+        rend.drawslot(rend.KanvasFB(latar),
+                      [(y, x) for (y, x, _t) in var["mech"]])
+    if hias is not None:
+        # Hiasan layar BERMAIN yang tetap tampil selama animasi (strip pemilih
+        # part, bilah timer, skor). `setupscr()` tidak menggambarnya, dan tanpa
+        # ini pembanding jalur bermain meleset 2.304 piksel di dasar layar.
+        hias(rend.KanvasFB(latar))
     # ⭐ SLOT MEKANISME YANG SALAH MENGHENTIKAN ANIMASI (`animvm.c` baris 222).
     # `jawaban_mech` = jenis yang BENAR-BENAR ditaruh pemain per slot mekanisme,
     # searah `var["mech"]`; None berarti slot kosong. Kalau tidak diberikan,
     # animasi berjalan seperti seluruh jawaban benar -- itulah demo/attract.
+    # ⚠ INDEKS PART, BUKAN INDEKS `state`. Gelung pembangun `parts` MELEWATI
+    # slot yang `base`-nya None (`if base is None: continue`), jadi keduanya
+    # bisa bergeser. Memakai indeks `state` memberi titik berhenti yang salah
+    # -- terukur: 21 bingkai, bukan 41. Di sini rantainya ditelusuri ulang
+    # dengan aturan lewat yang SAMA.
     berhenti = set()
     if jawaban_mech is not None:
-        c1 = 0
-        for i, langkah in enumerate(var.get("state") or []):
-            if langkah != -1:
-                continue
-            benar = var["mech"][c1][2] if c1 < len(var["mech"]) else None
-            taruh = jawaban_mech[c1] if c1 < len(jawaban_mech) else None
-            if taruh != benar:
-                berhenti.add(i)
-            c1 += 1
+        c_m = c_z = ip = 0
+        for langkah in var.get("state") or []:
+            if langkah == -1:
+                base_i = pil["selm"][c_m] if c_m < len(pil["selm"]) else None
+                benar = var["mech"][c_m][2] if c_m < len(var["mech"]) else None
+                taruh = (jawaban_mech[c_m]
+                         if c_m < len(jawaban_mech) else None)
+                salah = (taruh != benar)
+                c_m += 1
+            else:
+                base_i = pil["selz"][c_z] if c_z < len(pil["selz"]) else None
+                salah = False
+                c_z += 1
+            if base_i is None:
+                continue                      # part ini tidak dibuat
+            if salah:
+                berhenti.add(ip)
+            ip += 1
     awal = []
     if pembuka:
         buka = [row[:] for row in latar]

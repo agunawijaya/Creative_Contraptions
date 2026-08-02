@@ -641,19 +641,36 @@ aturan, keduanya dibaca dari `animvm.c` yang byte-identik:
    skrip `{00, dx, dy, FF}` supaya bolanya tetap bergerak ke arah yang masuk
    akal, lalu menunjuk record part itu ke skrip karangan tersebut.
 
-**Sudah dikerjakan:** `vm.VM(berhenti_di=...)` + `adegan.frames(jawaban_mech=)`
-memodelkan aturan 1. Penjaganya di `_pindah()`, bukan di cabang `end` saja —
-perpindahan part terjadi lewat DUA jalan (penutup skrip dan lemparan `op03`).
-Bawaannya `jawaban_mech=None` → perilaku lama persis, dan itu diverifikasi:
-animasi tetap **1.565/1.565**.
+**Sudah dikerjakan dan TERUKUR.** Bingkai pertama turun dari **14.716 → 689
+piksel**, jumlah bingkai dari 105 → 46 (gim 41). Empat hal yang membawanya ke
+sana, semuanya diukur bukan diterka:
+
+1. ⭐ **BUG PORT: `frames()` tidak meneruskan `lastgoal`/`lastvar`.** Tanpa
+   keduanya gelung penghindar varian di `loadcon()` tidak berjalan, dan port
+   menganimasikan varian yang SAMA SEKALI LAIN — 18.324 piksel. Jalur attract
+   tidak memerlukannya (`lastgoal` masih 0), jadi ini tak pernah terlihat
+   sampai jalur BERMAIN diadu. Sekarang diteruskan.
+2. **Penjajaran bingkai = offset 2.** Tangkapan `f0000`/`f0001` jalur bermain
+   masih layar SETENGAH GAMBAR (arena kosong); kontraption baru lengkap di
+   `f0002`. Jangan pakai offset 1 seperti jalur attract.
+3. **`clrbot()` @0x5911 mengosongkan dasar layar sebelum larian.** Baris pesan
+   cyan yang digambar `setupscr()` untuk `sub == 1` TIDAK ada saat animasi —
+   288x8 = **2.304 piksel**, persis. `frames(hias=)` dipakai untuk menirunya.
+4. `vm.VM(berhenti_di=)` + `frames(jawaban_mech=)` memodelkan aturan 1.
+   Penjaganya di `_pindah()`, bukan di cabang `end` saja — perpindahan part
+   terjadi lewat DUA jalan (penutup skrip dan lemparan `op03`).
+   ⚠ Indeksnya **indeks PART, bukan indeks `state`**: gelung pembangun `parts`
+   melewati slot yang `base`-nya None.
+
+Bawaannya `jawaban_mech=None` → perilaku lama persis, diverifikasi: animasi
+attract tetap **1.565/1.565**, 23/23 uji lulus.
 
 **Yang masih kurang, jangan diklaim selesai:**
-- `frames()` menyusun adegannya dgn `isi=True` (semua jawaban benar). Layar
-  jalur bermain punya slot KOSONG — bingkai pertama saja sudah beda 14.716
-  piksel. `frames()` perlu meneruskan `isi`/`isi_zany` + petak abu.
-- Indeks berhenti masih meleset: port 21 bingkai vs gim 41. Pemetaan indeks
-  `state[]` → indeks part di `parts` perlu diperiksa, bukan diasumsikan.
-- Aturan 2 (skrip karangan) belum dimodelkan sama sekali.
+- sisa **689 piksel** di ARENA pada bingkai pertama (y 89..160, tersebar di
+  beberapa pita). `isi=True` lebih dekat daripada `isi=False` (689 vs 879) —
+  belum jelas kenapa, dan itu justru pertanyaan berikutnya yang tepat.
+- jumlah bingkai masih 46 vs 41: titik berhentinya belum tepat.
+- aturan 2 (skrip karangan, `animvm.c` baris 433) belum dimodelkan.
 
 ## Jebakan yang sudah pernah menggigit (jangan ulangi)
 
