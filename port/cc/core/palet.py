@@ -24,6 +24,22 @@ Penunjuknya berkedip dengan menukar dua sprite MISC di tempat yang sama:
 
 yaitu 32x8 di (x=0x90, y=0xc0) = (144, 192), berselang ~12 tik.
 
+⭐ Pemetaan buffer -> record itu dulu ASUMSI; sekarang TERUKUR. Isi DGROUP di
+kedua alamat dibuang (`CC_VSMEM=31c:144`) lalu diadu dengan record MISC yang
+sudah di-unRLE:
+
+    buffer 0x31c  ==  MISC record 0   (segitiga isi MAGENTA)
+    buffer 0x364  ==  MISC record 1   (segitiga isi BIRU)
+
+Keduanya SEGITIGA, bukan "gambar lalu hapus" -- yang berkedip warna isinya.
+Dan record 0 yang digambar port diadu langsung dgn tangkapan VRAM: 0 piksel
+beda pada 32x8 di (144, 192).
+
+⚠ Pada sebagian tangkapan kotak itu polos cyan, dan itu BUKAN fase ketiga:
+baris pesan `fillrect(0x10, 0xc0, 0x12f, 199, 1)` dari `setupscr()` menutupi
+y 192..199 x 16..303 -- termasuk kotak penunjuk -- jadi ia memang terhapus
+tiap kali baris itu dibersihkan.
+
 ⚠ `review.c` -- yang memanggil `drawpal()` -- BUKAN hanya layar Review
 Mechanisms. Ia gelung pemilih part yang dipakai saat BERMAIN juga: di dalamnya
 ada `hintmark()`, `timebar()`, dan pemeriksaan `mode == 4 && tx <= 0` untuk

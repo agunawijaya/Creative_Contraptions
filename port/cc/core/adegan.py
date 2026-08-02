@@ -241,9 +241,17 @@ def _fase():
     return _FASE[0]
 
 
-def susun(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0, varian=None,
-          sub=None, isi=True, nbola=0, lastgoal=None, lastvar=None):
-    """-> (var, parts, latar) untuk satu goal.
+def susun(*a, **k):
+    """-> (var, parts, latar). Pembungkus `susun_lengkap()` untuk pemanggil
+    lama yang tidak butuh rincian undiannya."""
+    var, parts, latar, _pilihan = susun_lengkap(*a, **k)
+    return var, parts, latar
+
+
+def susun_lengkap(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,
+                  varian=None, sub=None, isi=True, nbola=0, lastgoal=None,
+                  lastvar=None, isi_zany=True, lvl=1):
+    """-> (var, parts, latar, pilihan) untuk satu goal.
 
     `parts` sudah URUT RANTAI sesuai `state` di CONTRAP; `latar` adalah layar
     TANPA bola -- ikon bola di pita atas ITU bolanya, dan ia dihapus begitu
@@ -267,7 +275,7 @@ def susun(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0, varian=Non
     """
     vs = kontrap.get(goal)
     if not vs:
-        return None, None, None
+        return None, None, None, None
     r = Rng(seed)
     vi = pick.loadcon_pick(r, len(vs), lastgoal=lastgoal, sub=sub if sub is not None else goal,
                            lastvar=lastvar)
@@ -276,9 +284,36 @@ def susun(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0, varian=Non
     # sama seperti di game -- pilihan part sesudahnya bergantung pada itu.
     var = vs[min(varian, len(vs) - 1)] if varian is not None else vs[vi]
 
+    # ⭐ Antara `loadcon()` dan `pickpart()` ada SATU panggilan lagi yang
+    # memakai RNG, dan mana yang dipanggil tergantung mode (`main_.c`):
+    #
+    #     mode 3 Fill Zany  -> setzany(nzany + nmechc, state, lvl2, ...)
+    #     mode 4 Mix Up     -> setmark(nzany + nmechc, state, lvl, ...)
+    #     mode 2 Fill Mech  -> tidak ada
+    #
+    # Terukur dgn menghitung panggilan di emulator (CC_VRAMSEQ pada 0x10fd,
+    # 0x1200, 0x4e01): fillmech 0/0/0, zany 0/1/0, mixup 1/0/1.
+    #
+    # Undian keduanya HARUS ikut dihitung walaupun hasilnya tidak selalu
+    # terlihat: ia memajukan seed, jadi seluruh `pickpart()` sesudahnya
+    # bergeser kalau dilewatkan.
+    #
+    # ⚠ Di mode 3 arena kebetulan TIDAK bergantung undian -- yang tampak cuma
+    # mekanisme (dari `fillans()`, deterministik) dan objek zany TERAKHIR (yang
+    # dipaksa `row == sub`). Jadi kecocokan piksel di mode 3 TIDAK membuktikan
+    # rantai RNG-nya; yang membuktikannya mode 4, di mana semuanya tampak.
+    n_slot = len(var["zany"]) + len(var["mech"])
+    mark_zany = None
+    if mode == 3:
+        _mk, mark_zany, _c, _z = pick.setzany(r, n_slot, var["state"])
+    elif mode == 4:
+        _mk, mark_zany, _c = pick.setmark(r, n_slot, var["state"], lvl)
+    # `lvl2`: 2 di Mix Up, dan di mode isian 1 (Apprentice) / 2 (Master).
+    lvl2 = 2 if mode == 4 else (1 if lvl == 1 else 2)
+
     jz = [t for (y, x, t) in var["zany"]]
     tz = pick.tabel(graph, jz)
-    selz = pick.pickpart(r, tz, jz, sub=goal)
+    selz = pick.pickpart(r, tz, jz, sub=goal, mark=mark_zany, lvl2=lvl2)
     jm = [t for (y, x, t) in var["mech"]]
     tm = pick.tabel(mechs, jm)
     selm = pick.fillans(tm, jm)
@@ -289,7 +324,8 @@ def susun(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0, varian=Non
     latar = rend.setupscr(rend.new_fb(), mode, nbola=nbola, misc=misc,
                           sub=goal if sub is None else sub)
     rend.apply(latar, contrap.draw_list(
-        var, graph, mechs, None, isi_mekanisme=isi, corong=False,
+        var, graph, mechs, None, isi_mekanisme=isi, isi_zany=isi_zany,
+        corong=False,
         pilihan={"zany": [tz[i]["idx"] for i in selz],
                  "mech": [None if i is None else tm[i]["idx"] for i in selm]}))
     rend.labels(latar, var["pos"])
@@ -321,7 +357,13 @@ def susun(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0, varian=Non
         # sebelum bounce mulai.
         p.rng = r
         parts.append(p)
-    return var, parts, latar
+    # `pilihan` ikut dikembalikan supaya pemanggil (mis. layar bermain) tidak
+    # perlu MENYALIN ulang seluruh rantai undian. Menyalinnya adalah cara
+    # paling mudah membuat "layar design != layar run": dua salinan yang
+    # lambat laun berbeda. Satu implementasi, satu hasil.
+    pilihan = dict(vi=vi, selz=selz, selm=selm, tz=tz, tm=tm, jz=jz, jm=jm,
+                   rng=r, mark_zany=mark_zany, lvl2=lvl2)
+    return var, parts, latar, pilihan
 
 
 def frames(goal, graph, mechs, misc, animate, kontrap, seed=0, mode=0,

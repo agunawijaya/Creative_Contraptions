@@ -81,7 +81,7 @@ def parse(path):
 
 
 def draw_list(var, graph, mechs, misc=None, pilih=0, isi_mekanisme=False,
-              corong=True, pilihan=None):
+              corong=True, pilihan=None, isi_zany=True):
     """Daftar operasi gambar untuk SATU varian struktur.
 
     `pilih`    indeks varian part untuk setiap slot, dipakai kalau `pilihan`
@@ -90,16 +90,28 @@ def draw_list(var, graph, mechs, misc=None, pilih=0, isi_mekanisme=False,
                `pick.pickpart()`. INI yang meniru game asli; `pilih` hanya
                jalur cadangan untuk katalog dan bukti statis.
     `isi_mekanisme=False` = layar AWAL Fill in Mechanisms: slot masih kosong.
+    `isi_zany=False`      = layar AWAL Fill in Zany Objects: justru objek zany
+                            yang kosong dan mekanismenya utuh. Dua mode itu
+                            SALING KEBALIKAN, dan dulu hanya yang pertama bisa
+                            dinyatakan -- layar Zany karena itu tak pernah bisa
+                            diadu piksel.
     """
     out = []
     if corong and misc is not None:
         r = misc.recs[CORONG_REC]
         out.append(dict(kind="blit", arc=misc, rec=r,
                         x=CORONG_XY[0], y=CORONG_XY[1], w=r["w"], h=r["h"]))
-    for kelompok, arc, gambar in (("zany", graph, True),
+    for kelompok, arc, gambar in (("zany", graph, isi_zany),
                                   ("mech", mechs, isi_mekanisme)):
         dipilih = (pilihan or {}).get(kelompok)
+        n_slot = len(var[kelompok])
         for slot, (y, x, tipe) in enumerate(var[kelompok]):
+            # ⭐ Objek zany TERAKHIR selalu digambar, juga di mode Fill in Zany.
+            # Ia GAMBAR HASIL kontraption-nya, bukan potongan teka-teki --
+            # `pickpart()` bahkan memaksa variannya `row == sub` alih-alih
+            # mengundinya. Terukur: di layar Zany gim, ketujuh objek lain kosong
+            # sementara slot terakhir (goal 1: anak tidur di kanan) tetap ada.
+            gambar_slot = gambar or (kelompok == "zany" and slot == n_slot - 1)
             if dipilih is not None:
                 mulai = dipilih[slot] if slot < len(dipilih) else None
             else:
@@ -107,8 +119,18 @@ def draw_list(var, graph, mechs, misc=None, pilih=0, isi_mekanisme=False,
                 mulai = vs[min(pilih, len(vs) - 1)] if vs else None
             if mulai is None:
                 continue
-            if not gambar:
-                out.append(dict(kind="slot", x=x, y=y))
+            if not gambar_slot:
+                # ⭐ Hanya slot MEKANISME yang jadi petak abu. `drawslot()` --
+                # yang menggambar `fillrect(..., 3)` -- memang penggambar
+                # mekanisme; objek zany digambar `f498c()`, dan slot zany yang
+                # kosong TIDAK menggambar apa pun (`if (sel[i] >= 0)`), cuma
+                # menyisakan huruf penandanya.
+                #
+                # Terukur dari tangkapan VRAM mode Fill in Zany: kedelapan
+                # kotak zany polos warna latar, sementara ketiga slot mekanisme
+                # di mode Fill in Mechanisms memang petak warna 3.
+                if kelompok == "mech":
+                    out.append(dict(kind="slot", x=x, y=y))
                 continue
             for r in arc.chain(mulai):
                 out.append(dict(kind="blit", arc=arc, rec=r,

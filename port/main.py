@@ -584,23 +584,43 @@ class Game:
         # aturan anti-ulang justru memaksa varian yang BERBEDA dari slot yang
         # sudah disusun di sini. Bug "layar design != layar run" persis lahir
         # dari ketidakcocokan semacam ini.
+        # ⚠ Blok ini dulu MENYALIN seluruh rantai undian dari adegan.susun().
+        # Dua salinan yang harus tetap sama adalah cara paling mudah membuat
+        # "layar design != layar run": begitu satu sisi menambah langkah (mis.
+        # setmark()/setzany() yang memakai RNG), yang lain diam-diam melenceng.
+        # Sekarang keduanya memakai `adegan.susun_lengkap()` yang SAMA.
+        #
+        # Keadaan SEBELUM undian disimpan terpisah (`cur_*`): layar
+        # dibangkitkan ulang belakangan lewat `_scene_surface()` dan harus
+        # MENGULANG undian yang sama. Diberi keadaan SESUDAHNYA, aturan
+        # anti-ulang justru memaksa varian yang BERBEDA dari slot di sini.
         seed = self.rng_seed
         self.cur_seed = seed
         self.cur_lastgoal, self.cur_lastvar = self.lastgoal, self.lastvar
-        rng = _rng.Rng(seed)
-        vi = _pick.loadcon_pick(rng, max(1, len(vs)), lastgoal=self.lastgoal,
-                                sub=gid, lastvar=self.lastvar)
+        mode_asli = self.mode + 1
+        _var, _parts, _fb, pil = _adg.susun_lengkap(
+            gid, self.k_graph, self.k_mechs, self.k_misc, self.k_anim,
+            self.k_goals, seed=seed, mode=mode_asli, sub=gid,
+            # Apa yang KOSONG berbeda per mode, dan ketiganya TERUKUR:
+            #   mech  slot mekanisme = petak abu, objek zany utuh
+            #   zany  mekanisme utuh, objek zany TIDAK digambar (kecuali yang
+            #         terakhir -- itu gambar hasil goal, bukan teka-teki)
+            #   both  KEDUANYA tetap digambar; yang "kosong" di Mix Up adalah
+            #         slot BERTANDA, dan `pickpart()` memberinya record
+            #         kelompok kedua (id >= 0x80) -- sprite PENGGANTI, bukan
+            #         petak kosong. Karena itu isi/isi_zany dua-duanya True.
+            isi=(fill != "mech"), isi_zany=(fill != "zany"),
+            nbola=1, lastgoal=self.lastgoal, lastvar=self.lastvar,
+            lvl=self.level + 1)
+        vi = pil["vi"]
+        rng = pil["rng"]
         self.lastgoal, self.lastvar = gid, vi
         self.cur_variant = vi
         var = vs[vi] if vi < len(vs) else vs[0]
-        jz = [t for (y, x, t) in var["zany"]]
-        tz = _pick.tabel(self.k_graph, jz)
-        selz = [None if i is None else tz[i]["idx"]
-                for i in _pick.pickpart(rng, tz, jz, sub=gid)]
-        jm = [t for (y, x, t) in var["mech"]]
-        tm = _pick.tabel(self.k_mechs, jm)
-        selm = [None if i is None else tm[i]["idx"]
-                for i in _pick.fillans(tm, jm)]
+        tz, tm = pil["tz"], pil["tm"]
+        jz, jm = pil["jz"], pil["jm"]
+        selz = [None if i is None else tz[i]["idx"] for i in pil["selz"]]
+        selm = [None if i is None else tm[i]["idx"] for i in pil["selm"]]
         # Rantainya MAJU untuk kontraption berikutnya -- di gim `seed` @0x71a
         # memang satu nilai yang terus berjalan, tidak pernah di-reset.
         self.rng_seed = rng.state()

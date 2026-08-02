@@ -104,7 +104,25 @@ def setupscr(fb, mode, nbola=1, misc=None, sub=0, schi_sclo=0):
         blit(fb, misc, r, contrap.CORONG_XY[0], contrap.CORONG_XY[1])
     for i in range(nbola):
         bola(fb, i * 10, 0)
-    if sub == 1 and mode not in (0, 1):
+    # ⭐ `sub` di sini BUKAN nomor goal. `f171f()` -- satu-satunya pemanggil --
+    # memanggil `setupscr(1)` kalau `kind == 1 || kind == 2`, selain itu
+    # `setupscr(0)`; `kind` adalah argumen PERTAMA f171f, yaitu `mode` untuk
+    # mode 1/2/3 dan konstanta 2 untuk Mix Up serta layar judul.
+    #
+    # Digabung dgn syarat `mode != 0 && mode != 1`, hasilnya sederhana:
+    # baris pesan muncul TEPAT di mode 2 dan mode 4.
+    #
+    #     mode 1 Review     kind 1 -> bendera 1, tapi mode == 1  -> TIDAK
+    #     mode 2 Fill Mech  kind 2 -> bendera 1                  -> YA
+    #     mode 3 Fill Zany  kind 3 -> bendera 0                  -> TIDAK
+    #     mode 4 Mix Up     kind 2 -> bendera 1                  -> YA
+    #     mode 0 judul               mode == 0                   -> TIDAK
+    #
+    # ⚠ Port dulu menulis `sub == 1` (nomor goal). Itu kebetulan benar untuk
+    # goal 1 dan SALAH untuk goal 2..6: baris pesan hilang padahal seharusnya
+    # ada. Terukur di mode Fill in Zany, di mana port menggambarnya padahal gim
+    # tidak: 2.304 piksel (288 x 8) meleset.
+    if mode in (2, 4):
         fillrect(fb, 0x10, 0xC0, 0x12F, 199, 1)
     return fb
 

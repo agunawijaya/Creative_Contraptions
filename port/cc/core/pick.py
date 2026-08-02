@@ -83,7 +83,7 @@ def boleh(rec):
     return not (rec["row"] > BARIS_LANJUTAN or rec["id"] >= 0x80)
 
 
-def pickpart(rng, recs, jenis, sub=None):
+def pickpart(rng, recs, jenis, sub=None, mark=None, lvl2=1):
     """Undi satu varian per slot. -> daftar indeks record, sepanjang `jenis`.
 
     `jenis` = urutan jenis part per slot, seperti di CONTRAP.
@@ -102,8 +102,24 @@ def pickpart(rng, recs, jenis, sub=None):
     harus sesuai goal yang diminta -- varian dipilih lewat `row == nomor goal`,
     bukan diacak. Goal 1 ("bangunkan orang tidur") selalu mendapat varian row 1.
 
-    Cabang `lvl2 == 2 && mark[i]` (batas 150 undian lalu jatuh ke cabang umum)
-    belum diperlukan: mode yang sudah diuji tidak pernah memasukinya.
+    ⭐ CABANG `lvl2 == 2 && mark[i] != 0` -- dipakai mode Contraption Mix Up,
+    di mana `lvl2` selalu 2 dan `setmark()` menandai beberapa slot:
+
+        do { j = rnd(cnt); if (++tries == 0x96) goto any; }
+        while (rec.row > 100 || rec.id <  0x80);   <- MENCARI id >= 0x80
+        ...
+      any:
+        do { j = rnd(cnt); }
+        while (rec.row > 100 || rec.id >= 0x80);   <- MENCARI id <  0x80
+
+    Perhatikan uji keduanya TERBALIK: slot yang DITANDAI justru mengambil
+    record kelompok kedua (id >= 0x80), yaitu bentuk "kosong/pengganti".
+    Sesudah 150 undian gagal ia JATUH ke cabang umum lewat `goto` -- dan
+    undian-undian yang gagal itu tetap memajukan seed.
+
+    Terukur: tanpa cabang ini, layar Mix Up meleset di TEPAT dua slot zany
+    (237 + 11 piksel) -- dan `setmark()` pada level Apprentice memang menandai
+    dua slot (`lim = rnd(1) + 1`, dan `rnd(1)` selalu 0).
     """
     hasil = []
     n = len(jenis)
@@ -117,10 +133,25 @@ def pickpart(rng, recs, jenis, sub=None):
             # asli. Belum pernah terjadi pada data nyata; jangan diam-diam
             # dibulatkan ke varian pertama.
             raise ValueError("jenis %d: tidak ada varian yang memenuhi" % t)
-        while True:
-            j = rng.rnd(len(tr))
-            if boleh(recs[tr[j]]):
-                break
+        ditandai = (lvl2 == 2 and mark is not None
+                    and i < len(mark) and mark[i] != 0)
+        j = None
+        if ditandai:
+            tries = 0
+            while True:
+                j = rng.rnd(len(tr))
+                tries += 1
+                if tries == 0x96:          # `goto any` -- jatuh ke cabang umum
+                    j = None
+                    break
+                r_ = recs[tr[j]]
+                if not (r_["row"] > BARIS_LANJUTAN or r_["id"] < 0x80):
+                    break
+        if j is None:
+            while True:
+                j = rng.rnd(len(tr))
+                if boleh(recs[tr[j]]):
+                    break
         if sub is not None and 1 <= sub <= 6 and i == n - 1:
             j = 0
             while j < len(tr) and recs[tr[j]]["row"] != sub:
@@ -245,6 +276,86 @@ def palet_mekanisme(recs, jenis, lvl3, rng=None, shufflg=1):
             j2 += 1
         i += 1
     return grup
+
+
+def setmark(rng, n, tab, easy):
+    """`setmark()` @0x10FD -> (mark_mekanisme, mark_zany, cnt).
+
+    Menandai paling banyak `lim+1` slot dengan 1, dan TIDAK BOLEH BERSEBELAHAN:
+    sebelum menandai slot c+1, tetangganya (c dan c+2) harus masih 0. Tiap
+    tabrakan menaikkan pencacah gagal `arr[0]`; 25 kali gagal menyudahi
+    pemilihan supaya papan padat tidak membuatnya berputar selamanya.
+
+        if (easy == 1) lim = rnd(1) + 1; else lim = rnd(1) + 3;
+
+    ⚠ `rnd(1)` SELALU 0 -- kata tinggi dari `1 * seed` dengan seed 16-bit. Tapi
+    ia tetap MEMAJUKAN seed, jadi tidak boleh dihilangkan sebagai "optimasi".
+
+    ⭐ `arr[0]` BUKAN slot ke-0 melainkan pencacah gagal; slot ke-i ada di
+    `arr[i+1]`. Hasilnya dibagi dua menurut `tab[i]`: yang -1 (mekanisme) ke
+    daftar pertama, sisanya (zany) ke daftar kedua.
+    """
+    lim = rng.rnd(1) + (1 if easy == 1 else 3)
+    arr = [0] * (n + 4)
+    cnt = 0
+    while cnt <= lim and arr[0] < 0x19 and n - 3 > 3:
+        c = rng.rnd(n - 3) + 1
+        if arr[c + 1] == 0:
+            if arr[c + 2] == 0 and arr[c] == 0:
+                cnt += 1
+                arr[c + 1] = 1
+            else:
+                arr[0] += 1
+    outa, outb = [], []
+    for i in range(n):
+        (outa if tab[i] == -1 else outb).append(arr[i + 1])
+    return outa, outb, cnt
+
+
+def setzany(rng, n, tab):
+    """`setzany()` @0x1200 -- KEMBAR `setmark()`, tiga bedanya.
+
+    1. mengocok dua nomor objek zany lebih dulu (`zsel[0]`, `zsel[1]`), yaitu
+       DUA undian `rnd(0xf)` tambahan yang ikut memajukan seed;
+    2. `lim` selalu `rnd(1) + 3` -- tak ada cabang mudah/sulit;
+    3. syarat tambahan `tab[c] == 1`: slot hanya boleh dikosongkan kalau
+       isinya memang objek zany.
+
+    Sumbernya memang DIDUPLIKASI di 1985, bukan memanggil setmark() -- 94 byte
+    ekornya identik byte-per-byte.
+    """
+    zsel = [rng.rnd(0xF), rng.rnd(0xF)]
+    lim = rng.rnd(1) + 3
+    arr = [0] * (n + 4)
+    cnt = 0
+    while cnt <= lim and arr[0] < 0x19 and n - 3 > 3:
+        c = rng.rnd(n - 3) + 1
+        if arr[c + 1] == 0 and tab[c] == 1:
+            if arr[c + 2] == 0 and arr[c] == 0:
+                cnt += 1
+                arr[c + 1] = 1
+            else:
+                arr[0] += 1
+    outa, outb = [], []
+    for i in range(n):
+        (outa if tab[i] == -1 else outb).append(arr[i + 1])
+    return outa, outb, cnt, zsel
+
+
+def pickmax_undi(rng, count, jangkauan):
+    """Undian `pickmax()` @0x4E01 -- dipanggil SEKALI saat mode 4 dimasuki.
+
+    Yang penting di sini bukan nilainya melainkan bahwa ia MEMAJUKAN seed
+    `count - 1` kali sebelum kontraption pertama dimuat. Tanpa itu seluruh
+    rantai mode Mix Up bergeser. -> (best, count baru)
+    """
+    best = -1000
+    count = count - 1
+    for _ in range(max(0, count)):
+        r = rng.rnd(jangkauan)
+        if r > best:
+            best = r
+    return best, count
 
 
 def loadcon_pick(rng, jumlah_varian, lastgoal=None, sub=None, lastvar=None):
