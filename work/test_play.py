@@ -173,12 +173,13 @@ def uji_interaktif(folder, arc):
     try:
         g = portmain.Game(assets.find_data_dir())
         g.rng_seed, g.lastgoal, g.lastvar = seed, lastgoal, lastvar
-        g.key(pygame.K_RETURN)
-        g.key(pygame.K_DOWN)
-        g.key(pygame.K_RETURN)
-        g.key(pygame.K_RETURN)
+        g.key(pygame.K_RETURN)                 # TITLE -> MENU
+        g.key(pygame.K_DOWN)                   # sel 1 = Fill in Mechanisms
+        g.key(pygame.K_RETURN)                 # -> LEVEL
+        g.key(pygame.K_RETURN)                 # Apprentice -> INSTRUKSI (menu9)
+        g.key(pygame.K_RETURN)                 # ENTER -> GOAL
         g.sel = g.goal_ids.index(GOAL)
-        g.key(pygame.K_RETURN)
+        g.key(pygame.K_RETURN)                 # -> PLAY
         # keadaan yang berubah menurut waktu/interaksi, bukan aturan gambar
         g.cur_slot, g.message, g.cur_part = -1, "", G[0]["w51c"]
         fb = cga.make_framebuffer()

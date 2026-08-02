@@ -46,7 +46,8 @@ def mulai(g, level):
     g.key(pygame.K_RETURN)               # -> LEVEL
     for _ in range(level):
         g.key(pygame.K_DOWN)
-    g.key(pygame.K_RETURN)               # pilih level -> LANGSUNG main
+    g.key(pygame.K_RETURN)               # pilih level -> INSTRUKSI (menu12)
+    g.key(pygame.K_RETURN)               # ENTER -> LANGSUNG main
 
 
 def isi_benar(g):
@@ -72,6 +73,7 @@ def main_uji():
     g = main.Game(d)
     mulai(g, 1)
     cek("langsung PLAY tanpa layar GOAL", g.state, main.PLAY)
+    cek("layar INSTRUKSI muncul sekali", 3 in g.instruksi_tampil, True)
     cek("kontraption pertama = sub 1", g.chosen_goal, 1)
     cek("sisa ronde = 6", g.mix_sisa, 6)
     cek("penanda petunjuk Master dibuat", g.petunjuk is not None, True)
@@ -112,7 +114,8 @@ def main_uji():
     g.key(pygame.K_RETURN)
     g.key(pygame.K_DOWN)                 # sel = 1 = Fill in Mechanisms
     g.key(pygame.K_RETURN)
-    g.key(pygame.K_RETURN)               # Apprentice
+    g.key(pygame.K_RETURN)               # Apprentice -> INSTRUKSI
+    g.key(pygame.K_RETURN)               # ENTER -> GOAL
     cek("mode 2 berhenti di layar GOAL", g.state, main.GOAL)
 
     print("\nTimer Mix Up tetap berjalan mundur")

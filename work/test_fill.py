@@ -12,7 +12,8 @@ fb = cga.make_framebuffer()
 # gagal diam-diam. `MECH_TYPES` juga sudah berganti nama jadi MECH_CATEGORIES.
 g.key(pygame.K_RETURN)                 # TITLE->MENU
 g.key(pygame.K_DOWN); g.key(pygame.K_RETURN)   # Fill in Mechanisms -> LEVEL
-g.key(pygame.K_RETURN)                 # Apprentice -> GOAL
+g.key(pygame.K_RETURN)                 # Apprentice -> INSTRUKSI (menu9)
+g.key(pygame.K_RETURN)                 # ENTER -> GOAL
 g.key(pygame.K_RETURN)                 # goal1 -> PLAY (Fill)
 assert g.state == main.PLAY
 print("Masuk Fill. Slot:", [(chr(0x41+i), s["correct"]) for i, s in enumerate(g.slots)])

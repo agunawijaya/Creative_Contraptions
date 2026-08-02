@@ -42,13 +42,49 @@ MTABMN = (0x1D48, 11)            # menu utama
 MTABLV = (0x1B74, 7)             # pemilih level
 MTABGL = (0x1C28, 15)            # pemilih goal
 
+# ── Layar INSTRUKSI, satu per mode isian ────────────────────────────────
+#
+# `main_.c` menampilkannya HANYA saat pertama kali mode itu dimasuki:
+#
+#     if (k == 1) { switch (mode) { case 3: menu11(); case 2: menu9(); } }
+#     ...
+#     k = 0;
+#
+# Ketiganya berpola sama (`menu9`/`menu11`/`menu12`, masing-masing 37 byte):
+# `setsel(tabel, n)` lalu `runmenu()`. Isinya murni teks -- termasuk cara
+# bermainnya, yang di port lama tidak pernah muncul sama sekali.
+#
+# ⚠ Byte 0x80..0x83 di dalam string adalah GLYPH PANAH (kiri/kanan/atas/bawah),
+# bukan huruf. Font gim memetakannya; jangan dianggap sampah.
+MTAB9 = (0x1634, 9)              # Fill in Mechanisms
+MTAB11 = (0x1796, 11)            # Fill in Zany Objects
+MTAB12 = (0x18F8, 12)            # Contraption Mix Up
+
+# ── Layar SET UP (askopts) dan CREDITS ──────────────────────────────────
+#
+# `askopts()` @0x31DA: dua pertanyaan Y/N berurutan -- monitor berwarna, lalu
+# suara. Tabel kedua MENIMPA pertanyaan pertama dgn warna 1 lebih dulu (itu
+# cara gim menghapusnya), jadi entrinya dua, bukan tiga.
+MTAB_SETUP1 = (0x1AD2, 3)
+MTAB_SETUP2 = (0x1AF6, 2)
+
+# `credits()` @0x312A: empat tabel ditumpuk berurutan dgn jeda 100 bingkai.
+MTAB_CREDITS = ((0x1A2A, 3), (0x1A42, 3), (0x1A5A, 3), (0x1A72, 3))
+
 REC_MENU = (7, 8, 9, 10)         # MISC record ikon menu utama
 REC_LEVEL = (11, 12)             # MISC record ikon pemilih level
 REC_GOAL = (13, 14, 15, 16, 17, 18)   # MISC record ikon keenam goal
 
 _TABEL = {"utama": (MTABMN, REC_MENU),
           "level": (MTABLV, REC_LEVEL),
-          "goal": (MTABGL, REC_GOAL)}
+          "goal": (MTABGL, REC_GOAL),
+          "instruksi_mech": (MTAB9, ()),
+          "instruksi_zany": (MTAB11, ()),
+          "instruksi_mixup": (MTAB12, ()),
+          "setup": (MTAB_SETUP1, ())}
+
+# mode gim (2/3/4) -> layar instruksinya
+INSTRUKSI = {2: "instruksi_mech", 3: "instruksi_zany", 4: "instruksi_mixup"}
 
 DAPAT_DIPILIH = 0x80             # kind == 0x80 -> entri yang bisa disorot
 

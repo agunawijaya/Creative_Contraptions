@@ -14,7 +14,8 @@ fb = cga.make_framebuffer()
 g.key(pygame.K_RETURN)               # TITLE->MENU
 g.key(pygame.K_DOWN); g.key(pygame.K_DOWN)   # sel=2 (Fill Zany)
 g.key(pygame.K_RETURN)               # ->LEVEL
-g.key(pygame.K_RETURN)               # Apprentice ->GOAL
+g.key(pygame.K_RETURN)               # Apprentice -> INSTRUKSI (menu11)
+g.key(pygame.K_RETURN)               # ENTER -> GOAL
 g.key(pygame.K_RETURN)               # goal1 -> start_play(zany)
 assert g.state == main.PLAY, "harusnya masuk PLAY, dapat state=%d" % g.state
 print("state=%d fill_mode=%s slots=%d palette=%d" %

@@ -20,8 +20,12 @@ NAMES = {main.MENU: "MENU", main.LEVEL: "LEVEL", main.GOAL: "GOAL",
          main.PLAY: "PLAY", main.PLAYANIM: "PLAYANIM"}
 
 # navigasi ke Fill Mech, main 1 goal, menang, lalu ESC
+# ⚠ Sejak layar INSTRUKSI ada (menu9/11/12 -- gim menampilkannya sekali per
+# mode, `if (k == 1)`), alurnya MENU -> LEVEL -> INSTRUKSI -> GOAL.
 g.state = main.MENU; g.sel = 1; g._choose()   # Fill Mech -> LEVEL
-g.sel = 0; g._choose()                          # Apprentice -> GOAL
+g.sel = 0; g._choose()                          # Apprentice -> INSTRUKSI
+assert g.state == main.INSTRUKSI, g.state
+g._choose()                                     # ENTER -> GOAL
 g.sel = 0; g._choose()                          # goal pertama -> PLAY
 assert g.state == main.PLAY
 gid_played = g.chosen_goal

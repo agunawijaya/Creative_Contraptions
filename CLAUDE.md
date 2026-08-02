@@ -287,6 +287,17 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
   di level 1, jadi selama ini tak terjangkau. Dua nilai awalnya ternyata salah
   di port: `lvl6` mulai dari `nmax` (bukan 0) dan `range` DIACAK tiap
   kontraption (`tx - (rnd(200)*0x17/199 + 2)`), bukan dipatok `0x140 - 0x14`.
+- ⭐ **LAYAR INSTRUKSI ADA** (2026-08-02): `menu9`/`menu11`/`menu12`
+  (tabel DGROUP @0x1634 9 entri, @0x1796 11, @0x18f8 12). Gim menampilkannya
+  SEKALI per mode (`if (k == 1)` di main_.c), dan port lama TIDAK PUNYA
+  layar ini sama sekali — pemain tak pernah diberi tahu aturan modenya.
+  Alur sekarang: MENU → LEVEL → **INSTRUKSI** → GOAL (atau langsung main di
+  Mix Up). ⚠ Byte 0x80..0x83 di dalam stringnya GLYPH PANAH, bukan huruf.
+- ⭐ **LAYAR JUDUL sempat TERPOTONG di frame 400** (2026-08-02). `main.py`
+  memanggil `adegan.frames()` tanpa `maks`, jadi memakai bawaannya 400 —
+  padahal layar judul 675 frame. Uji per-modul tidak melihatnya karena ia
+  memakai batasnya sendiri. Sekarang `Game.ANIM_MAKS = 1200`, dan
+  `test_anim_vs_gim.py` menambah tahap **jalur pemain**: 675/675.
 - ⭐ **PART SALAH BARU KETAHUAN SAAT DIJALANKAN** (2026-08-02). Port dulu
   MENOLAK part yang salah di tempat dan langsung bilang "does not work". Gim
   menerima apa pun yang ditaruh; satu-satunya tempat yang memeriksa adalah
@@ -318,8 +329,16 @@ emulator terjelaskan. Aturan penempatan lengkap ada di `CODE_MAP.md`.
    Tiap not 3 byte: `u16 frekuensi + u8 durasi` (tik INT 1Ch, ~18,2/detik), diakhiri
    `FFFF`; mode 2 sekali jalan, mode 3 BERULANG, mode 1 sapuan tiga word.
    Diuji `python work/test_bunyi.py`. 117 not terdekode dari skrip goal 1.
-3. Sisa pemakaian tangkapan, keduanya data ANTARMUKA bukan render kontraption:
-   `cc/anim/review_layout.json` (tata letak Review Mechanisms) dan `cc/anim/icons/`.
+3. **Layar yang MASIH belum ada di port** (semuanya tabel DGROUP, polanya sama
+   dgn layar instruksi yang sudah dikerjakan):
+   - `askopts()` @0x31DA — dua pertanyaan Y/N saat mulai (monitor berwarna,
+     lalu suara). Tabel @0x1AD2 (3 entri) dan @0x1AF6 (2 entri; entri
+     pertamanya MENIMPA pertanyaan sebelumnya dgn warna 1 — itu cara gim
+     menghapusnya). Tabelnya sudah ada di `menu.py` sebagai `MTAB_SETUP1/2`.
+   - `credits()` @0x312A — empat tabel (@0x1A2A, 0x1A42, 0x1A5A, 0x1A72)
+     ditumpuk berurutan dgn `pause(100)` di antaranya. Sudah ada sebagai
+     `MTAB_CREDITS`.
+   Keduanya BELUM dipasang ke alur dan belum diadu piksel.
 4. ~~Strip palet di mode Mix Up~~ — **SELESAI**: `python work/test_palet.py`,
    **48.384/48.384 piksel** di KEDUA mode. Yang menghalanginya bukan `pickvar`
    melainkan urutan tombol OBSERVE bawaan yang diakhiri ESC.

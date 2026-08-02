@@ -43,7 +43,8 @@ MECH_CATEGORIES = [
     ("Spring", (150,)),
 ]
 
-TITLE, MENU, LEVEL, GOAL, CONTRAPTION, PLAY, PLAYANIM, REVIEW, REVIEW_DETAIL = range(9)
+(TITLE, MENU, LEVEL, GOAL, CONTRAPTION, PLAY, PLAYANIM, REVIEW, REVIEW_DETAIL,
+ INSTRUKSI) = range(10)
 
 # urutan mekanisme di Review = urutan MECH_CATEGORIES (Inclined Plane, Pulley, ...)
 
@@ -180,6 +181,8 @@ class Game:
         self.mix_sisa = None
         self.mix_skor = 0
         self.petunjuk = None          # hud.Petunjuk (hintmark), hanya mode 4 Master
+        # `k` di main_.c: mode yang layar instruksinya SUDAH ditampilkan.
+        self.instruksi_tampil = set()
         self.chosen_goal = 1
         self.slots = []       # slot mekanisme yg diisi saat PLAY
         self.cur_slot = 0
@@ -212,6 +215,8 @@ class Game:
             self._review(fb)
         elif self.state == REVIEW_DETAIL:
             self._review_detail(fb)
+        elif self.state == INSTRUKSI:
+            self._instruksi(fb)
 
     # ---------- Review Mechanisms (layout EKSAK dari data game) ----------
     def _rev_text(self, fb, recs):
@@ -305,6 +310,47 @@ class Game:
         surf = self._scene_surface(128, None, True)
         if surf is not None:
             fb.blit(surf, (0, 0))
+
+    def _lanjut_sesudah_level(self):
+        """Sesudah LEVEL (dan layar instruksinya) -> pemilih goal, atau Mix Up.
+
+        ⭐ Contraption Mix Up TIDAK lewat pemilih goal. Di `main_.c` hanya case
+        2 dan 3 memanggil `sub = goalmenu()`; case 4 memasang `sub = 0` lalu
+        `goal = 6` dan tiap putaran `sub++` -- kontraption 1..6 berurutan.
+        """
+        if self.mode == 3:
+            self._mix_mulai()
+        else:
+            self.state = GOAL
+            self.sel = 0
+
+    def _instruksi(self, fb):
+        """Layar INSTRUKSI, satu per mode isian -- `menu9`/`menu11`/`menu12`.
+
+        `main_.c` menampilkannya HANYA saat mode itu pertama kali dimasuki:
+
+            if (k == 1) { switch (mode) { case 3: menu11(); case 2: menu9(); } }
+            ...
+            k = 0;
+
+        Isinya menjelaskan cara bermain mode itu -- dan di port lama layar ini
+        TIDAK ADA sama sekali, jadi pemain tidak pernah diberi tahu aturannya.
+        Teks, posisi, dan warnanya dari tabel DGROUP, bukan disusun port.
+        """
+        nama = _menu.INSTRUKSI.get(self.mode + 1)
+        if nama is None:
+            self._lanjut_sesudah_level()
+            return
+        surf = self._menu_surface(nama)
+        if surf is not None:
+            fb.blit(surf, (0, 0))
+
+    def _menu_surface(self, mana):
+        key = ("menu", mana)
+        if key not in self._scene_cache:
+            fb, _it = _menu.layar(self.k_misc, mana)
+            self._scene_cache[key] = _rend.to_surface(fb, pygame)
+        return self._scene_cache[key]
 
     def _menu_tabel(self, fb, mana):
         """Ketiga layar menu, dari TABEL di DGROUP -- bukan disusun port.
@@ -1104,6 +1150,14 @@ class Game:
             elif k == pygame.K_ESCAPE:
                 self.state = MENU if self.state != MENU else TITLE
                 self.sel = 0
+        elif self.state == INSTRUKSI:
+            # `menu9`/`menu11`/`menu12` = `setsel()` lalu `runmenu()`. ENTER
+            # melanjutkan, ESC kembali ke menu utama.
+            if k in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                self._choose()
+            elif k == pygame.K_ESCAPE:
+                self.state = MENU
+                self.sel = 0
         elif self.state == CONTRAPTION:
             if k == pygame.K_ESCAPE:
                 self.state = MENU; self.sel = 0
@@ -1173,14 +1227,17 @@ class Game:
             self.sel = 0
         elif self.state == LEVEL:
             self.level = self.sel            # 0=Apprentice, 1=Master Builder
-            if self.mode == 3:
-                # ⭐ Contraption Mix Up TIDAK lewat pemilih goal. Di `main_.c`
-                # hanya case 2 dan 3 memanggil `sub = goalmenu()`; case 4
-                # memasang `sub = 0` lalu `goal = 6` dan tiap putaran
-                # `sub++` -- jadi kontraption 1..6 dimainkan BERURUTAN.
-                self._mix_mulai()
-            else:
-                self.state = GOAL; self.sel = 0
+            # `k == 1` di gim = "mode ini belum pernah dimasuki". Layar
+            # instruksinya muncul SEKALI, lalu `k = 0`.
+            if self.mode + 1 in _menu.INSTRUKSI and self.mode not in self.instruksi_tampil:
+                self.instruksi_tampil.add(self.mode)
+                self.state = INSTRUKSI
+                self.sel = 0
+                return
+            self._lanjut_sesudah_level()
+        elif self.state == INSTRUKSI:
+            self._lanjut_sesudah_level()
+
         elif self.state == GOAL:
             gid = self.goal_ids[self.sel]
             if self.mode == 1:               # Fill in Mechanisms
